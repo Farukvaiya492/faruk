@@ -345,7 +345,7 @@ For security, the command message will be deleted after setting the key.
             conversation_context[chat_id].append(f"I Master Tools: {response}")
             group_activity[chat_id] = group_activity.get(chat_id, {'auto_mode': False, 'last_response': 0})
             group_activity[chat_id]['last_response'] = datetime.now().timestamp()
-            await update.message reply_text(response)
+            await update.message.reply_text(response)
         except Exception as e:
             logger.error(f"Error handling message: {e}")
             username = update.effective_user.first_name or "User"
