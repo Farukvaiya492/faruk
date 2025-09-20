@@ -76,7 +76,7 @@ class TelegramGeminiBot:
         self.application.add_error_handler(self.error_handler)
 
     async def start_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle /start command with warning and group link"""
+        """Handle /start command with group link"""
         username = update.effective_user.first_name or "User"
         keyboard = [
             [InlineKeyboardButton("Join VPSHUB_BD_CHAT", url="https://t.me/VPSHUB_BD_CHAT")]
@@ -85,19 +85,7 @@ class TelegramGeminiBot:
         welcome_message = f"""
 Hello {username}, welcome to I Master Tools, your friendly companion!
 
-To chat with me, please join our official Telegram group. Click the button below to join and start engaging in fun conversations!
-
-Available commands:
-- /help: Get help and usage information
-- /menu: Access the feature menu
-- /clear: Clear conversation history
-- /status: Check bot status
-- /api <key>: Set Gemini API key (admin only)
-- /setadmin: Set yourself as admin (first-time only)
-- /checkmail: Check temporary email inbox
-- /setmodel: Choose a different model (admin only)
-
-In groups, mention @I MasterTools or reply to my messages to get a response. I'm excited to chat with you!
+To chat with me, please join our official Telegram group. Click the button below to join and start engaging in fun conversations! In the group, mention @I MasterTools or reply to my messages to get a response. I'm excited to chat with you!
         """
         await update.message.reply_text(welcome_message, reply_markup=reply_markup)
 
@@ -117,22 +105,11 @@ In groups, mention @I MasterTools or reply to my messages to get a response. I'm
         help_message = """
 Hello! I'm I Master Tools, your friendly companion designed to make conversations fun and engaging.
 
-Available commands:
-- /start: Show welcome message with group link
-- /help: Display this help message
-- /menu: Access the feature menu
-- /clear: Clear your conversation history
-- /status: Check my status
-- /api <key>: Set Gemini API key (admin only)
-- /setadmin: Set yourself as admin (first-time only)
-- /checkmail: Check temporary email inbox
-- /setmodel: Choose a different model (admin only)
-
 How I work:
 - In groups, mention @I MasterTools or reply to my messages to get a response
-- In private chats, only the admin can chat with me; others are redirected to the group
-- For questions, I engage you with a fun or surprising comment before answering
-- I remember conversation context until you use /clear
+- In private chats, all users are redirected to the group for conversations
+- For questions in the group, I engage with a fun or surprising comment before answering
+- I remember conversation context until you clear it
 - I'm designed to be friendly, helpful, and human-like
 
 My personality:
@@ -316,16 +293,15 @@ For security, the command message will be deleted after setting the key.
                 if not (is_reply_to_bot or is_mentioned):
                     return
             else:  # Private chat
-                if user_id != ADMIN_USER_ID:  # Non-admin users
-                    keyboard = [
-                        [InlineKeyboardButton("Join VPSHUB_BD_CHAT", url="https://t.me/VPSHUB_BD_CHAT")]
-                    ]
-                    reply_markup = InlineKeyboardMarkup(keyboard)
-                    response = f"""
+                keyboard = [
+                    [InlineKeyboardButton("Join VPSHUB_BD_CHAT", url="https://t.me/VPSHUB_BD_CHAT")]
+                ]
+                reply_markup = InlineKeyboardMarkup(keyboard)
+                response = f"""
 হ্যালো {username}, আমার সাথে কথা বলতে চাওয়ার জন্য ধন্যবাদ! আমি I Master Tools, তোমার বন্ধুত্বপূর্ণ সঙ্গী। আমার সাথে মজার এবং সহায়ক কথোপকথনের জন্য, দয়া করে আমাদের অফিসিয়াল গ্রুপে যোগ দাও। নিচের বাটনে ক্লিক করে গ্রুপে যাও এবং আমাকে @I MasterTools মেনশন করে কথা শুরু করো। আমি সেখানে তোমার জন্য অপেক্ষা করছি!
-                    """
-                    await update.message.reply_text(response, reply_markup=reply_markup)
-                    return
+                """
+                await update.message.reply_text(response, reply_markup=reply_markup)
+                return
             
             await context.bot.send_chat_action(chat_id=chat_id, action="typing")
             if chat_id not in conversation_context:
