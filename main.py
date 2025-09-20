@@ -72,6 +72,7 @@ class TelegramGeminiBot:
         self.application.add_handler(CommandHandler("menu", self.menu_command))
         self.application.add_handler(CommandHandler("setmodel", self.setmodel_command))
         self.application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_message))
+        self.application.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, self.handle_new_member))
         self.application.add_error_handler(self.error_handler)
 
     async def start_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -84,7 +85,7 @@ class TelegramGeminiBot:
         welcome_message = f"""
 Hello {username}, welcome to I Master Tools, your friendly companion!
 
-To chat with me in a group setting, please join our official Telegram group. Click the button below to join and start engaging in fun conversations!
+To chat with me, please join our official Telegram group. Click the button below to join and start engaging in fun conversations!
 
 Available commands:
 - /help: Get help and usage information
@@ -99,6 +100,17 @@ Available commands:
 In groups, mention @I MasterTools or reply to my messages to get a response. I'm excited to chat with you!
         """
         await update.message.reply_text(welcome_message, reply_markup=reply_markup)
+
+    async def handle_new_member(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle new members joining the group"""
+        for new_member in update.message.new_chat_members:
+            username = new_member.first_name or "User"
+            user_id = new_member.id
+            user_mention = f"@{new_member.username}" if new_member.username else username
+            welcome_message = f"""
+স্বাগতম {user_mention}! আমাদের VPSHUB_BD_CHAT গ্রুপে তোমাকে পেয়ে আমরা খুবই উৎসাহিত! আমি I Master Tools, তোমার বন্ধুত্বপূর্ণ সঙ্গী। এখানে তুমি মজার কথোপকথন, সহায়ক উত্তর, এবং আরো অনেক কিছু পাবে। আমাকে @I MasterTools মেনশন করে বা রিপ্লাই করে কথা শুরু করো। তুমি কী নিয়ে কথা বলতে চাও?
+            """
+            await update.message.reply_text(welcome_message)
 
     async def help_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /help command"""
@@ -118,7 +130,7 @@ Available commands:
 
 How I work:
 - In groups, mention @I MasterTools or reply to my messages to get a response
-- In private chats, I respond to all messages
+- In private chats, I redirect you to the group
 - For questions, I engage you with a fun or surprising comment before answering
 - I remember conversation context until you use /clear
 - I'm designed to be friendly, helpful, and human-like
@@ -299,8 +311,7 @@ For security, the command message will be deleted after setting the key.
             chat_id = update.effective_chat.id
             user_message = update.message.text
             chat_type = update.effective_chat.type
-            if chat_id not in group_activity:
-                group_activity[chat_id] = {'auto_mode': False, 'last_response': 0}
+            username = update.effective_user.first_name or "User"
             if chat_type in ['group', 'supergroup']:
                 bot_username = context.bot.username
                 is_reply_to_bot = (update.message.reply_to_message and 
@@ -308,10 +319,19 @@ For security, the command message will be deleted after setting the key.
                 is_mentioned = f"@{bot_username}" in user_message
                 if not (is_reply_to_bot or is_mentioned):
                     return
+            else:  # Private chat
+                keyboard = [
+                    [InlineKeyboardButton("Join VPSHUB_BD_CHAT", url="https://t.me/VPSHUB_BD_CHAT")]
+                ]
+                reply_markup = InlineKeyboardMarkup(keyboard)
+                response = f"""
+হ্যালো {username}, আমার সাথে কথা বলতে চাওয়ার জন্য ধন্যবাদ! আমি I Master Tools, তোমার বন্ধুত্বপূর্ণ সঙ্গী। আমার সাথে মজার এবং সহায়ক কথোপকথনের জন্য, দয়া করে আমাদের অফিসিয়াল গ্রুপে যোগ দাও। নিচের বাটনে ক্লিক করে গ্রুপে যাও এবং আমাকে @I MasterTools মেনশন করে কথা শুরু করো। আমি সেখানে তোমার জন্য অপেক্ষা করছি!
+                """
+                await update.message.reply_text(response, reply_markup=reply_markup)
+                return
             await context.bot.send_chat_action(chat_id=chat_id, action="typing")
             if chat_id not in conversation_context:
                 conversation_context[chat_id] = []
-            username = update.effective_user.first_name or "User"
             conversation_context[chat_id].append(f"{username}: {user_message}")
             if len(conversation_context[chat_id]) > 20:
                 conversation_context[chat_id] = conversation_context[chat_id][-20:]
@@ -323,8 +343,9 @@ For security, the command message will be deleted after setting the key.
             if current_gemini_api_key and model_to_use:
                 response = await self.generate_gemini_response(context_text, username, chat_type, is_coding_query)
             else:
-                response = f"Sorry {username}, my model isn't connected yet. The admin can set it up with /api."
+                response = f"দুঃখিত {username}, আমার মডেল এখনো সংযুক্ত হয়নি। অ্যাডমিন /api কমান্ড দিয়ে সেট করতে পারে।"
             conversation_context[chat_id].append(f"I Master Tools: {response}")
+            group_activity[chat_id] = group_activity.get(chat_id, {'auto_mode': False, 'last_response': 0})
             group_activity[chat_id]['last_response'] = datetime.now().timestamp()
             await update.message.reply_text(response)
         except Exception as e:
