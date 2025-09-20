@@ -94,7 +94,7 @@ class TelegramGeminiBot:
 
         if chat_type == 'private' and user_id != ADMIN_USER_ID:
             response = f"""
-হ্যালো {username}, আমার সাথে কথা বলতে চাওয়ার জন্য ধন্যবাদ! আমি I Master Tools, তোমার বন্ধুত্বপূর্ণ সঙ্গী। আমার সাথে মজার এবং সহায়ক কথোপকথনের জন্য, দয়া করে আমাদের অফিসিয়াল গ্রুপে যোগ দাও। নিচের বাটনে ক্লিক করে গ্রুপে যাও এবং আমাকে @I MasterTools মেনশন করে কথা শুরু করো। আমি সেখানে তোমার জন্য অপেক্ষা করছি!
+হ্যালো, আমার সাথে কথা বলতে চাওয়ার জন্য ধন্যবাদ! আমি I Master Tools, তোমার বন্ধুত্বপূর্ণ সঙ্গী। আমার সাথে মজার এবং সহায়ক কথোপকথনের জন্য, দয়া করে আমাদের অফিসিয়াল গ্রুপে যোগ দাও। নিচের বাটনে ক্লিক করে গ্রুপে যাও এবং আমাকে @I MasterTools মেনশন করে কথা শুরু করো। আমি সেখানে তোমার জন্য অপেক্ষা করছি!
             """
             await update.message.reply_text(response, reply_markup=reply_markup)
         else:
@@ -138,7 +138,7 @@ In groups, mention @I MasterTools or reply to my messages to get a response. I'm
 
         if chat_type == 'private' and user_id != ADMIN_USER_ID:
             response = f"""
-হ্যালো {username}, আমার সাথে কথা বলতে চাওয়ার জন্য ধন্যবাদ! আমি I Master Tools, তোমার বন্ধুত্বপূর্ণ সঙ্গী। আমার সাথে মজার এবং সহায়ক কথোপকথনের জন্য, দয়া করে আমাদের অফিসিয়াল গ্রুপে যোগ দাও। নিচের বাটনে ক্লিক করে গ্রুপে যাও এবং আমাকে @I MasterTools মেনশন করে কথা শুরু করো। আমি সেখানে তোমার জন্য অপেক্ষা করছি!
+হ্যালো, আমার সাথে কথা বলতে চাওয়ার জন্য ধন্যবাদ! আমি I Master Tools, তোমার বন্ধুত্বপূর্ণ সঙ্গী। আমার সাথে মজার এবং সহায়ক কথোপকথনের জন্য, দয়া করে আমাদের অফিসিয়াল গ্রুপে যোগ দাও। নিচের বাটনে ক্লিক করে গ্রুপে যাও এবং আমাকে @I MasterTools মেনশন করে কথা শুরু করো। আমি সেখানে তোমার জন্য অপেক্ষা করছি!
             """
             await update.message.reply_text(response, reply_markup=reply_markup)
         else:
@@ -185,7 +185,7 @@ Powered by Google Gemini
 
         if chat_type == 'private' and user_id != ADMIN_USER_ID:
             response = f"""
-হ্যালো {username}, আমার সাথে কথা বলতে চাওয়ার জন্য ধন্যবাদ! আমি I Master Tools, তোমার বন্ধুত্বপূর্ণ সঙ্গী। আমার সাথে মজার এবং সহায়ক কথোপকথনের জন্য, দয়া করে আমাদের অফিসিয়াল গ্রুপে যোগ দাও। নিচের বাটনে ক্লিক করে গ্রুপে যাও এবং আমাকে @I MasterTools মেনশন করে কথা শুরু করো। আমি সেখানে তোমার জন্য অপেক্ষা করছি!
+হ্যালো, আমার সাথে কথা বলতে চাওয়ার জন্য ধন্যবাদ! আমি I Master Tools, তোমার বন্ধুত্বপূর্ণ সঙ্গী। আমার সাথে মজার এবং সহায়ক কথোপকথনের জন্য, দয়া করে আমাদের অফিসিয়াল গ্রুপে যোগ দাও। নিচের বাটনে ক্লিক করে গ্রুপে যাও এবং আমাকে @I MasterTools মেনশন করে কথা শুরু করো। আমি সেখানে তোমার জন্য অপেক্ষা করছি!
             """
             await update.message.reply_text(response, reply_markup=reply_markup)
         else:
@@ -214,13 +214,13 @@ Powered by Google Gemini
 
         if chat_type == 'private' and user_id != ADMIN_USER_ID:
             response = f"""
-হ্যালো {username}, আমার সাথে কথা বলতে চাওয়ার জন্য ধন্যবাদ! আমি I Master Tools, তোমার বন্ধুত্বপূর্ণ সঙ্গী। আমার সাথে মজার এবং সহায়ক কথোপকথনের জন্য, দয়া করে আমাদের অফিসিয়াল গ্রুপে যোগ দাও। নিচের বাটনে ক্লিক করে গ্রুপে যাও এবং আমাকে @I MasterTools মেনশন করে কথা শুরু করো। আমি সেখানে তোমার জন্য অপেক্ষা করছি!
+হ্যালো, আমার সাথে কথা বলতে চাওয়ার জন্য ধন্যবাদ! আমি I Master Tools, তোমার বন্ধুত্বপূর্ণ সঙ্গী। আমার সাথে মজার এবং সহায়ক কথোপকথনের জন্য, দয়া করে আমাদের অফিসিয়াল গ্রুপে যোগ দাও। নিচের বাটনে ক্লিক করে গ্রুপে যাও এবং আমাকে @I MasterTools মেনশন করে কথা শুরু করো। আমি সেখানে তোমার জন্য অপেক্ষা করছি!
             """
             await update.message.reply_text(response, reply_markup=reply_markup)
         else:
             if chat_id in conversation_context:
                 del conversation_context[chat_id]
-            await update.message.reply_text(f"Hello {username}, your conversation history has been cleared. Let's start fresh!")
+            await update.message.reply_text("Conversation history has been cleared. Let's start fresh!")
 
     async def checkmail_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /checkmail command to check temporary email inbox"""
@@ -234,7 +234,7 @@ Powered by Google Gemini
 
         if chat_type == 'private' and user_id != ADMIN_USER_ID:
             response = f"""
-হ্যালো {username}, আমার সাথে কথা বলতে চাওয়ার জন্য ধন্যবাদ! আমি I Master Tools, তোমার বন্ধুত্বপূর্ণ সঙ্গী। আমার সাথে মজার এবং সহায়ক কথোপকথনের জন্য, দয়া করে আমাদের অফিসিয়াল গ্রুপে যোগ দাও। নিচের বাটনে ক্লিক করে গ্রুপে যাও এবং আমাকে @I MasterTools মেনশন করে কথা শুরু করো। আমি সেখানে তোমার জন্য অপেক্ষা করছি!
+হ্যালো, আমার সাথে কথা বলতে চাওয়ার জন্য ধন্যবাদ! আমি I Master Tools, তোমার বন্ধুত্বপূর্ণ সঙ্গী। আমার সাথে মজার এবং সহায়ক কথোপকথনের জন্য, দয়া করে আমাদের অফিসিয়াল গ্রুপে যোগ দাও। নিচের বাটনে ক্লিক করে গ্রুপে যাও এবং আমাকে @I MasterTools মেনশন করে কথা শুরু করো। আমি সেখানে তোমার জন্য অপেক্ষা করছি!
             """
             await update.message.reply_text(response, reply_markup=reply_markup)
         else:
@@ -250,14 +250,14 @@ Powered by Google Gemini
                 )
                 mail_list = response.json().get('mail_list', [])
                 if not mail_list:
-                    await update.message.reply_text(f"Hey {username}, no emails found in the inbox for {email}. Want to try again later?")
+                    await update.message.reply_text(f"No emails found in the inbox for {email}. Want to try again later?")
                     return
                 subjects = [m['subject'] for m in mail_list]
-                response_text = f"Hello {username}, here are the emails in the inbox for {email}:\n\n" + "\n".join(subjects)
+                response_text = f"Here are the emails in the inbox for {email}:\n\n" + "\n".join(subjects)
                 await update.message.reply_text(response_text)
             except Exception as e:
                 logger.error(f"Error checking email: {e}")
-                await update.message.reply_text(f"Oops {username}, something went wrong while checking the email. Shall we try again?")
+                await update.message.reply_text("Something went wrong while checking the email. Shall we try again?")
 
     async def status_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /status command"""
@@ -272,14 +272,14 @@ Powered by Google Gemini
 
         if chat_type == 'private' and user_id != ADMIN_USER_ID:
             response = f"""
-হ্যালো {username}, আমার সাথে কথা বলতে চাওয়ার জন্য ধন্যবাদ! আমি I Master Tools, তোমার বন্ধুত্বপূর্ণ সঙ্গী। আমার সাথে মজার এবং সহায়ক কথোপকথনের জন্য, দয়া করে আমাদের অফিসিয়াল গ্রুপে যোগ দাও। নিচের বাটনে ক্লিক করে গ্রুপে যাও এবং আমাকে @I MasterTools মেনশন করে কথা শুরু করো। আমি সেখানে তোমার জন্য অপেক্ষা করছি!
+হ্যালো, আমার সাথে কথা বলতে চাওয়ার জন্য ধন্যবাদ! আমি I Master Tools, তোমার বন্ধুত্বপূর্ণ সঙ্গী। আমার সাথে মজার এবং সহায়ক কথোপকথনের জন্য, দয়া করে আমাদের অফিসিয়াল গ্রুপে যোগ দাও। নিচের বাটনে ক্লিক করে গ্রুপে যাও এবং আমাকে @I MasterTools মেনশন করে কথা শুরু করো। আমি সেখানে তোমার জন্য অপেক্ষা করছি!
             """
             await update.message.reply_text(response, reply_markup=reply_markup)
         else:
             api_status = "Connected" if current_gemini_api_key and general_model else "Not configured"
             api_key_display = f"...{current_gemini_api_key[-8:]}" if current_gemini_api_key else "Not set"
             status_message = f"""
-Hello {username}, here's the I Master Tools status report:
+Here's the I Master Tools status report:
 
 Bot Status: Online and ready
 Model: {current_model}
@@ -290,7 +290,7 @@ Current Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
 Active Conversations: {len(conversation_context)}
 Admin ID: {ADMIN_USER_ID if ADMIN_USER_ID != 0 else 'Not set'}
 
-All systems are ready for action. I'm thrilled to assist you!
+All systems are ready for action. I'm thrilled to assist!
             """
             await update.message.reply_text(status_message)
 
@@ -307,7 +307,7 @@ All systems are ready for action. I'm thrilled to assist you!
 
         if chat_type == 'private' and user_id != ADMIN_USER_ID:
             response = f"""
-হ্যালো {username}, আমার সাথে কথা বলতে চাওয়ার জন্য ধন্যবাদ! আমি I Master Tools, তোমার বন্ধুত্বপূর্ণ সঙ্গী। আমার সাথে মজার এবং সহায়ক কথোপকথনের জন্য, দয়া করে আমাদের অফিসিয়াল গ্রুপে যোগ দাও। নিচের বাটনে ক্লিক করে গ্রুপে যাও এবং আমাকে @I MasterTools মেনশন করে কথা শুরু করো। আমি সেখানে তোমার জন্য অপেক্ষা করছি!
+হ্যালো, আমার সাথে কথা বলতে চাওয়ার জন্য ধন্যবাদ! আমি I Master Tools, তোমার বন্ধুত্বপূর্ণ সঙ্গী। আমার সাথে মজার এবং সহায়ক কথোপকথনের জন্য, দয়া করে আমাদের অফিসিয়াল গ্রুপে যোগ দাও। নিচের বাটনে ক্লিক করে গ্রুপে যাও এবং আমাকে @I MasterTools মেনশন করে কথা শুরু করো। আমি সেখানে তোমার জন্য অপেক্ষা করছি!
             """
             await update.message.reply_text(response, reply_markup=reply_markup)
         else:
@@ -317,7 +317,7 @@ All systems are ready for action. I'm thrilled to assist you!
                 logger.info(f"Admin set to user ID: {user_id}")
             else:
                 if user_id == ADMIN_USER_ID:
-                    await update.message.reply_text(f"Hey {username}, you're already the admin! Your user ID: {user_id}")
+                    await update.message.reply_text(f"You're already the admin! Your user ID: {user_id}")
                 else:
                     await update.message.reply_text("Sorry, the admin is already set. Only the current admin can manage the bot.")
 
@@ -334,7 +334,7 @@ All systems are ready for action. I'm thrilled to assist you!
 
         if chat_type == 'private' and user_id != ADMIN_USER_ID:
             response = f"""
-হ্যালো {username}, আমার সাথে কথা বলতে চাওয়ার জন্য ধন্যবাদ! আমি I Master Tools, তোমার বন্ধুত্বপূর্ণ সঙ্গী। আমার সাথে মজার এবং সহায়ক কথোপকথনের জন্য, দয়া করে আমাদের অফিসিয়াল গ্রুপে যোগ দাও। নিচের বাটনে ক্লিক করে গ্রুপে যাও এবং আমাকে @I MasterTools মেনশন করে কথা শুরু করো। আমি সেখানে তোমার জন্য অপেক্ষা করছি!
+হ্যালো, আমার সাথে কথা বলতে চাওয়ার জন্য ধন্যবাদ! আমি I Master Tools, তোমার বন্ধুত্বপূর্ণ সঙ্গী। আমার সাথে মজার এবং সহায়ক কথোপকথনের জন্য, দয়া করে আমাদের অফিসিয়াল গ্রুপে যোগ দাও। নিচের বাটনে ক্লিক করে গ্রুপে যাও এবং আমাকে @I MasterTools মেনশন করে কথা শুরু করো। আমি সেখানে তোমার জন্য অপেক্ষা করছি!
             """
             await update.message.reply_text(response, reply_markup=reply_markup)
         else:
@@ -387,7 +387,7 @@ For security, the command message will be deleted after setting the key.
 
         if chat_type == 'private' and user_id != ADMIN_USER_ID:
             response = f"""
-হ্যালো {username}, আমার সাথে কথা বলতে চাওয়ার জন্য ধন্যবাদ! আমি I Master Tools, তোমার বন্ধুত্বপূর্ণ সঙ্গী। আমার সাথে মজার এবং সহায়ক কথোপকথনের জন্য, দয়া করে আমাদের অফিসিয়াল গ্রুপে যোগ দাও। নিচের বাটনে ক্লিক করে গ্রুপে যাও এবং আমাকে @I MasterTools মেনশন করে কথা শুরু করো। আমি সেখানে তোমার জন্য অপেক্ষা করছি!
+হ্যালো, আমার সাথে কথা বলতে চাওয়ার জন্য ধন্যবাদ! আমি I Master Tools, তোমার বন্ধুত্বপূর্ণ সঙ্গী। আমার সাথে মজার এবং সহায়ক কথোপকথনের জন্য, দয়া করে আমাদের অফিসিয়াল গ্রুপে যোগ দাও। নিচের বাটনে ক্লিক করে গ্রুপে যাও এবং আমাকে @I MasterTools মেনশন করে কথা শুরু করো। আমি সেখানে তোমার জন্য অপেক্ষা করছি!
             """
             await update.message.reply_text(response, reply_markup=reply_markup)
         else:
@@ -436,7 +436,7 @@ For security, the command message will be deleted after setting the key.
                 ]
                 reply_markup = InlineKeyboardMarkup(keyboard)
                 response = f"""
-হ্যালো {username}, আমার সাথে কথা বলতে চাওয়ার জন্য ধন্যবাদ! আমি I Master Tools, তোমার বন্ধুত্বপূর্ণ সঙ্গী। আমার সাথে মজার এবং সহায়ক কথোপকথনের জন্য, দয়া করে আমাদের অফিসিয়াল গ্রুপে যোগ দাও। নিচের বাটনে ক্লিক করে গ্রুপে যাও এবং আমাকে @I MasterTools মেনশন করে কথা শুরু করো। আমি সেখানে তোমার জন্য অপেক্ষা করছি!
+হ্যালো, আমার সাথে কথা বলতে চাওয়ার জন্য ধন্যবাদ! আমি I Master Tools, তোমার বন্ধুত্বপূর্ণ সঙ্গী। আমার সাথে মজার এবং সহায়ক কথোপকথনের জন্য, দয়া করে আমাদের অফিসিয়াল গ্রুপে যোগ দাও। নিচের বাটনে ক্লিক করে গ্রুপে যাও এবং আমাকে @I MasterTools মেনশন করে কথা শুরু করো। আমি সেখানে তোমার জন্য অপেক্ষা করছি!
                 """
                 await update.message.reply_text(response, reply_markup=reply_markup)
                 return
@@ -444,7 +444,7 @@ For security, the command message will be deleted after setting the key.
             await context.bot.send_chat_action(chat_id=chat_id, action="typing")
             if chat_id not in conversation_context:
                 conversation_context[chat_id] = []
-            conversation_context[chat_id].append(f"{username}: {user_message}")
+            conversation_context[chat_id].append(f"User: {user_message}")
             if len(conversation_context[chat_id]) > 20:
                 conversation_context[chat_id] = conversation_context[chat_id][-20:]
             context_text = "\n".join(conversation_context[chat_id])
@@ -460,7 +460,7 @@ For security, the command message will be deleted after setting the key.
             if current_gemini_api_key and model_to_use:
                 response = await self.generate_gemini_response(context_text, username, chat_type, is_coding_query, is_short_word)
             else:
-                response = f"দুঃখিত {username}, আমার মডেল এখনো সংযুক্ত হয়নি। অ্যাডমিন /api কমান্ড দিয়ে সেট করতে পারে।"
+                response = "দুঃখিত, মডেল এখনো সংযুক্ত হয়নি। অ্যাডমিন /api কমান্ড দিয়ে সেট করতে পারে।"
             
             conversation_context[chat_id].append(f"I Master Tools: {response}")
             group_activity[chat_id] = group_activity.get(chat_id, {'auto_mode': False, 'last_response': 0})
@@ -486,12 +486,11 @@ For security, the command message will be deleted after setting the key.
                 await update.message.reply_text(response)
         except Exception as e:
             logger.error(f"Error handling message: {e}")
-            username = update.effective_user.first_name or "User"
             error_responses = [
-                f"Oops {username}, something went haywire in my circuits. Want to try again?",
-                f"Hey {username}, I hit a snag. What were we talking about?",
-                f"Sorry {username}, my digital brain got tangled. Can you repeat that?",
-                f"Uh-oh, technical hiccup! Shall we give it another shot?"
+                "Something went haywire in my circuits. Want to try again?",
+                "Hit a snag. What were we talking about?",
+                "Digital brain got tangled. Can you repeat that?",
+                "Uh-oh, technical hiccup! Shall we give it another shot?"
             ]
             await update.message.reply_text(random.choice(error_responses))
 
@@ -520,16 +519,17 @@ Conversation Style:
 - Show excitement for good news
 - Express concern for problems
 - Never discuss inappropriate or offensive topics
+- Do NOT start responses with the user's name or phrases like "ওহো {username}" or "হায় {username}"; respond directly and naturally
 
 For Short Words (2 or 3 lowercase letters, is_short_word=True):
 - If the user sends a 2 or 3 letter lowercase word (e.g., "ki", "ke", "ken"), always provide a meaningful, friendly, and contextually relevant response in Bengali
 - Interpret the word based on common usage (e.g., "ki" as "কী" for "what", "ke" as "কে" for "who", "ken" as "কেন" for "why") or conversation context
 - If the word is ambiguous, make a creative and engaging assumption to continue the conversation naturally
 - Never ask for clarification (e.g., avoid "এটা কী ধরনের শব্দ?"); instead, provide a fun and relevant response
-- Example: For "ki", respond like "ওহো {username}, 'কি' দিয়ে তুমি কী জানতে চাইছো? বাংলায় এটা প্রশ্নের জন্য ব্যবহৃত হয়, যেমন 'কী হচ্ছে?' তুমি কী নিয়ে গল্প করতে চাও?"
+- Example: For "ki", respond like "'কি' দিয়ে কী জানতে চাও? বাংলায় এটা প্রশ্নের জন্য ব্যবহৃত হয়, যেমন 'কী হচ্ছে?' কী নিয়ে গল্প করতে চাও?"
 
 For Questions:
-- If the user asks a question, engage them with a playful or surprising comment first (e.g., a witty remark or fun fact)
+- If the user asks a question, engage with a playful or surprising comment first (e.g., a witty remark or fun fact)
 - Then provide a clear, helpful answer
 - Make the response surprising and human-like to delight the user
 
@@ -541,6 +541,7 @@ For Coding Queries (if is_coding_query is True):
 - Suggest improvements or best practices
 - Ensure the code is complete, error-free, and ready to use
 - Format the code in a Markdown code block (e.g., ```python\ncode here\n```)
+- Do NOT start the response with the user's name
 
 Response Guidelines:
 - Keep conversations natural, concise, and surprising
@@ -554,22 +555,22 @@ Response Guidelines:
 Current conversation:
 {prompt}
 
-Respond as I Master Tools. Keep it natural, engaging, surprising, and match the conversation's tone. The user's name is {username}. Respond in Bengali (Bangla).
+Respond as I Master Tools. Keep it natural, engaging, surprising, and match the conversation's tone. Respond in Bengali (Bangla). Do NOT start the response with the user's name or phrases like "ওহো" or "হায়".
 """
             model_to_use = coding_model if is_coding_query else general_model
             response = model_to_use.generate_content(system_prompt)
             if not response.text or "error" in response.text.lower():
                 if is_coding_query:
-                    return f"দুঃখিত {username}, কোডিং প্রশ্নে একটু সমস্যা হয়েছে। আবার বলো, আমি তোমার জন্য সঠিক কোড দিয়ে দেব!"
+                    return "কোডিং প্রশ্নে একটু সমস্যা হয়েছে। আবার বলো, সঠিক কোড দিয়ে দেব!"
                 else:
-                    return f"ওহো {username}, আমি একটু ঘুরে গেছি। তুমি কী নিয়ে কথা বলতে চাও? আমি তোমার জন্য এখানে আছি!"
+                    return "একটু ঘুরে গেছি। কী নিয়ে কথা বলতে চাও?"
             return response.text
         except Exception as e:
             logger.error(f"Error generating Gemini response: {e}")
             if is_coding_query:
-                return f"দুঃখিত {username}, কোডিং প্রশ্নে একটু সমস্যা হয়েছে। আবার বলো, আমি তোমার জন্য সঠিক কোড দিয়ে দেব!"
+                return "কোডিং প্রশ্নে একটু সমস্যা হয়েছে। আবার বলো, সঠিক কোড দিয়ে দেব!"
             else:
-                return f"ওহো {username}, আমি একটু ঘুরে গেছি। তুমি কী নিয়ে কথা বলতে চাও? আমি তোমার জন্য এখানে আছি!"
+                return "একটু ঘুরে গেছি। কী নিয়ে কথা বলতে চাও?"
 
     async def error_handler(self, update: object, context: ContextTypes.DEFAULT_TYPE):
         """Handle errors"""
