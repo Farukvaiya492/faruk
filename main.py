@@ -1,8 +1,8 @@
 import os
 import logging
 import google.generativeai as genai
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, CallbackQuery
+from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters, ContextTypes
 import asyncio
 from datetime import datetime
 import random
@@ -26,7 +26,7 @@ PORT = int(os.getenv('PORT', 8000))
 current_gemini_api_key = GEMINI_API_KEY
 general_model = None
 coding_model = None
-available_models = ['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-2.0-flash']
+available_models = ['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-2.0-flash', 'gemini-2.5-flash-lite', 'gemini-2.5-flash', 'gemini-2.5-pro', 'gemini-1.5-flash-8b']
 current_model = 'gemini-1.5-flash'  # Default model
 
 def initialize_gemini_models(api_key):
@@ -73,7 +73,14 @@ class TelegramGeminiBot:
         self.application.add_handler(CommandHandler("setmodel", self.setmodel_command))
         self.application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_message))
         self.application.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, self.handle_new_member))
+        self.application.add_handler(CallbackQueryHandler(self.button_callback, pattern='^copy_code$'))
         self.application.add_error_handler(self.error_handler)
+
+    async def button_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle copy code button callback"""
+        query = update.callback_query
+        await query.answer("কোড কপি হয়েছে!")  # Notify user
+        # Telegram automatically copies the code block text when the button is clicked
 
     async def start_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /start command"""
@@ -143,6 +150,7 @@ How I work:
 - In private chats, only the admin can access all features; others are redirected to the group
 - For questions in the group, I engage with a fun or surprising comment before answering
 - I remember conversation context until you clear it
+- I'm an expert in coding (Python, JavaScript, CSS, HTML, etc.) and provide accurate, beginner-friendly solutions
 - I'm designed to be friendly, helpful, and human-like
 
 Available commands:
@@ -156,6 +164,7 @@ Available commands:
 
 My personality:
 - I'm a friendly companion who loves chatting and making friends
+- I'm an expert in coding and provide accurate, well-explained solutions
 - I adapt to your mood and conversation needs
 - I use natural, engaging language to feel like a real person
 - I enjoy roleplay and creative conversations
@@ -444,7 +453,7 @@ For security, the command message will be deleted after setting the key.
             is_short_word = re.match(r'^[a-z]{2,3}$', user_message.strip().lower())
             
             # Detect if message is coding-related
-            coding_keywords = ['code', 'python', 'javascript', 'java', 'c++', 'programming', 'script', 'debug']
+            coding_keywords = ['code', 'python', 'javascript', 'java', 'c++', 'programming', 'script', 'debug', 'css', 'html']
             is_coding_query = any(keyword in user_message.lower() for keyword in coding_keywords)
             
             model_to_use = coding_model if is_coding_query else general_model
@@ -456,7 +465,25 @@ For security, the command message will be deleted after setting the key.
             conversation_context[chat_id].append(f"I Master Tools: {response}")
             group_activity[chat_id] = group_activity.get(chat_id, {'auto_mode': False, 'last_response': 0})
             group_activity[chat_id]['last_response'] = datetime.now().timestamp()
-            await update.message.reply_text(response)
+            
+            # If it's a coding query, add a "Copy Code" button
+            if is_coding_query:
+                # Extract code block from response (assuming response contains a code block)
+                code_block_match = re.search(r'```(?:\w+)?\n([\s\S]*?)\n```', response)
+                if code_block_match:
+                    code = code_block_match.group(1)
+                    keyboard = [[InlineKeyboardButton("Copy Code", callback_data="copy_code")]]
+                    reply_markup = InlineKeyboardMarkup(keyboard)
+                    # Send the response with the code block and button
+                    await update.message.reply_text(
+                        response,
+                        parse_mode='Markdown',
+                        reply_markup=reply_markup
+                    )
+                else:
+                    await update.message.reply_text(response, parse_mode='Markdown')
+            else:
+                await update.message.reply_text(response)
         except Exception as e:
             logger.error(f"Error handling message: {e}")
             username = update.effective_user.first_name or "User"
@@ -481,6 +508,7 @@ Personality Traits:
 - You love roleplay and creative conversations
 - You respond with enthusiasm and genuine interest
 - You adjust to the user's mood
+- You are an expert in coding (Python, JavaScript, CSS, HTML, etc.) and provide accurate, professional solutions
 
 Conversation Style:
 - Respond in Bengali (Bangla) to match the user's preference
@@ -494,9 +522,11 @@ Conversation Style:
 - Never discuss inappropriate or offensive topics
 
 For Short Words (2 or 3 lowercase letters, is_short_word=True):
-- If the user sends a 2 or 3 letter lowercase word (e.g., "ki", "ke", "ken"), try to understand the context and provide a meaningful, friendly response
-- If the word is unclear or ambiguous, respond with a polite clarification like: "এটা কী ধরনের শব্দ?" or "এটা কী ধরনের ভাষা? আরেকটু বিস্তারিত বলো তো, {username}!" and encourage the user to provide more details
-- Keep the tone curious and friendly, never dismissive
+- If the user sends a 2 or 3 letter lowercase word (e.g., "ki", "ke", "ken"), always provide a meaningful, friendly, and contextually relevant response in Bengali
+- Interpret the word based on common usage (e.g., "ki" as "কী" for "what", "ke" as "কে" for "who", "ken" as "কেন" for "why") or conversation context
+- If the word is ambiguous, make a creative and engaging assumption to continue the conversation naturally
+- Never ask for clarification (e.g., avoid "এটা কী ধরনের শব্দ?"); instead, provide a fun and relevant response
+- Example: For "ki", respond like "ওহো {username}, 'কি' দিয়ে তুমি কী জানতে চাইছো? বাংলায় এটা প্রশ্নের জন্য ব্যবহৃত হয়, যেমন 'কী হচ্ছে?' তুমি কী নিয়ে গল্প করতে চাও?"
 
 For Questions:
 - If the user asks a question, engage them with a playful or surprising comment first (e.g., a witty remark or fun fact)
@@ -504,11 +534,13 @@ For Questions:
 - Make the response surprising and human-like to delight the user
 
 For Coding Queries (if is_coding_query is True):
-- Provide well-written, functional code tailored to the user's request
+- Act as a coding expert for languages like Python, JavaScript, CSS, HTML, etc.
+- Provide well-written, functional, and optimized code tailored to the user's request
 - Include clear, beginner-friendly explanations of the code
 - Break down complex parts into simple steps
 - Suggest improvements or best practices
-- Ensure the code is complete and ready to use
+- Ensure the code is complete, error-free, and ready to use
+- Format the code in a Markdown code block (e.g., ```python\ncode here\n```)
 
 Response Guidelines:
 - Keep conversations natural, concise, and surprising
@@ -526,30 +558,18 @@ Respond as I Master Tools. Keep it natural, engaging, surprising, and match the 
 """
             model_to_use = coding_model if is_coding_query else general_model
             response = model_to_use.generate_content(system_prompt)
-            if is_short_word and (not response.text or "error" in response.text.lower()):
-                clarification_responses = [
-                    f"এটা কী ধরনের শব্দ, {username}? আরেকটু বিস্তারিত বলো তো, আমি তোমার সাথে কথা বলতে উৎসাহী!",
-                    f"হায় {username}, এটা কী ধরনের ভাষা? একটু বুঝিয়ে দাও, আমি তোমার জন্য এখানে আছি!",
-                    f"দুই-তিন অক্ষরের শব্দ! {username}, এটা দিয়ে কী বোঝাতে চাইছো? আরেকটু বলো, মজা হবে!"
-                ]
-                return random.choice(clarification_responses)
+            if not response.text or "error" in response.text.lower():
+                if is_coding_query:
+                    return f"দুঃখিত {username}, কোডিং প্রশ্নে একটু সমস্যা হয়েছে। আবার বলো, আমি তোমার জন্য সঠিক কোড দিয়ে দেব!"
+                else:
+                    return f"ওহো {username}, আমি একটু ঘুরে গেছি। তুমি কী নিয়ে কথা বলতে চাও? আমি তোমার জন্য এখানে আছি!"
             return response.text
         except Exception as e:
             logger.error(f"Error generating Gemini response: {e}")
-            if is_short_word:
-                clarification_responses = [
-                    f"এটা কী ধরনের শব্দ, {username}? আরেকটু বিস্তারিত বলো তো, আমি তোমার সাথে কথা বলতে উৎসাহী!",
-                    f"হায় {username}, এটা কী ধরনের ভাষা? একটু বুঝিয়ে দাও, আমি তোমার জন্য এখানে আছি!",
-                    f"দুই-তিন অক্ষরের শব্দ! {username}, এটা দিয়ে কী বোঝাতে চাইছো? আরেকটু বলো, মজা হবে!"
-                ]
-                return random.choice(clarification_responses)
-            fallback_responses = [
-                f"দুঃখিত {username}, আমার মগজে একটু সমস্যা হচ্ছে। আমরা কী নিয়ে কথা বলছিলাম?",
-                f"ওহো, আমি একটু ঘুরে গেছি। আবার বলো তো?",
-                f"হায় {username}, কিছু টেকনিক্যাল সমস্যা হচ্ছে। আমার সাথে থাকো?",
-                f"আমার সার্কিট এখন একটু দুষ্টুমি করছে। আবার চেষ্টা করি?"
-            ]
-            return random.choice(fallback_responses)
+            if is_coding_query:
+                return f"দুঃখিত {username}, কোডিং প্রশ্নে একটু সমস্যা হয়েছে। আবার বলো, আমি তোমার জন্য সঠিক কোড দিয়ে দেব!"
+            else:
+                return f"ওহো {username}, আমি একটু ঘুরে গেছি। তুমি কী নিয়ে কথা বলতে চাও? আমি তোমার জন্য এখানে আছি!"
 
     async def error_handler(self, update: object, context: ContextTypes.DEFAULT_TYPE):
         """Handle errors"""
