@@ -421,7 +421,7 @@ For security, the command message will be deleted after setting the key.
                 is_mentioned = f"@{bot_username}" in user_message
                 if not (is_reply_to_bot or is_mentioned):
                     return
-            else:  # Private chat
+            elif chat_type == 'private' and user_id != ADMIN_USER_ID:
                 keyboard = [
                     [InlineKeyboardButton("Join VPSHUB_BD_CHAT", url="https://t.me/VPSHUB_BD_CHAT")]
                 ]
