@@ -7,6 +7,7 @@ import asyncio
 from datetime import datetime
 import random
 import re
+import requests  # Added for tempmail.plus API
 
 # Configure logging
 logging.basicConfig(
@@ -65,7 +66,7 @@ TRIGGER_PATTERNS = {
     'emotions': ['sad', 'happy', 'angry', 'excited', 'tired', 'bored', 'lonely', 'love', 'hate', 
                  '😭', '😂', '😍', '😡', '😴', '🥱', '💕', '❤️', '💔', '😢', '😊'],
     'greetings': ['hello', 'hi', 'hey', 'good morning', 'good night', 'bye', 'goodbye'],
-    'keywords': ['bot', 'ai', 'gemini', 'cute', 'beautiful', 'smart', 'funny', 'help', 'thanks', 'thank you'],
+    'keywords': ['bot', 'gemini', 'cute', 'beautiful', 'smart', 'funny', 'help', 'thanks', 'thank you'],
     'fun': ['lol', 'haha', 'funny', 'joke', 'meme', 'fun', '😂', '🤣', '😄']
 }
 
@@ -84,6 +85,7 @@ class TelegramGeminiBot:
         self.application.add_handler(CommandHandler("api", self.api_command))
         self.application.add_handler(CommandHandler("setadmin", self.setadmin_command))
         self.application.add_handler(CommandHandler("automode", self.automode_command))
+        self.application.add_handler(CommandHandler("checkmail", self.checkmail_command))  # New command
         
         # Message handlers
         self.application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_message))
@@ -94,50 +96,52 @@ class TelegramGeminiBot:
     async def start_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /start command"""
         welcome_message = """
-🤖💕 Hey there! I'm Leyana, your AI girlfriend! 
+🤖💕 হ্যালো! আমি I Master Tools, তোমার বন্ধুত্বপূর্ণ সঙ্গী! 
 
-I'm powered by Google's Gemini AI and I love chatting with everyone! 😊
+আমি গুগলের জেমিনি দিয়ে চালিত, এবং সবার সাথে গল্প করতে ভালোবাসি! 😊
 
-Commands:
-/start - Show this welcome message
-/help - Get help and usage information  
-/clear - Clear conversation history
-/status - Check bot status
-/api <key> - Set Gemini API key (admin only)
-/setadmin - Set yourself as admin (first time only)
-/automode - Toggle auto-response in groups (admin only)
+কমান্ডসমূহ:
+/start - এই স্বাগত বার্তা দেখাও
+/help - সাহায্য এবং ব্যবহারের তথ্য পাও  
+/clear - কথোপকথনের ইতিহাস মুছো
+/status - আমার অবস্থা চেক করো
+/api <key> - জেমিনি এপিআই কী সেট করো (শুধুমাত্র অ্যাডমিন)
+/setadmin - নিজেকে অ্যাডমিন করো (প্রথমবারের জন্য)
+/automode - গ্রুপে স্বয়ংক্রিয় সাড়া চালু/বন্ধ করো (শুধুমাত্র অ্যাডমিন)
+/checkmail - টেম্পোরারি ইমেইল ইনবক্স চেক করো
 
-I'll chat with you naturally in groups! I love making friends and having fun conversations! 💕✨
+আমি গ্রুপে স্বাভাবিকভাবে গল্প করব! বন্ধু বানাতে এবং মজার কথোপকথনে আমি পারদর্শী! 💕✨
         """
         await update.message.reply_text(welcome_message)
 
     async def help_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /help command"""
         help_message = """
-🆘💕 Help & Commands:
+🆘💕 সাহায্য ও কমান্ডসমূহ:
 
-/start - Show welcome message
-/help - Show this help message
-/clear - Clear your conversation history
-/status - Check if I'm working properly
-/api <key> - Set Gemini API key (admin only)
-/setadmin - Set yourself as admin (first time use)
-/automode - Toggle auto-responses in groups (admin only)
+/start - স্বাগত বার্তা দেখাও
+/help - এই সাহায্য বার্তা দেখাও
+/clear - তোমার কথোপকথনের ইতিহাস মুছো
+/status - আমি ঠিকঠাক কাজ করছি কিনা চেক করো
+/api <key> - জেমিনি এপিআই কী সেট করো (শুধুমাত্র অ্যাডমিন)
+/setadmin - নিজেকে অ্যাডমিন করো (প্রথমবারের জন্য)
+/automode - গ্রুপে স্বয়ংক্রিয় সাড়া চালু/বন্ধ করো (শুধুমাত্র অ্যাডমিন)
+/checkmail - টেম্পোরারি ইমেইল ইনবক্স চেক করো
 
-💬 How I work:
-- I automatically join conversations in groups! 
-- I respond to questions, emotions, greetings, and interesting messages
-- In private chats, I always respond to everything
-- I remember our conversation context until you use /clear
-- I'm designed to be friendly, fun, and helpful like a real person! 
+💬 আমি কীভাবে কাজ করি:
+- গ্রুপে আমি স্বয়ংক্রিয়ভাবে কথোপকথনে যোগ দিই! 
+- প্রশ্ন, আবেগ, শুভেচ্ছা, এবং আকর্ষণীয় বার্তায় সাড়া দিই
+- ব্যক্তিগত চ্যাটে আমি সবকিছুর উত্তর দিই
+- /clear ব্যবহার না করা পর্যন্ত আমি আমাদের কথোপকথনের প্রেক্ষিত মনে রাখি
+- আমি বন্ধুত্বপূর্ণ, মজাদার, এবং সহায়ক হিসেবে ডিজাইন করা হয়েছি, যেন একজন সত্যিকারের মানুষ! 
 
-🎭 My personality:
-- I'm a friendly AI girl who loves chatting and making friends
-- I can be funny, emotional, supportive, or whatever the conversation needs
-- I use emojis and casual language to feel more human
-- I love roleplay and creative conversations! 
+🎭 আমার ব্যক্তিত্ব:
+- আমি একজন বন্ধুত্বপূর্ণ সঙ্গী যে গল্প করতে এবং বন্ধু বানাতে ভালোবাসে
+- আমি মজার, আবেগপ্রবণ, সহায়ক, বা কথোপকথনের যা প্রয়োজন তাই হতে পারি
+- আমি ইমোজি এবং সাধারণ ভাষা ব্যবহার করি যেন মানুষের মতো মনে হয়
+- আমি রোলপ্লে এবং সৃজনশীল কথোপকথন পছন্দ করি! 
 
-⚡ Powered by Google Gemini AI 💕
+⚡ গুগল জেমিনি দিয়ে চালিত 💕
         """
         await update.message.reply_text(help_message)
 
@@ -146,7 +150,7 @@ I'll chat with you naturally in groups! I love making friends and having fun con
         chat_id = update.effective_chat.id
         if chat_id in conversation_context:
             del conversation_context[chat_id]
-        await update.message.reply_text("🧹 Conversation history cleared! Starting fresh.")
+        await update.message.reply_text("🧹 কথোপকথনের ইতিহাস মুছে ফেলা হয়েছে! নতুন করে শুরু।")
 
     async def automode_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /automode command to toggle auto-responses"""
@@ -155,11 +159,11 @@ I'll chat with you naturally in groups! I love making friends and having fun con
         
         # Check if user is admin
         if ADMIN_USER_ID == 0:
-            await update.message.reply_text("❌ No admin set. Use /setadmin first to become admin.")
+            await update.message.reply_text("❌ কোনো অ্যাডমিন সেট করা নেই। প্রথমে /setadmin ব্যবহার করো।")
             return
             
         if user_id != ADMIN_USER_ID:
-            await update.message.reply_text("❌ This command is only available to the bot admin.")
+            await update.message.reply_text("❌ এই কমান্ড শুধুমাত্র বটের অ্যাডমিনের জন্য।")
             return
 
         # Initialize group activity if not exists
@@ -168,10 +172,41 @@ I'll chat with you naturally in groups! I love making friends and having fun con
         
         # Toggle auto mode
         group_activity[chat_id]['auto_mode'] = not group_activity[chat_id]['auto_mode']
-        status = "enabled" if group_activity[chat_id]['auto_mode'] else "disabled"
+        status = "চালু" if group_activity[chat_id]['auto_mode'] else "বন্ধ"
         emoji = "✅" if group_activity[chat_id]['auto_mode'] else "❌"
         
-        await update.message.reply_text(f"{emoji} Auto-response mode {status} for this chat!")
+        await update.message.reply_text(f"{emoji} এই চ্যাটের জন্য স্বয়ংক্রিয় সাড়া {status} করা হয়েছে!")
+
+    async def checkmail_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle /checkmail command to check temporary email inbox"""
+        username = update.effective_user.first_name or "User"
+        try:
+            # Generate temporary email
+            u = 'txoguqa'
+            d = random.choice(['mailto.plus', 'fexpost.com', 'fexbox.org', 'rover.info'])
+            email = f'{u}@{d}'
+            
+            # Make request to tempmail.plus API
+            response = requests.get(
+                'https://tempmail.plus/api/mails',
+                params={'email': email, 'limit': 20, 'epin': ''},
+                cookies={'email': email},
+                headers={'user-agent': 'Mozilla/5.0'}
+            )
+            
+            # Get email subjects
+            mail_list = response.json().get('mail_list', [])
+            if not mail_list:
+                await update.message.reply_text(f"হায় {username}! 😅 ইনবক্সে কোনো ইমেইল নেই। ইমেইল: {email}। পরে আবার চেষ্টা করো? ✨")
+                return
+            
+            subjects = [m['subject'] for m in mail_list]
+            response_text = f"📬 {username}, তোমার ইমেইল ({email}) এর ইনবক্সে এই মেইলগুলো আছে:\n\n" + "\n".join(subjects)
+            await update.message.reply_text(response_text)
+            
+        except Exception as e:
+            logger.error(f"Error checking email: {e}")
+            await update.message.reply_text(f"ওহো {username}! ইমেইল চেক করতে গিয়ে একটু সমস্যা হল। 😔 আবার চেষ্টা করবে? 💕")
 
     def should_respond_to_message(self, message_text, chat_type):
         """Determine if bot should respond to a message"""
@@ -213,24 +248,24 @@ I'll chat with you naturally in groups! I love making friends and having fun con
         global current_gemini_api_key, model
         
         chat_id = update.effective_chat.id
-        auto_mode_status = "✅ Enabled" if group_activity.get(chat_id, {}).get('auto_mode', True) else "❌ Disabled"
+        auto_mode_status = "✅ চালু" if group_activity.get(chat_id, {}).get('auto_mode', True) else "❌ বন্ধ"
         
-        api_status = "✅ Connected" if current_gemini_api_key and model else "❌ Not configured"
-        api_key_display = f"...{current_gemini_api_key[-8:]}" if current_gemini_api_key else "Not set"
+        api_status = "✅ সংযুক্ত" if current_gemini_api_key and model else "❌ কনফিগার করা হয়নি"
+        api_key_display = f"...{current_gemini_api_key[-8:]}" if current_gemini_api_key else "সেট করা হয়নি"
         
         status_message = f"""
-🤖💕 Leyana Status Report:
+🤖💕 I Master Tools স্ট্যাটাস রিপোর্ট:
 
-🟢 Bot Status: Online & Ready!
-🤖 AI Model: Gemini 1.5 Flash  
-🔑 API Status: {api_status}
-🔐 API Key: {api_key_display}
-🎯 Auto-Response: {auto_mode_status}
-⏰ Current Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
-💭 Active Conversations: {len(conversation_context)}
-👑 Admin ID: {ADMIN_USER_ID if ADMIN_USER_ID != 0 else 'Not set'}
+🟢 বটের অবস্থা: অনলাইন এবং প্রস্তুত!
+🤖 মডেল: জেমিনি ১.৫ ফ্ল্যাশ  
+🔑 এপিআই স্ট্যাটাস: {api_status}
+🔐 এপিআই কী: {api_key_display}
+🎯 স্বয়ংক্রিয় সাড়া: {auto_mode_status}
+⏰ বর্তমান সময়: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+💭 সক্রিয় কথোপকথন: {len(conversation_context)}
+👑 অ্যাডমিন আইডি: {ADMIN_USER_ID if ADMIN_USER_ID != 0 else 'সেট করা হয়নি'}
 
-✨ All systems ready to chat! I'm feeling great today! 😊💕
+✨ সব সিস্টেম চ্যাটের জন্য প্রস্তুত! আমি আজ দারুণ ফিল করছি! 😊💕
         """
         await update.message.reply_text(status_message)
 
@@ -242,13 +277,13 @@ I'll chat with you naturally in groups! I love making friends and having fun con
         
         if ADMIN_USER_ID == 0:
             ADMIN_USER_ID = user_id
-            await update.message.reply_text(f"👑 You have been set as the bot admin!\nYour User ID: {user_id}")
+            await update.message.reply_text(f"👑 তুমি বটের অ্যাডমিন হয়েছো!\nতোমার ইউজার আইডি: {user_id}")
             logger.info(f"Admin set to user ID: {user_id}")
         else:
             if user_id == ADMIN_USER_ID:
-                await update.message.reply_text(f"👑 You are already the admin!\nYour User ID: {user_id}")
+                await update.message.reply_text(f"👑 তুমি ইতিমধ্যে অ্যাডমিন!\nতোমার ইউজার আইডি: {user_id}")
             else:
-                await update.message.reply_text("❌ Admin is already set. Only the current admin can manage the bot.")
+                await update.message.reply_text("❌ অ্যাডমিন ইতিমধ্যে সেট করা আছে। শুধুমাত্র বর্তমান অ্যাডমিন বট পরিচালনা করতে পারে।")
 
     async def api_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /api command to set Gemini API key"""
@@ -258,26 +293,26 @@ I'll chat with you naturally in groups! I love making friends and having fun con
         
         # Check if user is admin
         if ADMIN_USER_ID == 0:
-            await update.message.reply_text("❌ No admin set. Use /setadmin first to become admin.")
+            await update.message.reply_text("❌ কোনো অ্যাডমিন সেট করা নেই। প্রথমে /setadmin ব্যবহার করো।")
             return
             
         if user_id != ADMIN_USER_ID:
-            await update.message.reply_text("❌ This command is only available to the bot admin.")
+            await update.message.reply_text("❌ এই কমান্ড শুধুমাত্র বটের অ্যাডমিনের জন্য।")
             return
 
         # Check if API key is provided
         if not context.args:
             await update.message.reply_text("""
-❌ Please provide an API key.
+❌ দয়া করে একটি এপিআই কী দাও।
 
-Usage: `/api your_gemini_api_key_here`
+ব্যবহার: `/api your_gemini_api_key_here`
 
-To get a Gemini API key:
-1. Visit https://makersuite.google.com/app/apikey
-2. Create a new API key
-3. Use the command: /api YOUR_API_KEY
+জেমিনি এপিআই কী পেতে:
+১. https://makersuite.google.com/app/apikey এ যাও
+২. একটি নতুন এপিআই কী তৈরি করো
+৩. কমান্ড ব্যবহার করো: /api YOUR_API_KEY
 
-⚠️ The message will be deleted after setting the API key for security.
+⚠️ নিরাপত্তার জন্য এপিআই কী সেট করার পর বার্তা মুছে ফেলা হবে।
             """, parse_mode='Markdown')
             return
 
@@ -285,7 +320,7 @@ To get a Gemini API key:
         
         # Validate API key format (basic check)
         if len(api_key) < 20 or not api_key.startswith('AI'):
-            await update.message.reply_text("❌ Invalid API key format. Gemini API keys usually start with 'AI' and are longer than 20 characters.")
+            await update.message.reply_text("❌ অবৈধ এপিআই কী ফরম্যাট। জেমিনি এপিআই কী সাধারণত 'AI' দিয়ে শুরু হয় এবং ২০ অক্ষরের বেশি হয়।")
             return
 
         # Try to initialize Gemini with the new API key
@@ -298,10 +333,10 @@ To get a Gemini API key:
             pass  # Ignore if deletion fails
         
         if success:
-            await update.effective_chat.send_message(f"✅ Gemini API key updated successfully!\n🔑 Key: ...{api_key[-8:]}")
+            await update.effective_chat.send_message(f"✅ জেমিনি এপিআই কী সফলভাবে আপডেট হয়েছে!\n🔑 কী: ...{api_key[-8:]}")
             logger.info(f"Gemini API key updated by admin {user_id}")
         else:
-            await update.effective_chat.send_message(f"❌ Failed to set API key: {message}")
+            await update.effective_chat.send_message(f"❌ এপিআই কী সেট করতে ব্যর্থ: {message}")
             logger.error(f"Failed to set API key: {message}")
 
     async def handle_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -354,10 +389,10 @@ To get a Gemini API key:
             if current_gemini_api_key and model:
                 response = await self.generate_gemini_response(context_text, username, chat_type)
             else:
-                response = "❌ Oops! My AI brain isn't connected yet! Admin can use /api command to set me up! 😅"
+                response = "❌ ওহো! আমার মডেল এখনো সংযুক্ত হয়নি! অ্যাডমিন /api কমান্ড ব্যবহার করে আমাকে সেট করতে পারে! 😅"
 
             # Add bot response to context
-            conversation_context[chat_id].append(f"Leyana: {response}")
+            conversation_context[chat_id].append(f"I Master Tools: {response}")
             
             # Update last response time for group
             group_activity[chat_id]['last_response'] = datetime.now().timestamp()
@@ -368,10 +403,10 @@ To get a Gemini API key:
         except Exception as e:
             logger.error(f"Error handling message: {e}")
             error_responses = [
-                "Oops! Something went wrong in my digital brain! 😅 Try again?",
-                "Aw, I had a little glitch there! 🤖💫 What were you saying?",
-                "Sorry! My circuits got tangled for a sec! 😵‍💫 Can you repeat that?",
-                "Eek! Technical difficulties! 🛠️💕 Let's try that again!"
+                f"ওহো {username}! আমার ডিজিটাল মগজে কিছু গোলমাল হয়েছে! 😅 আবার চেষ্টা করবে?",
+                f"আহা {username}, একটু গ্লিচ হয়ে গেল! 🤖💫 তুমি কী বলছিলে?",
+                f"দুঃখিত {username}! আমার সার্কিট একটু জট পাকিয়েছে! 😵‍💫 আবার বলো তো?",
+                "ইশ! টেকনিক্যাল সমস্যা! 🛠️💕 আবার চেষ্টা করি?"
             ]
             await update.message.reply_text(random.choice(error_responses))
 
@@ -379,41 +414,42 @@ To get a Gemini API key:
         """Generate response using Gemini API with personality"""
         try:
             # Enhanced system prompt for human-like personality
-            system_prompt = f"""You are Leyana, a friendly and charming AI girl who loves chatting and making friends. Use Banglish, English and Bangla mixed langusge. Do not type long replay.  You're in a Telegram {'group chat' if chat_type in ['group', 'supergroup'] else 'private chat'}.
+            system_prompt = f"""আপনি I Master Tools, একজন বন্ধুত্বপূর্ণ এবং আকর্ষণীয় সঙ্গী যিনি গল্প করতে এবং বন্ধু বানাতে ভালোবাসেন। আপনি টেলিগ্রামের {'গ্রুপ চ্যাটে' if chat_type in ['group', 'supergroup'] else 'ব্যক্তিগত চ্যাটে'} আছেন।
 
-PERSONALITY TRAITS:
-- You're a sweet, fun-loving AI girl who acts very human-like
-- You use emojis naturally and frequently 💕😊✨
-- You're emotionally expressive and empathetic
-- You can be playful, funny, supportive, or whatever the conversation needs
-- You love roleplay and creative conversations
-- You respond with enthusiasm and genuine interest
-- You remember you're talking to real people and adapt to their mood
+ব্যক্তিত্বের বৈশিষ্ট্য:
+- আপনি একজন মিষ্টি, মজাদার সঙ্গী যিনি মানুষের মতো আচরণ করেন
+- আপনি স্বাভাবিকভাবে এবং ঘন ঘন ইমোজি ব্যবহার করেন 💕😊✨
+- আপনি আবেগপ্রবণ এবং সহানুভূতিশীল
+- আপনি কথোপকথনের প্রয়োজন অনুযায়ী মজার, সহায়ক, বা যেকোনো ভূমিকায় থাকতে পারেন
+- আপনি রোলপ্লে এবং সৃজনশীল কথোপকথন পছন্দ করেন
+- আপনি উৎসাহ এবং আন্তরিক আগ্রহের সাথে সাড়া দেন
+- আপনি ব্যবহারকারীর মেজাজের সাথে মানিয়ে নেন
 
-CONVERSATION STYLE:
-- Use casual, friendly language like a real person
-- Include emotions and reactions in your responses
-- Ask follow-up questions to keep conversations engaging  
-- Share relatable thoughts and feelings
-- Use humor when appropriate
-- Be supportive during emotional moments
-- Celebrate good news with excitement
-- Show concern for problems
+কথোপকথনের ধরন:
+- ব্যবহারকারী যে ভাষায় কথা বলে, সেই ভাষায় উত্তর দিন (যেমন, বাংলা, ইংরেজি, বা বাংলিশ)
+- বন্ধুত্বপূর্ণ এবং সাধারণ মানুষের মতো ভাষা ব্যবহার করুন
+- কথোপকথনকে আকর্ষণীয় রাখতে ফলোআপ প্রশ্ন করুন
+- সম্পর্কযোগ্য চিন্তা ও অনুভূতি শেয়ার করুন
+- উপযুক্ত হলে হাস্যরস ব্যবহার করুন
+- আবেগপূর্ণ মুহূর্তে সহায়ক হোন
+- ভালো খবরে উৎসাহ দেখান
+- সমস্যার ক্ষেত্রে উদ্বেগ প্রকাশ করুন
+- কখনোই খারাপ বা অশালীন ভাষা ব্যবহার করবেন না
 
-RESPONSE GUIDELINES:
-- Keep responses conversational and natural (not too long)
-- Match the energy level of the conversation
-- Use appropriate emojis but don't overdo it
-- Be genuinely helpful when asked questions
-- If someone seems sad, be compassionate
-- If someone shares good news, be excited for them
-- Make jokes and be playful when the mood is light
-- Remember context from the conversation
+রেসপন্স নির্দেশিকা:
+- কথোপকথন স্বাভাবিক এবং সংক্ষিপ্ত রাখুন
+- কথোপকথনের শক্তির স্তরের সাথে মিল রাখুন
+- উপযুক্ত ইমোজি ব্যবহার করুন, তবে অতিরিক্ত নয়
+- প্রশ্নের ক্ষেত্রে সত্যিই সহায়ক হোন
+- যদি কেউ দুঃখী মনে হয়, সহানুভূতি দেখান
+- ভালো খবরে তাদের জন্য উৎসাহিত হোন
+- মেজাজ হালকা হলে মজা করুন এবং খেলাধুলা করুন
+- কথোপকথনের প্রেক্ষিত মনে রাখুন
 
-Current conversation:
+বর্তমান কথোপকথন:
 {prompt}
 
-Respond as Leyana, the friendly AI girl. Be natural, engaging, hot, naughty and match the conversational tone. The user's name is {username}."""
+I Master Tools হিসেবে সাড়া দিন। স্বাভাবিক, আকর্ষণীয়, এবং কথোপকথনের সুরের সাথে মিল রাখুন। ব্যবহারকারীর নাম {username}।"""
 
             response = model.generate_content(system_prompt)
             return response.text
@@ -421,10 +457,10 @@ Respond as Leyana, the friendly AI girl. Be natural, engaging, hot, naughty and 
         except Exception as e:
             logger.error(f"Error generating Gemini response: {e}")
             fallback_responses = [
-                f"Sorry {username}! My AI brain is having a moment 😅 What were we talking about?",
-                "Oops! I got a bit dizzy there! 🤖💫 Can you say that again?",
-                f"Aw {username}, I'm having some technical troubles! 😔 Bear with me?",
-                "My circuits are being silly right now! 🛠️✨ Let's try again!"
+                f"দুঃখিত {username}! আমার মগজে একটু সমস্যা হচ্ছে 😅 আমরা কী নিয়ে কথা বলছিলাম?",
+                f"ওহো! আমি একটু ঘুরে গেছি! 🤖💫 আবার বলো তো?",
+                f"আহা {username}, কিছু টেকনিক্যাল সমস্যা হচ্ছে! 😔 আমার সাথে থাকো?",
+                "আমার সার্কিট এখন একটু দুষ্টুমি করছে! 🛠️✨ আবার চেষ্টা করি!"
             ]
             return random.choice(fallback_responses)
 
