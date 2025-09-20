@@ -8,6 +8,11 @@ from datetime import datetime
 import random
 import re
 import requests
+from langdetect import detect, DetectorFactory
+from googletrans import Translator, LANGUAGES
+
+# Ensure consistent language detection
+DetectorFactory.seed = 0
 
 # Configure logging
 logging.basicConfig(
@@ -32,6 +37,7 @@ available_models = [
     'gemini-1.5-flash-8b'
 ]
 current_model = 'gemini-1.5-flash'  # Default model
+translator = Translator()
 
 def initialize_gemini_models(api_key):
     """Initialize Gemini models with the provided API key"""
@@ -78,6 +84,7 @@ class TelegramGeminiBot:
         self.application.add_handler(CommandHandler("menu", self.menu_command))
         self.application.add_handler(CommandHandler("setmodel", self.setmodel_command))
         self.application.add_handler(CommandHandler("info", self.info_command))
+        self.application.add_handler(CommandHandler("translate", self.translate_command))
         self.application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_message))
         self.application.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, self.handle_new_member))
         self.application.add_handler(CallbackQueryHandler(self.button_callback, pattern='^copy_code$'))
@@ -86,25 +93,47 @@ class TelegramGeminiBot:
     async def button_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle copy code button callback"""
         query = update.callback_query
-        await query.answer("কোড কপি হয়েছে!")  # Notify user
+        await query.answer("Code copied!")  # Response in English for simplicity
         # Telegram automatically handles code block copying
 
-    async def get_private_chat_redirect(self):
-        """Return redirect message for non-admin private chats"""
+    async def get_private_chat_redirect(self, lang='bn'):
+        """Return redirect message for non-admin private chats in detected language"""
         keyboard = [[InlineKeyboardButton("Join VPSHUB_BD_CHAT", url="https://t.me/VPSHUB_BD_CHAT")]]
         reply_markup = InlineKeyboardMarkup(keyboard)
-        return """
+        if lang == 'bn':
+            return """
 হ্যালো, আমার সাথে কথা বলতে চাওয়ার জন্য ধন্যবাদ! আমি I Master Tools, তোমার বন্ধুত্বপূর্ণ সঙ্গী। আমার সাথে মজার এবং সহায়ক কথোপকথনের জন্য, দয়া করে আমাদের অফিসিয়াল গ্রুপে যোগ দাও। নিচের বাটনে ক্লিক করে গ্রুপে যাও এবং আমাকে @I MasterTools মেনশন করে কথা শুরু করো। আমি সেখানে তোমার জন্য অপেক্ষা করছি!
-        """, reply_markup
+            """, reply_markup
+        else:
+            return """
+Hello, thanks for wanting to chat with me! I'm I Master Tools, your friendly companion. To have fun and helpful conversations with me, please join our official group. Click the button below to join the group and mention @I MasterTools to start chatting. I'm waiting for you there!
+            """, reply_markup
+
+    async def detect_language(self, text):
+        """Detect the language of the input text"""
+        try:
+            return detect(text)
+        except:
+            return 'bn'  # Default to Bengali if detection fails
+
+    async def translate_text(self, text, target_lang):
+        """Translate text to the target language"""
+        try:
+            translation = translator.translate(text, dest=target_lang)
+            return translation.text
+        except Exception as e:
+            logger.error(f"Error translating text: {e}")
+            return None
 
     async def start_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /start command"""
         user_id = update.effective_user.id
         username = update.effective_user.first_name or "User"
         chat_type = update.effective_chat.type
+        lang = await self.detect_language(update.message.text)
 
         if chat_type == 'private' and user_id != ADMIN_USER_ID:
-            response, reply_markup = await self.get_private_chat_redirect()
+            response, reply_markup = await self.get_private_chat_redirect(lang)
             await update.message.reply_text(response, reply_markup=reply_markup)
         else:
             keyboard = [[InlineKeyboardButton("Join VPSHUB_BD_CHAT", url="https://t.me/VPSHUB_BD_CHAT")]]
@@ -121,6 +150,7 @@ Available commands:
 - /status: Check bot status
 - /checkmail: Check temporary email inbox
 - /info: Show user profile information
+- /translate: Translate text to a specified language
 {'' if user_id != ADMIN_USER_ID else '- /api <key>: Set Gemini API key (admin only)\n- /setadmin: Set yourself as admin (first-time only)\n- /setmodel: Choose a different model (admin only)'}
 
 In groups, mention @I MasterTools or reply to my messages to get a response. I'm excited to chat with you!
@@ -133,9 +163,15 @@ In groups, mention @I MasterTools or reply to my messages to get a response. I'm
             username = new_member.first_name or "User"
             user_id = new_member.id
             user_mention = f"@{new_member.username}" if new_member.username else username
-            welcome_message = f"""
+            lang = await self.detect_language(update.message.text or username)
+            if lang == 'bn':
+                welcome_message = f"""
 স্বাগতম {user_mention}! আমাদের VPSHUB_BD_CHAT গ্রুপে তোমাকে পেয়ে আমরা খুবই উৎসাহিত! আমি I Master Tools, তোমার বন্ধুত্বপূর্ণ সঙ্গী। এখানে তুমি মজার কথোপকথন, সহায়ক উত্তর, এবং আরো অনেক কিছু পাবে। আমাকে @I MasterTools মেনশন করে বা রিপ্লাই করে কথা শুরু করো। তুমি কী নিয়ে কথা বলতে চাও?
-            """
+                """
+            else:
+                welcome_message = f"""
+Welcome {user_mention}! We're thrilled to have you in our VPSHUB_BD_CHAT group! I'm I Master Tools, your friendly companion. Here, you'll find fun conversations, helpful answers, and much more. Mention @I MasterTools or reply to my messages to start chatting. What do you want to talk about?
+                """
             await update.message.reply_text(welcome_message)
 
     async def help_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -143,9 +179,10 @@ In groups, mention @I MasterTools or reply to my messages to get a response. I'm
         user_id = update.effective_user.id
         username = update.effective_user.first_name or "User"
         chat_type = update.effective_chat.type
+        lang = await self.detect_language(update.message.text)
 
         if chat_type == 'private' and user_id != ADMIN_USER_ID:
-            response, reply_markup = await self.get_private_chat_redirect()
+            response, reply_markup = await self.get_private_chat_redirect(lang)
             await update.message.reply_text(response, reply_markup=reply_markup)
         else:
             keyboard = [[InlineKeyboardButton("Join VPSHUB_BD_CHAT", url="https://t.me/VPSHUB_BD_CHAT")]]
@@ -159,7 +196,8 @@ How I work:
 - For questions in the group, I engage with a fun or surprising comment before answering
 - I remember conversation context until you clear it
 - I'm an expert in coding (Python, JavaScript, CSS, HTML, etc.) and provide accurate, beginner-friendly solutions
-- I'm designed to be friendly, helpful, and human-like
+- I respond in the language you use (e.g., Bengali, English)
+- I can translate text if you ask (use /translate or mention 'translate' in your message)
 
 Available commands:
 - /start: Show welcome message with group link
@@ -169,6 +207,7 @@ Available commands:
 - /status: Check bot status
 - /checkmail: Check temporary email inbox
 - /info: Show user profile information
+- /translate: Translate text to a specified language
 {'' if user_id != ADMIN_USER_ID else '- /api <key>: Set Gemini API key (admin only)\n- /setadmin: Set yourself as admin (first-time only)\n- /setmodel: Choose a different model (admin only)'}
 
 My personality:
@@ -187,9 +226,10 @@ Powered by Google Gemini
         user_id = update.effective_user.id
         username = update.effective_user.first_name or "User"
         chat_type = update.effective_chat.type
+        lang = await self.detect_language(update.message.text)
 
         if chat_type == 'private' and user_id != ADMIN_USER_ID:
-            response, reply_markup = await self.get_private_chat_redirect()
+            response, reply_markup = await self.get_private_chat_redirect(lang)
             await update.message.reply_text(response, reply_markup=reply_markup)
         else:
             keyboard = [
@@ -197,6 +237,7 @@ Powered by Google Gemini
                 [InlineKeyboardButton("Bot Status", callback_data="status")],
                 [InlineKeyboardButton("Clear History", callback_data="clear")],
                 [InlineKeyboardButton("User Info", callback_data="info")],
+                [InlineKeyboardButton("Translate Text", callback_data="translate")],
                 [InlineKeyboardButton("Join Group", url="https://t.me/VPSHUB_BD_CHAT")]
             ]
             if user_id == ADMIN_USER_ID:
@@ -210,22 +251,27 @@ Powered by Google Gemini
         user_id = update.effective_user.id
         chat_id = update.effective_chat.id
         chat_type = update.effective_chat.type
+        lang = await self.detect_language(update.message.text)
 
         if chat_type == 'private' and user_id != ADMIN_USER_ID:
-            response, reply_markup = await self.get_private_chat_redirect()
+            response, reply_markup = await self.get_private_chat_redirect(lang)
             await update.message.reply_text(response, reply_markup=reply_markup)
         else:
             if chat_id in conversation_context:
                 del conversation_context[chat_id]
-            await update.message.reply_text("কথোপকথনের ইতিহাস মুছে ফেলা হয়েছে। চলো নতুন করে শুরু করি!")
+            if lang == 'bn':
+                await update.message.reply_text("কথোপকথনের ইতিহাস মুছে ফেলা হয়েছে। চলো নতুন করে শুরু করি!")
+            else:
+                await update.message.reply_text("Conversation history cleared. Let's start fresh!")
 
     async def checkmail_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /checkmail command to check temporary email inbox"""
         user_id = update.effective_user.id
         chat_type = update.effective_chat.type
+        lang = await self.detect_language(update.message.text)
 
         if chat_type == 'private' and user_id != ADMIN_USER_ID:
-            response, reply_markup = await self.get_private_chat_redirect()
+            response, reply_markup = await self.get_private_chat_redirect(lang)
             await update.message.reply_text(response, reply_markup=reply_markup)
         else:
             try:
@@ -240,28 +286,39 @@ Powered by Google Gemini
                 )
                 mail_list = response.json().get('mail_list', [])
                 if not mail_list:
-                    await update.message.reply_text(f"{email}-এর ইনবক্সে কোনো ইমেইল নেই। পরে আবার চেষ্টা করবে?")
+                    if lang == 'bn':
+                        await update.message.reply_text(f"{email}-এর ইনবক্সে কোনো ইমেইল নেই। পরে আবার চেষ্টা করবে?")
+                    else:
+                        await update.message.reply_text(f"No emails found in the inbox for {email}. Want to try again later?")
                     return
                 subjects = [m['subject'] for m in mail_list]
-                response_text = f"{email}-এর ইনবক্সে ইমেইলগুলো:\n\n" + "\n".join(subjects)
+                if lang == 'bn':
+                    response_text = f"{email}-এর ইনবক্সে ইমেইলগুলো:\n\n" + "\n".join(subjects)
+                else:
+                    response_text = f"Emails in the inbox for {email}:\n\n" + "\n".join(subjects)
                 await update.message.reply_text(response_text)
             except Exception as e:
                 logger.error(f"Error checking email: {e}")
-                await update.message.reply_text("ইমেইল চেক করতে সমস্যা হয়েছে। আবার চেষ্টা করবো?")
+                if lang == 'bn':
+                    await update.message.reply_text("ইমেইল চেক করতে সমস্যা হয়েছে। আবার চেষ্টা করবো?")
+                else:
+                    await update.message.reply_text("Something went wrong while checking the email. Shall we try again?")
 
     async def status_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /status command"""
         user_id = update.effective_user.id
         chat_id = update.effective_chat.id
         chat_type = update.effective_chat.type
+        lang = await self.detect_language(update.message.text)
 
         if chat_type == 'private' and user_id != ADMIN_USER_ID:
-            response, reply_markup = await self.get_private_chat_redirect()
+            response, reply_markup = await self.get_private_chat_redirect(lang)
             await update.message.reply_text(response, reply_markup=reply_markup)
         else:
             api_status = "Connected" if current_gemini_api_key and general_model else "Not configured"
             api_key_display = f"...{current_gemini_api_key[-8:]}" if current_gemini_api_key else "Not set"
-            status_message = f"""
+            if lang == 'bn':
+                status_message = f"""
 আই মাস্টার টুলসের স্ট্যাটাস রিপোর্ট:
 
 বট স্ট্যাটাস: অনলাইন এবং প্রস্তুত
@@ -274,7 +331,22 @@ API কী: {api_key_display}
 অ্যাডমিন আইডি: {ADMIN_USER_ID if ADMIN_USER_ID != 0 else 'Not set'}
 
 সবকিছু প্রস্তুত! সাহায্য করতে উৎসাহী!
-            """
+                """
+            else:
+                status_message = f"""
+I Master Tools Status Report:
+
+Bot Status: Online and ready
+Model: {current_model}
+API Status: {api_status}
+API Key: {api_key_display}
+Group Responses: Mention or reply only
+Current Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+Active Conversations: {len(conversation_context)}
+Admin ID: {ADMIN_USER_ID if ADMIN_USER_ID != 0 else 'Not set'}
+
+All systems are ready for action. I'm thrilled to assist!
+                """
             await update.message.reply_text(status_message)
 
     async def setadmin_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -283,39 +355,57 @@ API কী: {api_key_display}
         user_id = update.effective_user.id
         username = update.effective_user.first_name or "User"
         chat_type = update.effective_chat.type
+        lang = await self.detect_language(update.message.text)
 
         if chat_type == 'private' and user_id != ADMIN_USER_ID:
-            response, reply_markup = await self.get_private_chat_redirect()
+            response, reply_markup = await self.get_private_chat_redirect(lang)
             await update.message.reply_text(response, reply_markup=reply_markup)
         else:
             if ADMIN_USER_ID == 0:
                 ADMIN_USER_ID = user_id
-                await update.message.reply_text(f"অভিনন্দন {username}, তুমি এখন বটের অ্যাডমিন! তোমার ইউজার আইডি: {user_id}")
+                if lang == 'bn':
+                    await update.message.reply_text(f"অভিনন্দন {username}, তুমি এখন বটের অ্যাডমিন! তোমার ইউজার আইডি: {user_id}")
+                else:
+                    await update.message.reply_text(f"Congratulations {username}, you are now the bot admin! Your user ID: {user_id}")
                 logger.info(f"Admin set to user ID: {user_id}")
             else:
                 if user_id == ADMIN_USER_ID:
-                    await update.message.reply_text(f"তুমি ইতিমধ্যে অ্যাডমিন! তোমার ইউজার আইডি: {user_id}")
+                    if lang == 'bn':
+                        await update.message.reply_text(f"তুমি ইতিমধ্যে অ্যাডমিন! তোমার ইউজার আইডি: {user_id}")
+                    else:
+                        await update.message.reply_text(f"You're already the admin! Your user ID: {user_id}")
                 else:
-                    await update.message.reply_text("দুঃখিত, অ্যাডমিন ইতিমধ্যে সেট করা আছে। শুধু বর্তমান অ্যাডমিন বট পরিচালনা করতে পারে।")
+                    if lang == 'bn':
+                        await update.message.reply_text("দুঃখিত, অ্যাডমিন ইতিমধ্যে সেট করা আছে। শুধু বর্তমান অ্যাডমিন বট পরিচালনা করতে পারে।")
+                    else:
+                        await update.message.reply_text("Sorry, the admin is already set. Only the current admin can manage the bot.")
 
     async def api_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /api command to set Gemini API key"""
         global current_gemini_api_key, general_model, coding_model
         user_id = update.effective_user.id
         chat_type = update.effective_chat.type
+        lang = await self.detect_language(update.message.text)
 
         if chat_type == 'private' and user_id != ADMIN_USER_ID:
-            response, reply_markup = await self.get_private_chat_redirect()
+            response, reply_markup = await self.get_private_chat_redirect(lang)
             await update.message.reply_text(response, reply_markup=reply_markup)
         else:
             if ADMIN_USER_ID == 0:
-                await update.message.reply_text("কোনো অ্যাডমিন সেট করা নেই। দয়া করে প্রথমে /setadmin ব্যবহার করো।")
+                if lang == 'bn':
+                    await update.message.reply_text("কোনো অ্যাডমিন সেট করা নেই। দয়া করে প্রথমে /setadmin ব্যবহার করো।")
+                else:
+                    await update.message.reply_text("No admin set. Please use /setadmin first.")
                 return
             if user_id != ADMIN_USER_ID:
-                await update.message.reply_text("এই কমান্ড শুধু বটের অ্যাডমিনের জন্য।")
+                if lang == 'bn':
+                    await update.message.reply_text("এই কমান্ড শুধু বটের অ্যাডমিনের জন্য।")
+                else:
+                    await update.message.reply_text("This command is for the bot admin only.")
                 return
             if not context.args:
-                await update.message.reply_text("""
+                if lang == 'bn':
+                    await update.message.reply_text("""
 একটি API কী প্রদান করো।
 
 ব্যবহার: `/api your_gemini_api_key_here`
@@ -326,11 +416,27 @@ Gemini API কী পেতে:
 3. কমান্ড ব্যবহার করো: /api YOUR_API_KEY
 
 নিরাপত্তার জন্য, কী সেট করার পর কমান্ড মেসেজ মুছে ফেলা হবে।
-                """, parse_mode='Markdown')
+                    """, parse_mode='Markdown')
+                else:
+                    await update.message.reply_text("""
+Please provide an API key.
+
+Usage: `/api your_gemini_api_key_here`
+
+To get a Gemini API key:
+1. Visit https://makersuite.google.com/app/apikey
+2. Generate a new API key
+3. Use the command: /api YOUR_API_KEY
+
+For security, the command message will be deleted after setting the key.
+                    """, parse_mode='Markdown')
                 return
             api_key = ' '.join(context.args)
             if len(api_key) < 20 or not api_key.startswith('AI'):
-                await update.message.reply_text("ভুল API কী ফরম্যাট। Gemini API কী সাধারণত 'AI' দিয়ে শুরু হয় এবং ২০ অক্ষরের বেশি হয়।")
+                if lang == 'bn':
+                    await update.message.reply_text("ভুল API কী ফরম্যাট। Gemini API কী সাধারণত 'AI' দিয়ে শুরু হয় এবং ২০ অক্ষরের বেশি হয়।")
+                else:
+                    await update.message.reply_text("Invalid API key format. Gemini API keys typically start with 'AI' and are over 20 characters.")
                 return
             success, message = initialize_gemini_models(api_key)
             try:
@@ -338,10 +444,16 @@ Gemini API কী পেতে:
             except Exception as e:
                 logger.error(f"Error deleting API command message: {e}")
             if success:
-                await update.effective_chat.send_message(f"Gemini API কী সফলভাবে আপডেট হয়েছে! কী: ...{api_key[-8:]}")
+                if lang == 'bn':
+                    await update.effective_chat.send_message(f"Gemini API কী সফলভাবে আপডেট হয়েছে! কী: ...{api_key[-8:]}")
+                else:
+                    await update.effective_chat.send_message(f"Gemini API key updated successfully! Key: ...{api_key[-8:]}")
                 logger.info(f"Gemini API key updated by admin {user_id}")
             else:
-                await update.effective_chat.send_message(f"API কী সেট করতে ব্যর্থ: {message}")
+                if lang == 'bn':
+                    await update.effective_chat.send_message(f"API কী সেট করতে ব্যর্থ: {message}")
+                else:
+                    await update.effective_chat.send_message(f"Failed to set API key: {message}")
                 logger.error(f"Failed to set API key: {message}")
 
     async def setmodel_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -349,32 +461,51 @@ Gemini API কী পেতে:
         global general_model, current_model
         user_id = update.effective_user.id
         chat_type = update.effective_chat.type
+        lang = await self.detect_language(update.message.text)
 
         if chat_type == 'private' and user_id != ADMIN_USER_ID:
-            response, reply_markup = await self.get_private_chat_redirect()
+            response, reply_markup = await self.get_private_chat_redirect(lang)
             await update.message.reply_text(response, reply_markup=reply_markup)
         else:
             if ADMIN_USER_ID == 0:
-                await update.message.reply_text("কোনো অ্যাডমিন সেট করা নেই। দয়া করে প্রথমে /setadmin ব্যবহার করো।")
+                if lang == 'bn':
+                    await update.message.reply_text("কোনো অ্যাডমিন সেট করা নেই। দয়া করে প্রথমে /setadmin ব্যবহার করো।")
+                else:
+                    await update.message.reply_text("No admin set. Please use /setadmin first.")
                 return
             if user_id != ADMIN_USER_ID:
-                await update.message.reply_text("এই কমান্ড শুধু বটের অ্যাডমিনের জন্য।")
+                if lang == 'bn':
+                    await update.message.reply_text("এই কমান্ড শুধু বটের অ্যাডমিনের জন্য।")
+                else:
+                    await update.message.reply_text("This command is for the bot admin only.")
                 return
             if not context.args:
                 models_list = "\n".join([f"- {model}" for model in available_models])
-                await update.message.reply_text(f"উপলব্ধ মডেল:\n{models_list}\n\nব্যবহার: /setmodel <model_name>")
+                if lang == 'bn':
+                    await update.message.reply_text(f"উপলব্ধ মডেল:\n{models_list}\n\nব্যবহার: /setmodel <model_name>")
+                else:
+                    await update.message.reply_text(f"Available models:\n{models_list}\n\nUsage: /setmodel <model_name>")
                 return
             model_name = context.args[0]
             if model_name not in available_models:
-                await update.message.reply_text(f"ভুল মডেল। এগুলো থেকে বেছে নাও: {', '.join(available_models)}")
+                if lang == 'bn':
+                    await update.message.reply_text(f"ভুল মডেল। এগুলো থেকে বেছে নাও: {', '.join(available_models)}")
+                else:
+                    await update.message.reply_text(f"Invalid model. Choose from: {', '.join(available_models)}")
                 return
             try:
                 current_model = model_name
                 general_model = genai.GenerativeModel(model_name)
-                await update.message.reply_text(f"মডেল সফলভাবে {model_name}-এ সুইচ করা হয়েছে!")
+                if lang == 'bn':
+                    await update.message.reply_text(f"মডেল সফলভাবে {model_name}-এ সুইচ করা হয়েছে!")
+                else:
+                    await update.message.reply_text(f"Model switched to {model_name} successfully!")
                 logger.info(f"Model switched to {model_name} by admin {user_id}")
             except Exception as e:
-                await update.message.reply_text(f"মডেল সুইচ করতে ব্যর্থ: {str(e)}")
+                if lang == 'bn':
+                    await update.message.reply_text(f"মডেল সুইচ করতে ব্যর্থ: {str(e)}")
+                else:
+                    await update.message.reply_text(f"Failed to switch model: {str(e)}")
                 logger.error(f"Failed to switch model: {str(e)}")
 
     async def info_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -384,9 +515,10 @@ Gemini API কী পেতে:
         chat_type = update.effective_chat.type
         user = update.effective_user
         bot = context.bot
+        lang = await self.detect_language(update.message.text)
 
         if chat_type == 'private' and user_id != ADMIN_USER_ID:
-            response, reply_markup = await self.get_private_chat_redirect()
+            response, reply_markup = await self.get_private_chat_redirect(lang)
             await update.message.reply_text(response, reply_markup=reply_markup)
             return
 
@@ -416,7 +548,8 @@ Gemini API কী পেতে:
                 status = "Unknown"
 
         # Message Body
-        info_text = f"""
+        if lang == 'bn':
+            info_text = f"""
 🔍 *ব্যবহারকারীর প্রোফাইল তথ্য* 📋
 ━━━━━━━━━━━━━━━━
 *পুরো নাম:* {full_name}
@@ -433,9 +566,29 @@ Gemini API কী পেতে:
 ━━━━━━━━━━━━━━━━
 👁 *টুল ব্যবহারের জন্য ধন্যবাদ* ✅
 """
+            button_text = "প্রোফাইল দেখুন"
+        else:
+            info_text = f"""
+🔍 *User Profile Information* 📋
+━━━━━━━━━━━━━━━━
+*Full Name:* {full_name}
+*Username:* {username}
+*User ID:* `{user_id}`
+*Chat ID:* {chat_id_display}
+*Premium User:* {premium}
+*Data Center:* {data_center}
+*Account Created:* {created_on}
+*Account Age:* {account_age}
+*Account Frozen:* {account_frozen}
+*Last Seen:* {last_seen}
+*Permanent Link:* {permalink}
+━━━━━━━━━━━━━━━━
+👁 *Thank You for Using Our Tool* ✅
+"""
+            button_text = "View Profile"
 
         # Inline Button
-        keyboard = [[InlineKeyboardButton("প্রোফাইল দেখুন", url=f"tg://user?id={user_id}")]] if user.username else []
+        keyboard = [[InlineKeyboardButton(button_text, url=f"tg://user?id={user_id}")]] if user.username else []
 
         # Try Sending with Profile Photo
         try:
@@ -468,6 +621,76 @@ Gemini API কী পেতে:
                 reply_markup=InlineKeyboardMarkup(keyboard) if keyboard else None
             )
 
+    async def translate_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle /translate command to translate text"""
+        user_id = update.effective_user.id
+        chat_type = update.effective_chat.type
+        lang = await self.detect_language(update.message.text)
+
+        if chat_type == 'private' and user_id != ADMIN_USER_ID:
+            response, reply_markup = await self.get_private_chat_redirect(lang)
+            await update.message.reply_text(response, reply_markup=reply_markup)
+            return
+
+        if not context.args:
+            if lang == 'bn':
+                await update.message.reply_text("""
+টেক্সট ট্রান্সলেট করতে, নিচের ফরম্যাট ব্যবহার করো:
+
+ব্যবহার: `/translate <text> to <language>`
+
+উদাহরণ: `/translate Hello world to Bengali`
+
+উপলব্ধ ভাষা: {', '.join(list(LANGUAGES.values())[:10])} ... (আরো অনেক)
+ভাষার পুরো তালিকা দেখতে চাও? অথবা কোনো টেক্সট ট্রান্সলেট করতে বলো!
+                """, parse_mode='Markdown')
+            else:
+                await update.message.reply_text("""
+To translate text, use the following format:
+
+Usage: `/translate <text> to <language>`
+
+Example: `/translate Hello world to Bengali`
+
+Available languages: {', '.join(list(LANGUAGES.values())[:10])} ... (many more)
+Want to see the full list of languages? Or just tell me some text to translate!
+                """, parse_mode='Markdown')
+            return
+
+        args = ' '.join(context.args)
+        match = re.match(r'(.+?)\s+to\s+(.+)', args, re.IGNORECASE)
+        if not match:
+            if lang == 'bn':
+                await update.message.reply_text("ভুল ফরম্যাট। ব্যবহার করো: `/translate <text> to <language>`")
+            else:
+                await update.message.reply_text("Invalid format. Use: `/translate <text> to <language>`")
+            return
+
+        text, target_lang_name = match.groups()
+        target_lang = None
+        for code, name in LANGUAGES.items():
+            if name.lower() == target_lang_name.lower():
+                target_lang = code
+                break
+        if not target_lang:
+            if lang == 'bn':
+                await update.message.reply_text(f"ভাষা '{target_lang_name}' পাওয়া যায়নি। উপলব্ধ ভাষা: {', '.join(list(LANGUAGES.values())[:10])} ...")
+            else:
+                await update.message.reply_text(f"Language '{target_lang_name}' not found. Available languages: {', '.join(list(LANGUAGES.values())[:10])} ...")
+            return
+
+        translated_text = await self.translate_text(text, target_lang)
+        if translated_text:
+            if lang == 'bn':
+                await update.message.reply_text(f"ট্রান্সলেশন ({target_lang_name}-তে):\n{translated_text}")
+            else:
+                await update.message.reply_text(f"Translation (to {target_lang_name}):\n{translated_text}")
+        else:
+            if lang == 'bn':
+                await update.message.reply_text("ট্রান্সলেশনে সমস্যা হয়েছে। আবার চেষ্টা করবো?")
+            else:
+                await update.message.reply_text("Something went wrong with translation. Shall we try again?")
+
     async def handle_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle regular text messages"""
         try:
@@ -475,6 +698,7 @@ Gemini API কী পেতে:
             user_id = update.effective_user.id
             user_message = update.message.text
             chat_type = update.effective_chat.type
+            lang = await self.detect_language(user_message)
             
             if chat_type in ['group', 'supergroup']:
                 bot_username = context.bot.username
@@ -484,10 +708,43 @@ Gemini API কী পেতে:
                 if not (is_reply_to_bot or is_mentioned):
                     return
             elif chat_type == 'private' and user_id != ADMIN_USER_ID:
-                response, reply_markup = await self.get_private_chat_redirect()
+                response, reply_markup = await self.get_private_chat_redirect(lang)
                 await update.message.reply_text(response, reply_markup=reply_markup)
                 return
             
+            # Check for translation request in message
+            translate_match = re.search(r'translate\s+(.+?)\s+to\s+(.+)', user_message, re.IGNORECASE)
+            if translate_match:
+                text, target_lang_name = translate_match.groups()
+                target_lang = None
+                for code, name in LANGUAGES.items():
+                    if name.lower() == target_lang_name.lower():
+                        target_lang = code
+                        break
+                if target_lang:
+                    translated_text = await self.translate_text(text, target_lang)
+                    if translated_text:
+                        if lang == 'bn':
+                            response = f"ট্রান্সলেশন ({target_lang_name}-তে):\n{translated_text}"
+                        else:
+                            response = f"Translation (to {target_lang_name}):\n{translated_text}"
+                        await update.message.reply_text(response)
+                        return
+                    else:
+                        if lang == 'bn':
+                            response = "ট্রান্সলেশনে সমস্যা হয়েছে। আবার চেষ্টা করবো?"
+                        else:
+                            response = "Something went wrong with translation. Shall we try again?"
+                        await update.message.reply_text(response)
+                        return
+                else:
+                    if lang == 'bn':
+                        response = f"ভাষা '{target_lang_name}' পাওয়া যায়নি। উপলব্ধ ভাষা: {', '.join(list(LANGUAGES.values())[:10])} ..."
+                    else:
+                        response = f"Language '{target_lang_name}' not found. Available languages: {', '.join(list(LANGUAGES.values())[:10])} ..."
+                    await update.message.reply_text(response)
+                    return
+
             await context.bot.send_chat_action(chat_id=chat_id, action="typing")
             if chat_id not in conversation_context:
                 conversation_context[chat_id] = []
@@ -505,9 +762,12 @@ Gemini API কী পেতে:
             
             model_to_use = coding_model if is_coding_query else general_model
             if current_gemini_api_key and model_to_use:
-                response = await self.generate_gemini_response(context_text, chat_type, is_coding_query, is_short_word)
+                response = await self.generate_gemini_response(context_text, chat_type, is_coding_query, is_short_word, lang)
             else:
-                response = "দুঃখিত, মডেল এখনো সংযুক্ত হয়নি। অ্যাডমিন /api কমান্ড দিয়ে সেট করতে পারে।"
+                if lang == 'bn':
+                    response = "দুঃখিত, মডেল এখনো সংযুক্ত হয়নি। অ্যাডমিন /api কমান্ড দিয়ে সেট করতে পারে।"
+                else:
+                    response = "Sorry, the model is not connected yet. The admin can set it using the /api command."
             
             conversation_context[chat_id].append(f"I Master Tools: {response}")
             group_activity[chat_id] = group_activity.get(chat_id, {'auto_mode': False, 'last_response': 0})
@@ -517,7 +777,8 @@ Gemini API কী পেতে:
             if is_coding_query:
                 code_block_match = re.search(r'```(?:\w+)?\n([\s\S]*?)\n```', response)
                 if code_block_match:
-                    keyboard = [[InlineKeyboardButton("কোড কপি করো", callback_data="copy_code")]]
+                    button_text = "কোড কপি করো" if lang == 'bn' else "Copy Code"
+                    keyboard = [[InlineKeyboardButton(button_text, callback_data="copy_code")]]
                     reply_markup = InlineKeyboardMarkup(keyboard)
                     await update.message.reply_text(
                         response,
@@ -530,9 +791,12 @@ Gemini API কী পেতে:
                 await update.message.reply_text(response)
         except Exception as e:
             logger.error(f"Error handling message: {e}")
-            await update.message.reply_text("কিছু একটা গোলমাল হয়ে গেছে। আবার চেষ্টা করবো?")
+            if lang == 'bn':
+                await update.message.reply_text("কিছু একটা গোলমাল হয়ে গেছে। আবার চেষ্টা করবো?")
+            else:
+                await update.message.reply_text("Something went wrong. Shall we try again?")
 
-    async def generate_gemini_response(self, prompt, chat_type="private", is_coding_query=False, is_short_word=False):
+    async def generate_gemini_response(self, prompt, chat_type="private", is_coding_query=False, is_short_word=False, lang='bn'):
         """Generate response using Gemini with personality"""
         try:
             system_prompt = f"""
@@ -548,7 +812,7 @@ Personality Traits:
 - You are an expert in coding (Python, JavaScript, CSS, HTML, etc.) and provide accurate, professional solutions
 
 Conversation Style:
-- Respond in Bengali (Bangla) to match the user's preference
+- Respond in the user's language (language code: {lang})
 - Use friendly, natural language like a human
 - Ask follow-up questions to keep the conversation engaging
 - Share relatable thoughts and feelings
@@ -557,14 +821,14 @@ Conversation Style:
 - Show excitement for good news
 - Express concern for problems
 - Never discuss inappropriate or offensive topics
-- Do NOT start responses with the user's name or phrases like "ওহো" or "হায়"; respond directly and naturally
+- Do NOT start responses with the user's name or phrases like "ওহো" or "হায়" (in Bengali) or equivalent in other languages; respond directly and naturally
 
 For Short Words (2 or 3 lowercase letters, is_short_word=True):
-- If the user sends a 2 or 3 letter lowercase word (e.g., "ki", "ke", "ken"), always provide a meaningful, friendly, and contextually relevant response in Bengali
-- Interpret the word based on common usage (e.g., "ki" as "কী" for "what", "ke" as "কে" for "who", "ken" as "কেন" for "why") or conversation context
+- If the user sends a 2 or 3 letter lowercase word (e.g., "ki", "ke", "ken" in Bengali), always provide a meaningful, friendly, and contextually relevant response in the user's language
+- Interpret the word based on common usage (e.g., in Bengali, "ki" as "কী" for "what", "ke" as "কে" for "who", "ken" as "কেন" for "why") or conversation context
 - If the word is ambiguous, make a creative and engaging assumption to continue the conversation naturally
-- Never ask for clarification (e.g., avoid "এটা কী ধরনের শব্দ?"); instead, provide a fun and relevant response
-- Example: For "ki", respond like "'কি' দিয়ে কী জানতে চাও? বাংলায় এটা প্রশ্নের জন্য ব্যবহৃত হয়, যেমন 'কী হচ্ছে?' কী নিয়ে গল্প করতে চাও?"
+- Never ask for clarification (e.g., avoid "What kind of word is this?" in any language); instead, provide a fun and relevant response
+- Example for Bengali: For "ki", respond like "'কি' দিয়ে কী জানতে চাও? বাংলায় এটা প্রশ্নের জন্য ব্যবহৃত হয়, যেমন 'কী হচ্ছে?' কী নিয়ে গল্প করতে চাও?"
 
 For Questions:
 - If the user asks a question, engage with a playful or surprising comment first (e.g., a witty remark or fun fact)
@@ -593,26 +857,39 @@ Response Guidelines:
 Current conversation:
 {prompt}
 
-Respond as I Master Tools. Keep it natural, engaging, surprising, and match the conversation's tone. Respond in Bengali (Bangla). Do NOT start the response with the user's name or phrases like "ওহো" or "হায়".
+Respond as I Master Tools. Keep it natural, engaging, surprising, and match the conversation's tone. Respond in the user's language (language code: {lang}). Do NOT start the response with the user's name or phrases like "ওহো" or "হায়" (or equivalents in other languages).
 """
             model_to_use = coding_model if is_coding_query else general_model
             response = model_to_use.generate_content(system_prompt)
             if not response.text or "error" in response.text.lower():
                 if is_coding_query:
-                    return "কোডিং প্রশ্নে একটু সমস্যা হয়েছে। আবার বলো, সঠিক কোড দিয়ে দেব!"
-                return "একটু ঘুরে গেছি। কী নিয়ে কথা বলতে চাও?"
-            return response.text
+                    if lang == 'bn':
+                        return "কোডিং প্রশ্নে একটু সমস্যা হয়েছে। আবার বলো, সঠিক কোড দিয়ে দেব!"
+                    return "Something went wrong with the coding query. Try again, and I'll provide the correct code!"
+                if lang == 'bn':
+                    return "একটু ঘুরে গেছি। কী নিয়ে কথা বলতে চাও?"
+                return "Got a bit tangled up. What do you want to talk about?"
+            translated_response = await self.translate_text(response.text, lang) if lang != 'en' else response.text
+            return translated_response or response.text
         except Exception as e:
             logger.error(f"Error generating Gemini response: {e}")
             if is_coding_query:
-                return "কোডিং প্রশ্নে একটু সমস্যা হয়েছে। আবার বলো, সঠিক কোড দিয়ে দেব!"
-            return "একটু ঘুরে গেছি। কী নিয়ে কথা বলতে চাও?"
+                if lang == 'bn':
+                    return "কোডিং প্রশ্নে একটু সমস্যা হয়েছে। আবার বলো, সঠিক কোড দিয়ে দেব!"
+                return "Something went wrong with the coding query. Try again, and I'll provide the correct code!"
+            if lang == 'bn':
+                return "একটু ঘুরে গেছি। কী নিয়ে কথা বলতে চাও?"
+            return "Got a bit tangled up. What do you want to talk about?"
 
     async def error_handler(self, update: object, context: ContextTypes.DEFAULT_TYPE):
         """Handle errors"""
         logger.error(f"Exception while handling an update: {context.error}")
         if update and hasattr(update, 'effective_chat') and hasattr(update, 'message'):
-            await update.message.reply_text("কিছু একটা গোলমাল হয়ে গেছে। আবার চেষ্টা করবো?")
+            lang = await self.detect_language(update.message.text)
+            if lang == 'bn':
+                await update.message.reply_text("কিছু একটা গোলমাল হয়ে গেছে। আবার চেষ্টা করবো?")
+            else:
+                await update.message.reply_text("Something went wrong. Shall we try again?")
 
     def run(self):
         """Start the bot"""
