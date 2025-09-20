@@ -130,8 +130,8 @@ Available commands:
 
 How I work:
 - In groups, mention @I MasterTools or reply to my messages to get a response
-- In private chats, all users are redirected to the group for conversations
-- For questions in the group, I engage with a fun or surprising comment before answering
+- In private chats, only the admin can chat with me; others are redirected to the group
+- For questions, I engage you with a fun or surprising comment before answering
 - I remember conversation context until you use /clear
 - I'm designed to be friendly, helpful, and human-like
 
@@ -316,15 +316,16 @@ For security, the command message will be deleted after setting the key.
                 if not (is_reply_to_bot or is_mentioned):
                     return
             else:  # Private chat
-                keyboard = [
-                    [InlineKeyboardButton("Join VPSHUB_BD_CHAT", url="https://t.me/VPSHUB_BD_CHAT")]
-                ]
-                reply_markup = InlineKeyboardMarkup(keyboard)
-                response = f"""
+                if user_id != ADMIN_USER_ID:  # Non-admin users
+                    keyboard = [
+                        [InlineKeyboardButton("Join VPSHUB_BD_CHAT", url="https://t.me/VPSHUB_BD_CHAT")]
+                    ]
+                    reply_markup = InlineKeyboardMarkup(keyboard)
+                    response = f"""
 হ্যালো {username}, আমার সাথে কথা বলতে চাওয়ার জন্য ধন্যবাদ! আমি I Master Tools, তোমার বন্ধুত্বপূর্ণ সঙ্গী। আমার সাথে মজার এবং সহায়ক কথোপকথনের জন্য, দয়া করে আমাদের অফিসিয়াল গ্রুপে যোগ দাও। নিচের বাটনে ক্লিক করে গ্রুপে যাও এবং আমাকে @I MasterTools মেনশন করে কথা শুরু করো। আমি সেখানে তোমার জন্য অপেক্ষা করছি!
-                """
-                await update.message.reply_text(response, reply_markup=reply_markup)
-                return
+                    """
+                    await update.message.reply_text(response, reply_markup=reply_markup)
+                    return
             
             await context.bot.send_chat_action(chat_id=chat_id, action="typing")
             if chat_id not in conversation_context:
@@ -344,7 +345,7 @@ For security, the command message will be deleted after setting the key.
             conversation_context[chat_id].append(f"I Master Tools: {response}")
             group_activity[chat_id] = group_activity.get(chat_id, {'auto_mode': False, 'last_response': 0})
             group_activity[chat_id]['last_response'] = datetime.now().timestamp()
-            await update.message.reply_text(response)
+            await update.message reply_text(response)
         except Exception as e:
             logger.error(f"Error handling message: {e}")
             username = update.effective_user.first_name or "User"
