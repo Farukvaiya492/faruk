@@ -85,7 +85,7 @@ class TelegramGeminiBot:
         welcome_message = f"""
 Hello {username}, welcome to I Master Tools, your friendly companion!
 
-To chat with me, please join our official Telegram group. Click the button below to join and start engaging in fun conversations!
+To chat with me, you must be the admin. If you are the admin, use @I MasterTools in our official Telegram group. Click the button below to join!
 
 Available commands:
 - /help: Get help and usage information
@@ -97,7 +97,7 @@ Available commands:
 - /checkmail: Check temporary email inbox
 - /setmodel: Choose a different model (admin only)
 
-In groups, mention @I MasterTools or reply to my messages to get a response. I'm excited to chat with you!
+In groups, mention @I MasterTools or reply to my messages to get a response (admin only). I'm excited to chat with the admin!
         """
         await update.message.reply_text(welcome_message, reply_markup=reply_markup)
 
@@ -108,14 +108,14 @@ In groups, mention @I MasterTools or reply to my messages to get a response. I'm
             user_id = new_member.id
             user_mention = f"@{new_member.username}" if new_member.username else username
             welcome_message = f"""
-স্বাগতম {user_mention}! আমাদের VPSHUB_BD_CHAT গ্রুপে তোমাকে পেয়ে আমরা খুবই উৎসাহিত! আমি I Master Tools, তোমার বন্ধুত্বপূর্ণ সঙ্গী। এখানে তুমি মজার কথোপকথন, সহায়ক উত্তর, এবং আরো অনেক কিছু পাবে। আমাকে @I MasterTools মেনশন করে বা রিপ্লাই করে কথা শুরু করো। তুমি কী নিয়ে কথা বলতে চাও?
+স্বাগতম {user_mention}! আমাদের VPSHUB_BD_CHAT গ্রুপে তোমাকে পেয়ে আমরা খুবই উৎসাহিত! আমি I Master Tools, তোমার বন্ধুত্বপূর্ণ সঙ্গী। দুঃখিত, আমি শুধুমাত্র অ্যাডমিনের সাথে কথা বলতে পারি। তবে এখানে থাকো, মজার কথোপকথন আর সহায়ক তথ্য পাবে গ্রুপে!
             """
-            await update.message.reply_text(welcome_message)
+        await update.message.reply_text(welcome_message)
 
     async def help_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /help command"""
         help_message = """
-Hello! I'm I Master Tools, your friendly companion designed to make conversations fun and engaging.
+Hello! I'm I Master Tools, your friendly companion designed to make conversations fun and engaging, but only for the admin.
 
 Available commands:
 - /start: Show welcome message with group link
@@ -129,15 +129,16 @@ Available commands:
 - /setmodel: Choose a different model (admin only)
 
 How I work:
-- In groups, mention @I MasterTools or reply to my messages to get a response
-- In private chats, I redirect you to the group
-- For questions, I engage you with a fun or surprising comment before answering
+- I only respond to the admin (set via /setadmin)
+- In groups, the admin must mention @I MasterTools or reply to my messages
+- In private chats, only the admin can chat with me
+- For questions, I engage with a fun or surprising comment before answering
 - I remember conversation context until you use /clear
 - I'm designed to be friendly, helpful, and human-like
 
 My personality:
-- I'm a friendly companion who loves chatting and making friends
-- I adapt to your mood and conversation needs
+- I'm a friendly companion who loves chatting and making friends (with the admin)
+- I adapt to the admin's mood and conversation needs
 - I use natural, engaging language to feel like a real person
 - I enjoy roleplay and creative conversations
 
@@ -206,12 +207,12 @@ Bot Status: Online and ready
 Model: {current_model}
 API Status: {api_status}
 API Key: {api_key_display}
-Group Responses: Mention or reply only
+Group Responses: Admin only (mention or reply)
 Current Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
 Active Conversations: {len(conversation_context)}
 Admin ID: {ADMIN_USER_ID if ADMIN_USER_ID != 0 else 'Not set'}
 
-All systems are ready for action. I'm thrilled to assist you!
+All systems are ready for action. I'm thrilled to assist the admin!
         """
         await update.message.reply_text(status_message)
 
@@ -299,19 +300,29 @@ For security, the command message will be deleted after setting the key.
             await update.message.reply_text(f"Failed to switch model: {str(e)}")
             logger.error(f"Failed to switch model: {str(e)}")
 
-    def should_respond_to_message(self, message_text, chat_type):
-        """Determine if bot should respond to a message"""
-        if chat_type == 'private':
-            return True
-        return False  # In group chats, only respond to mentions or replies
-
     async def handle_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle regular text messages"""
         try:
             chat_id = update.effective_chat.id
+            user_id = update.effective_user.id
             user_message = update.message.text
             chat_type = update.effective_chat.type
             username = update.effective_user.first_name or "User"
+            
+            # Admin check: Only respond to admin
+            if user_id != ADMIN_USER_ID:
+                if chat_type == 'private':
+                    keyboard = [
+                        [InlineKeyboardButton("Join VPSHUB_BD_CHAT", url="https://t.me/VPSHUB_BD_CHAT")]
+                    ]
+                    reply_markup = InlineKeyboardMarkup(keyboard)
+                    response = f"""
+হ্যালো {username}, আমার সাথে কথা বলতে চাওয়ার জন্য ধন্যবাদ! আমি I Master Tools, তোমার বন্ধুত্বপূর্ণ সঙ্গী। দুঃখিত, আমি শুধুমাত্র অ্যাডমিনের সাথে কথা বলতে পারি। তবে আমাদের অফিসিয়াল গ্রুপে যোগ দাও, সেখানে আমি নতুন সদস্যদের স্বাগত জানাই! নিচের বাটনে ক্লিক করে গ্রুপে যাও।
+                    """
+                    await update.message.reply_text(response, reply_markup=reply_markup)
+                return
+
+            # Group mention/reply check for admin
             if chat_type in ['group', 'supergroup']:
                 bot_username = context.bot.username
                 is_reply_to_bot = (update.message.reply_to_message and 
@@ -319,16 +330,7 @@ For security, the command message will be deleted after setting the key.
                 is_mentioned = f"@{bot_username}" in user_message
                 if not (is_reply_to_bot or is_mentioned):
                     return
-            else:  # Private chat
-                keyboard = [
-                    [InlineKeyboardButton("Join VPSHUB_BD_CHAT", url="https://t.me/VPSHUB_BD_CHAT")]
-                ]
-                reply_markup = InlineKeyboardMarkup(keyboard)
-                response = f"""
-হ্যালো {username}, আমার সাথে কথা বলতে চাওয়ার জন্য ধন্যবাদ! আমি I Master Tools, তোমার বন্ধুত্বপূর্ণ সঙ্গী। আমার সাথে মজার এবং সহায়ক কথোপকথনের জন্য, দয়া করে আমাদের অফিসিয়াল গ্রুপে যোগ দাও। নিচের বাটনে ক্লিক করে গ্রুপে যাও এবং আমাকে @I MasterTools মেনশন করে কথা শুরু করো। আমি সেখানে তোমার জন্য অপেক্ষা করছি!
-                """
-                await update.message.reply_text(response, reply_markup=reply_markup)
-                return
+
             await context.bot.send_chat_action(chat_id=chat_id, action="typing")
             if chat_id not in conversation_context:
                 conversation_context[chat_id] = []
