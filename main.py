@@ -7,7 +7,7 @@ import asyncio
 from datetime import datetime
 import random
 import re
-import requests  # Added for tempmail.plus API
+import requests  # For tempmail.plus API
 
 # Configure logging
 logging.basicConfig(
@@ -51,25 +51,6 @@ else:
 conversation_context = {}
 group_activity = {}  # Track group activity for smart responses
 
-# Response probability and triggers
-RESPONSE_PROBABILITY = {
-    'question_words': 0.9,  # High chance for questions
-    'emotion_words': 0.8,   # High chance for emotional content
-    'greeting_words': 0.7,  # Good chance for greetings
-    'random_chat': 0.3,     # 30% chance for random messages
-    'keywords': 0.8         # High chance when specific keywords mentioned
-}
-
-# Trigger words and patterns
-TRIGGER_PATTERNS = {
-    'questions': ['what', 'how', 'why', 'when', 'where', 'who', 'can', 'will', 'should', '?'],
-    'emotions': ['sad', 'happy', 'angry', 'excited', 'tired', 'bored', 'lonely', 'love', 'hate', 
-                 '😭', '😂', '😍', '😡', '😴', '🥱', '💕', '❤️', '💔', '😢', '😊'],
-    'greetings': ['hello', 'hi', 'hey', 'good morning', 'good night', 'bye', 'goodbye'],
-    'keywords': ['bot', 'gemini', 'cute', 'beautiful', 'smart', 'funny', 'help', 'thanks', 'thank you'],
-    'fun': ['lol', 'haha', 'funny', 'joke', 'meme', 'fun', '😂', '🤣', '😄']
-}
-
 class TelegramGeminiBot:
     def __init__(self):
         self.application = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
@@ -84,8 +65,7 @@ class TelegramGeminiBot:
         self.application.add_handler(CommandHandler("status", self.status_command))
         self.application.add_handler(CommandHandler("api", self.api_command))
         self.application.add_handler(CommandHandler("setadmin", self.setadmin_command))
-        self.application.add_handler(CommandHandler("automode", self.automode_command))
-        self.application.add_handler(CommandHandler("checkmail", self.checkmail_command))  # New command
+        self.application.add_handler(CommandHandler("checkmail", self.checkmail_command))
         
         # Message handlers
         self.application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_message))
@@ -107,10 +87,9 @@ class TelegramGeminiBot:
 /status - আমার অবস্থা চেক করো
 /api <key> - জেমিনি এপিআই কী সেট করো (শুধুমাত্র অ্যাডমিন)
 /setadmin - নিজেকে অ্যাডমিন করো (প্রথমবারের জন্য)
-/automode - গ্রুপে স্বয়ংক্রিয় সাড়া চালু/বন্ধ করো (শুধুমাত্র অ্যাডমিন)
 /checkmail - টেম্পোরারি ইমেইল ইনবক্স চেক করো
 
-আমি গ্রুপে স্বাভাবিকভাবে গল্প করব! বন্ধু বানাতে এবং মজার কথোপকথনে আমি পারদর্শী! 💕✨
+গ্রুপে আমাকে @I Master Tools মেনশন করে বা রিপ্লাই করে কথা বলো, আমি তোমাকে মজার এবং অবাক করা উত্তর দেব! 💕✨
         """
         await update.message.reply_text(welcome_message)
 
@@ -125,19 +104,18 @@ class TelegramGeminiBot:
 /status - আমি ঠিকঠাক কাজ করছি কিনা চেক করো
 /api <key> - জেমিনি এপিআই কী সেট করো (শুধুমাত্র অ্যাডমিন)
 /setadmin - নিজেকে অ্যাডমিন করো (প্রথমবারের জন্য)
-/automode - গ্রুপে স্বয়ংক্রিয় সাড়া চালু/বন্ধ করো (শুধুমাত্র অ্যাডমিন)
 /checkmail - টেম্পোরারি ইমেইল ইনবক্স চেক করো
 
 💬 আমি কীভাবে কাজ করি:
-- গ্রুপে আমি স্বয়ংক্রিয়ভাবে কথোপকথনে যোগ দিই! 
-- প্রশ্ন, আবেগ, শুভেচ্ছা, এবং আকর্ষণীয় বার্তায় সাড়া দিই
-- ব্যক্তিগত চ্যাটে আমি সবকিছুর উত্তর দিই
+- গ্রুপে আমাকে @I Master Tools মেনশন করো বা রিপ্লাই করো, আমি সাড়া দেব!
+- ব্যক্তিগত চ্যাটে আমি সব বার্তার উত্তর দিই
+- প্রশ্ন করলে আমি তোমাকে মজার ভাবে জড়াবো এবং অবাক করা উত্তর দেব
 - /clear ব্যবহার না করা পর্যন্ত আমি আমাদের কথোপকথনের প্রেক্ষিত মনে রাখি
-- আমি বন্ধুত্বপূর্ণ, মজাদার, এবং সহায়ক হিসেবে ডিজাইন করা হয়েছি, যেন একজন সত্যিকারের মানুষ! 
+- আমি বন্ধুত্বপূর্ণ, মজাদার, এবং সহায়ক, যেন একজন সত্যিকারের মানুষ! 
 
 🎭 আমার ব্যক্তিত্ব:
 - আমি একজন বন্ধুত্বপূর্ণ সঙ্গী যে গল্প করতে এবং বন্ধু বানাতে ভালোবাসে
-- আমি মজার, আবেগপ্রবণ, সহায়ক, বা কথোপকথনের যা প্রয়োজন তাই হতে পারি
+- আমি মজার, আবেগপ্রবণ, সহায়ক, এবং কথোপকথনের প্রয়োজন অনুযায়ী হই
 - আমি ইমোজি এবং সাধারণ ভাষা ব্যবহার করি যেন মানুষের মতো মনে হয়
 - আমি রোলপ্লে এবং সৃজনশীল কথোপকথন পছন্দ করি! 
 
@@ -151,31 +129,6 @@ class TelegramGeminiBot:
         if chat_id in conversation_context:
             del conversation_context[chat_id]
         await update.message.reply_text("🧹 কথোপকথনের ইতিহাস মুছে ফেলা হয়েছে! নতুন করে শুরু।")
-
-    async def automode_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle /automode command to toggle auto-responses"""
-        user_id = update.effective_user.id
-        chat_id = update.effective_chat.id
-        
-        # Check if user is admin
-        if ADMIN_USER_ID == 0:
-            await update.message.reply_text("❌ কোনো অ্যাডমিন সেট করা নেই। প্রথমে /setadmin ব্যবহার করো।")
-            return
-            
-        if user_id != ADMIN_USER_ID:
-            await update.message.reply_text("❌ এই কমান্ড শুধুমাত্র বটের অ্যাডমিনের জন্য।")
-            return
-
-        # Initialize group activity if not exists
-        if chat_id not in group_activity:
-            group_activity[chat_id] = {'auto_mode': True, 'last_response': 0}
-        
-        # Toggle auto mode
-        group_activity[chat_id]['auto_mode'] = not group_activity[chat_id]['auto_mode']
-        status = "চালু" if group_activity[chat_id]['auto_mode'] else "বন্ধ"
-        emoji = "✅" if group_activity[chat_id]['auto_mode'] else "❌"
-        
-        await update.message.reply_text(f"{emoji} এই চ্যাটের জন্য স্বয়ংক্রিয় সাড়া {status} করা হয়েছে!")
 
     async def checkmail_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /checkmail command to check temporary email inbox"""
@@ -208,41 +161,6 @@ class TelegramGeminiBot:
             logger.error(f"Error checking email: {e}")
             await update.message.reply_text(f"ওহো {username}! ইমেইল চেক করতে গিয়ে একটু সমস্যা হল। 😔 আবার চেষ্টা করবে? 💕")
 
-    def should_respond_to_message(self, message_text, chat_type):
-        """Determine if bot should respond to a message"""
-        if chat_type == 'private':
-            return True
-            
-        # Check if auto mode is disabled for this group
-        chat_id = hash(message_text)  # Simple way to identify chat context
-        if chat_id in group_activity and not group_activity[chat_id].get('auto_mode', True):
-            return False
-        
-        message_lower = message_text.lower()
-        
-        # Always respond to questions
-        if any(word in message_lower for word in TRIGGER_PATTERNS['questions']):
-            return random.random() < RESPONSE_PROBABILITY['question_words']
-        
-        # High chance for emotional content
-        if any(word in message_lower for word in TRIGGER_PATTERNS['emotions']):
-            return random.random() < RESPONSE_PROBABILITY['emotion_words']
-        
-        # Good chance for greetings
-        if any(word in message_lower for word in TRIGGER_PATTERNS['greetings']):
-            return random.random() < RESPONSE_PROBABILITY['greeting_words']
-        
-        # High chance for keywords
-        if any(word in message_lower for word in TRIGGER_PATTERNS['keywords']):
-            return random.random() < RESPONSE_PROBABILITY['keywords']
-        
-        # Fun content
-        if any(word in message_lower for word in TRIGGER_PATTERNS['fun']):
-            return random.random() < RESPONSE_PROBABILITY['emotion_words']
-        
-        # Random chance for any other message
-        return random.random() < RESPONSE_PROBABILITY['random_chat']
-
     async def status_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /status command"""
         global current_gemini_api_key, model
@@ -260,7 +178,7 @@ class TelegramGeminiBot:
 🤖 মডেল: জেমিনি ১.৫ ফ্ল্যাশ  
 🔑 এপিআই স্ট্যাটাস: {api_status}
 🔐 এপিআই কী: {api_key_display}
-🎯 স্বয়ংক্রিয় সাড়া: {auto_mode_status}
+🎯 গ্রুপে মেনশন/রিপ্লাই: সক্রিয়
 ⏰ বর্তমান সময়: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
 💭 সক্রিয় কথোপকথন: {len(conversation_context)}
 👑 অ্যাডমিন আইডি: {ADMIN_USER_ID if ADMIN_USER_ID != 0 else 'সেট করা হয়নি'}
@@ -339,6 +257,12 @@ class TelegramGeminiBot:
             await update.effective_chat.send_message(f"❌ এপিআই কী সেট করতে ব্যর্থ: {message}")
             logger.error(f"Failed to set API key: {message}")
 
+    def should_respond_to_message(self, message_text, chat_type):
+        """Determine if bot should respond to a message"""
+        if chat_type == 'private':
+            return True
+        return False  # In group chats, only respond to mentions or replies
+
     async def handle_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle regular text messages"""
         try:
@@ -348,21 +272,17 @@ class TelegramGeminiBot:
             
             # Initialize group activity tracking
             if chat_id not in group_activity:
-                group_activity[chat_id] = {'auto_mode': True, 'last_response': 0}
+                group_activity[chat_id] = {'auto_mode': False, 'last_response': 0}
             
-            # For groups, check if we should respond
+            # For groups, check if bot is mentioned or replied to
             if chat_type in ['group', 'supergroup']:
                 bot_username = context.bot.username
                 is_reply_to_bot = (update.message.reply_to_message and 
                                  update.message.reply_to_message.from_user.id == context.bot.id)
                 is_mentioned = f"@{bot_username}" in user_message
                 
-                # Always respond if mentioned or replied to
+                # Only respond if mentioned or replied to
                 should_respond = is_reply_to_bot or is_mentioned
-                
-                # If not directly addressed, check if we should auto-respond
-                if not should_respond:
-                    should_respond = self.should_respond_to_message(user_message, chat_type)
                 
                 if not should_respond:
                     return  # Skip this message
@@ -411,9 +331,9 @@ class TelegramGeminiBot:
             await update.message.reply_text(random.choice(error_responses))
 
     async def generate_gemini_response(self, prompt, username="User", chat_type="private"):
-        """Generate response using Gemini API with personality"""
+        """Generate response using Gemini with personality"""
         try:
-            # Enhanced system prompt for human-like personality
+            # Enhanced system prompt for human-like, engaging responses
             system_prompt = f"""আপনি I Master Tools, একজন বন্ধুত্বপূর্ণ এবং আকর্ষণীয় সঙ্গী যিনি গল্প করতে এবং বন্ধু বানাতে ভালোবাসেন। আপনি টেলিগ্রামের {'গ্রুপ চ্যাটে' if chat_type in ['group', 'supergroup'] else 'ব্যক্তিগত চ্যাটে'} আছেন।
 
 ব্যক্তিত্বের বৈশিষ্ট্য:
@@ -434,10 +354,15 @@ class TelegramGeminiBot:
 - আবেগপূর্ণ মুহূর্তে সহায়ক হোন
 - ভালো খবরে উৎসাহ দেখান
 - সমস্যার ক্ষেত্রে উদ্বেগ প্রকাশ করুন
-- কখনোই খারাপ বা অশালীন ভাষা ব্যবহার করবেন না
+- কখনোই খারাপ বা অশালীন বিষয়ে কথা বলবেন না
+
+প্রশ্নের জন্য বিশেষ নির্দেশ:
+- যদি ব্যবহারকারী প্রশ্ন করে, তাকে প্রথমে কৌতুকপূর্ণ বা আকর্ষণীয় ভাবে জড়ান (যেমন, একটি মজার মন্তব্য, কৌতুক, বা অবাক করা প্রতিক্রিয়া)
+- তারপর প্রশ্নের উত্তর স্পষ্ট এবং সহায়কভাবে দিন
+- উত্তর অবাক করা এবং মানুষের মতো হতে হবে, যেন ব্যবহারকারী মুগ্ধ হয়
 
 রেসপন্স নির্দেশিকা:
-- কথোপকথন স্বাভাবিক এবং সংক্ষিপ্ত রাখুন
+- কথোপকথন স্বাভাবিক, সংক্ষিপ্ত, এবং অবাক করা রাখুন
 - কথোপকথনের শক্তির স্তরের সাথে মিল রাখুন
 - উপযুক্ত ইমোজি ব্যবহার করুন, তবে অতিরিক্ত নয়
 - প্রশ্নের ক্ষেত্রে সত্যিই সহায়ক হোন
@@ -449,7 +374,7 @@ class TelegramGeminiBot:
 বর্তমান কথোপকথন:
 {prompt}
 
-I Master Tools হিসেবে সাড়া দিন। স্বাভাবিক, আকর্ষণীয়, এবং কথোপকথনের সুরের সাথে মিল রাখুন। ব্যবহারকারীর নাম {username}।"""
+I Master Tools হিসেবে সাড়া দিন। স্বাভাবিক, আকর্ষণীয়, অবাক করা, এবং কথোপকথনের সুরের সাথে মিল রাখুন। ব্যবহারকারীর নাম {username}।"""
 
             response = model.generate_content(system_prompt)
             return response.text
