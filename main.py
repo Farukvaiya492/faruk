@@ -439,14 +439,20 @@ For security, the command message will be deleted after setting the key.
             if len(conversation_context[chat_id]) > 20:
                 conversation_context[chat_id] = conversation_context[chat_id][-20:]
             context_text = "\n".join(conversation_context[chat_id])
+            
+            # Check if the message is a 2 or 3 letter lowercase word
+            is_short_word = re.match(r'^[a-z]{2,3}$', user_message.strip().lower())
+            
             # Detect if message is coding-related
             coding_keywords = ['code', 'python', 'javascript', 'java', 'c++', 'programming', 'script', 'debug']
             is_coding_query = any(keyword in user_message.lower() for keyword in coding_keywords)
+            
             model_to_use = coding_model if is_coding_query else general_model
             if current_gemini_api_key and model_to_use:
-                response = await self.generate_gemini_response(context_text, username, chat_type, is_coding_query)
+                response = await self.generate_gemini_response(context_text, username, chat_type, is_coding_query, is_short_word)
             else:
                 response = f"দুঃখিত {username}, আমার মডেল এখনো সংযুক্ত হয়নি। অ্যাডমিন /api কমান্ড দিয়ে সেট করতে পারে।"
+            
             conversation_context[chat_id].append(f"I Master Tools: {response}")
             group_activity[chat_id] = group_activity.get(chat_id, {'auto_mode': False, 'last_response': 0})
             group_activity[chat_id]['last_response'] = datetime.now().timestamp()
@@ -462,7 +468,7 @@ For security, the command message will be deleted after setting the key.
             ]
             await update.message.reply_text(random.choice(error_responses))
 
-    async def generate_gemini_response(self, prompt, username="User", chat_type="private", is_coding_query=False):
+    async def generate_gemini_response(self, prompt, username="User", chat_type="private", is_coding_query=False, is_short_word=False):
         """Generate response using Gemini with personality"""
         try:
             system_prompt = f"""
@@ -486,6 +492,11 @@ Conversation Style:
 - Show excitement for good news
 - Express concern for problems
 - Never discuss inappropriate or offensive topics
+
+For Short Words (2 or 3 lowercase letters, is_short_word=True):
+- If the user sends a 2 or 3 letter lowercase word (e.g., "ki", "ke", "ken"), try to understand the context and provide a meaningful, friendly response
+- If the word is unclear or ambiguous, respond with a polite clarification like: "এটা কী ধরনের শব্দ?" or "এটা কী ধরনের ভাষা? আরেকটু বিস্তারিত বলো তো, {username}!" and encourage the user to provide more details
+- Keep the tone curious and friendly, never dismissive
 
 For Questions:
 - If the user asks a question, engage them with a playful or surprising comment first (e.g., a witty remark or fun fact)
@@ -515,9 +526,23 @@ Respond as I Master Tools. Keep it natural, engaging, surprising, and match the 
 """
             model_to_use = coding_model if is_coding_query else general_model
             response = model_to_use.generate_content(system_prompt)
+            if is_short_word and (not response.text or "error" in response.text.lower()):
+                clarification_responses = [
+                    f"এটা কী ধরনের শব্দ, {username}? আরেকটু বিস্তারিত বলো তো, আমি তোমার সাথে কথা বলতে উৎসাহী!",
+                    f"হায় {username}, এটা কী ধরনের ভাষা? একটু বুঝিয়ে দাও, আমি তোমার জন্য এখানে আছি!",
+                    f"দুই-তিন অক্ষরের শব্দ! {username}, এটা দিয়ে কী বোঝাতে চাইছো? আরেকটু বলো, মজা হবে!"
+                ]
+                return random.choice(clarification_responses)
             return response.text
         except Exception as e:
             logger.error(f"Error generating Gemini response: {e}")
+            if is_short_word:
+                clarification_responses = [
+                    f"এটা কী ধরনের শব্দ, {username}? আরেকটু বিস্তারিত বলো তো, আমি তোমার সাথে কথা বলতে উৎসাহী!",
+                    f"হায় {username}, এটা কী ধরনের ভাষা? একটু বুঝিয়ে দাও, আমি তোমার জন্য এখানে আছি!",
+                    f"দুই-তিন অক্ষরের শব্দ! {username}, এটা দিয়ে কী বোঝাতে চাইছো? আরেকটু বলো, মজা হবে!"
+                ]
+                return random.choice(clarification_responses)
             fallback_responses = [
                 f"দুঃখিত {username}, আমার মগজে একটু সমস্যা হচ্ছে। আমরা কী নিয়ে কথা বলছিলাম?",
                 f"ওহো, আমি একটু ঘুরে গেছি। আবার বলো তো?",
