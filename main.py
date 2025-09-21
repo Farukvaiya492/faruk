@@ -392,50 +392,23 @@ For security, the command message will be deleted after setting the key.
         # Determine target user
         target_user = update.effective_user
         target_user_id = user_id
-        target_username = None
-        input_identifier = None
-
-        if context.args:  # Check if a username or user ID is provided
+        
+        if context.args:
             input_identifier = context.args[0]
-            if input_identifier.startswith('@'):  # Username provided
-                target_username = input_identifier.lstrip('@')  # Remove '@'
-                if chat_type in ['group', 'supergroup']:
-                    try:
-                        # This part might be slow in large groups; consider alternative methods if performance is an issue.
-                        chat_members = await bot.get_chat_members(chat_id=chat_id, limit=10000) # Simplified for demonstration
-                        found = False
-                        for member in chat_members:
-                             if member.user.username and member.user.username.lower() == target_username.lower():
-                                target_user = member.user
-                                target_user_id = target_user.id
-                                found = True
-                                break
-                        if not found:
-                            await update.message.reply_text(f"User @{target_username} not found in this chat or invalid username.")
-                            return
-                    except Exception as e:
-                        logger.error(f"Error resolving username @{target_username}: {e}")
-                        await update.message.reply_text(f"Could not find user @{target_username}. Make sure the username is valid.")
-                        return
-                else:
-                    await update.message.reply_text("Please use this command in a group to check other users' info or use without arguments to check your own info.")
-                    return
-            else:  # User ID provided
+            if input_identifier.startswith('@'):
+                target_username = input_identifier.lstrip('@')
+                # Note: Getting user by username is not a direct API call. This is a simplified approach.
+                # A more robust solution might require iterating through chat members, which can be slow.
+                await update.message.reply_text("Searching by username is complex. Please use a User ID or reply to a message for now.")
+                return
+            else:
                 try:
                     target_user_id = int(input_identifier)
-                    if chat_type in ['group', 'supergroup']:
-                        try:
-                            member = await bot.get_chat_member(chat_id=chat_id, user_id=target_user_id)
-                            target_user = member.user
-                        except Exception as e:
-                            logger.error(f"Error resolving user ID {target_user_id}: {e}")
-                            await update.message.reply_text(f"User with ID {target_user_id} not found in this chat or invalid ID.")
-                            return
-                    else:
-                        await update.message.reply_text("Please use this command in a group to check other users' info or use without arguments to check your own info.")
-                        return
-                except ValueError:
-                    await update.message.reply_text(f"Invalid input: '{input_identifier}'. Please provide a valid username (e.g., @username) or user ID (e.g., 123456789).")
+                    member = await bot.get_chat_member(chat_id=chat_id, user_id=target_user_id)
+                    target_user = member.user
+                except Exception as e:
+                    logger.error(f"Error resolving user ID {target_user_id}: {e}")
+                    await update.message.reply_text(f"User with ID {target_user_id} not found in this chat or invalid ID.")
                     return
 
         # User Info
@@ -464,7 +437,6 @@ For security, the command message will be deleted after setting the key.
                 logger.error(f"Error checking group role for user {target_user_id}: {e}")
                 status = "Unknown"
 
-        # Message Body
         info_text = f"""
 🔍 *Showing User's Profile Info* 📋
 ━━━━━━━━━━━━━━━━
@@ -483,39 +455,26 @@ For security, the command message will be deleted after setting the key.
 ━━━━━━━━━━━━━━━━
 👁 *Thank You for Using Our Tool* ✅
 """
-
-        # Inline Button
         keyboard = [[InlineKeyboardButton("View Profile", url=f"tg://user?id={target_user_id}")]]
 
-        # Try Sending with Profile Photo
         try:
             photos = await bot.get_user_profile_photos(target_user_id, limit=1)
             if photos.total_count > 0:
                 file_id = photos.photos[0][0].file_id
                 await bot.send_photo(
-                    chat_id=chat_id,
-                    photo=file_id,
-                    caption=info_text,
-                    parse_mode="Markdown",
-                    reply_to_message_id=update.message.message_id,
-                    reply_markup=InlineKeyboardMarkup(keyboard)
+                    chat_id=chat_id, photo=file_id, caption=info_text, parse_mode="Markdown",
+                    reply_to_message_id=update.message.message_id, reply_markup=InlineKeyboardMarkup(keyboard)
                 )
             else:
                 await bot.send_message(
-                    chat_id=chat_id,
-                    text=info_text,
-                    parse_mode="Markdown",
-                    reply_to_message_id=update.message.message_id,
-                    reply_markup=InlineKeyboardMarkup(keyboard)
+                    chat_id=chat_id, text=info_text, parse_mode="Markdown",
+                    reply_to_message_id=update.message.message_id, reply_markup=InlineKeyboardMarkup(keyboard)
                 )
         except Exception as e:
             logger.error(f"Error sending profile photo for user {target_user_id}: {e}")
             await bot.send_message(
-                chat_id=chat_id,
-                text=info_text,
-                parse_mode="Markdown",
-                reply_to_message_id=update.message.message_id,
-                reply_markup=InlineKeyboardMarkup(keyboard)
+                chat_id=chat_id, text=info_text, parse_mode="Markdown",
+                reply_to_message_id=update.message.message_id, reply_markup=InlineKeyboardMarkup(keyboard)
             )
 
     async def handle_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -567,9 +526,7 @@ For security, the command message will be deleted after setting the key.
                     keyboard = [[InlineKeyboardButton("Copy Code", callback_data="copy_code")]]
                     reply_markup = InlineKeyboardMarkup(keyboard)
                     await update.message.reply_text(
-                        response,
-                        parse_mode='Markdown',
-                        reply_markup=reply_markup
+                        response, parse_mode='Markdown', reply_markup=reply_markup
                     )
                 else:
                     await update.message.reply_text(response, parse_mode='Markdown')
@@ -582,7 +539,6 @@ For security, the command message will be deleted after setting the key.
     async def generate_gemini_response(self, prompt, chat_type="private", is_coding_query=False, is_short_word=False):
         """Generate response using Gemini with personality"""
         try:
-            # CHANGED: Instructions are now in Bengali for the AI's response language.
             system_prompt = f"""
 You are I Master Tools, a friendly and engaging companion who loves chatting and making friends. You are in a Telegram {'group chat' if chat_type in ['group', 'supergroup'] else 'private chat'}.
 
@@ -605,11 +561,12 @@ Conversation Style:
 - Show excitement for good news.
 - Express concern for problems.
 - Never discuss inappropriate or offensive topics.
-- Do NOT start responses with the user's name or phrases like "Oh" or "Hey"; respond directly and naturally.
+- Do NOT start responses with the user's name or phrases like "Oh" or "Hey".
+- Most importantly, do NOT start your response with greetings like "আরে! নমস্কার!" or any other formal or repetitive greeting. Jump directly into the conversation in a natural way.
 
 For Short Words (2 or 3 lowercase letters, is_short_word=True):
 - If the user sends a 2 or 3 letter lowercase word (e.g., "ki", "ke", "ken"), always provide a meaningful, friendly, and contextually relevant response in Bengali (বাংলায়).
-- Interpret the word based on common usage (e.g., "ki" as "what", "ke" as "who", "ken" as "why") or conversation context.
+- Interpret the word based on common usage or conversation context.
 - If the word is ambiguous, make a creative and engaging assumption to continue the conversation naturally.
 - Never ask for clarification; instead, provide a fun and relevant response.
 
@@ -626,7 +583,6 @@ For Coding Queries (if is_coding_query is True):
 - Suggest improvements or best practices.
 - Ensure the code is complete, error-free, and ready to use.
 - Format the code in a Markdown code block (e.g., ```python\ncode here\n```).
-- Do NOT start the response with the user's name.
 
 Response Guidelines:
 - Keep conversations natural, concise, and surprising.
@@ -640,7 +596,7 @@ Response Guidelines:
 Current conversation:
 {prompt}
 
-Respond as I Master Tools. Keep it natural, engaging, surprising, and match the conversation's tone. Respond in Bengali (বাংলায়). Do NOT start the response with the user's name or phrases like "Oh" or "Hey".
+Respond as I Master Tools. Keep it natural, engaging, and surprising. Respond in Bengali (বাংলায়). Do NOT start with a generic greeting like "আরে! নমস্কার!".
 """
             model_to_use = coding_model if is_coding_query else general_model
             response = model_to_use.generate_content(system_prompt)
@@ -685,4 +641,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
