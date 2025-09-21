@@ -161,7 +161,7 @@ def send_like_request(uid, region, amount=100):
     """
     chrome_user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
     
-    url = f"https://likes.ffgarena.cloud/api/v2/likes?uid={uid}&amount_of_likes={amount}&auth=trial-7d&region={region}"
+    url = f"https://free-fire-visit-api.vercel.app/api/v2/likes?uid={uid}&amount_of_likes={amount}&auth=trial-7d&region={region}"
     
     headers = {
         'User-Agent': chrome_user_agent,
