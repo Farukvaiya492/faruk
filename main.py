@@ -643,7 +643,7 @@ This player has {data['likes']} likes! Want to check another UID? Just say `/lik
                 await update.message.reply_text(reply_text, parse_mode='Markdown')
             else:
                 await update.message.reply_text(
-                    "😕 ওহো! কোনো ডেটা পাওয়া যায়নি। ইউআইডি বা রিজিয়ন চেক করে আবার চেষ্টা করুন! `/stats <uid> [region]`",
+                    "😕 ওহো! কোনো ডেটা পাওয়া যায়নি। ই�ユআইডি বা রিজিয়ন চেক করে আবার চেষ্টা করুন! `/stats <uid> [region]`",
                     parse_mode='Markdown'
                 )
         except Exception as e:
