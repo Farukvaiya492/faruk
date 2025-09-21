@@ -4,7 +4,7 @@ import google.generativeai as genai
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, CallbackQuery
 from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters, ContextTypes
 import asyncio
-from datetime import datetime
+from datetime import datetime, timedelta
 import random
 import re
 import requests
@@ -33,6 +33,11 @@ available_models = [
 ]
 current_model = 'gemini-1.5-flash'  # Default model
 
+# Store conversation context and command usage for each user
+conversation_context = {}
+group_activity = {}
+user_command_usage = {}  # New dictionary to track command usage per user
+
 def initialize_gemini_models(api_key):
     """Initialize Gemini models with the provided API key"""
     global general_model, coding_model, current_gemini_api_key
@@ -57,9 +62,26 @@ if GEMINI_API_KEY:
 else:
     logger.warning("GEMINI_API_KEY not set. Use /api command to configure.")
 
-# Store conversation context for each chat
-conversation_context = {}
-group_activity = {}
+def check_command_limit(user_id, command):
+    """Check if user has exceeded daily command limit (2 uses per 24 hours)"""
+    current_time = datetime.now().timestamp()
+    if user_id not in user_command_usage:
+        user_command_usage[user_id] = {}
+    
+    if command not in user_command_usage[user_id]:
+        user_command_usage[user_id][command] = {'count': 0, 'last_reset': current_time}
+    
+    # Reset count if 24 hours have passed
+    if current_time - user_command_usage[user_id][command]['last_reset'] >= 86400:  # 24 hours in seconds
+        user_command_usage[user_id][command] = {'count': 0, 'last_reset': current_time}
+    
+    # Check if limit (2 uses) is exceeded
+    if user_command_usage[user_id][command]['count'] >= 2:
+        return False, "😕 ওহো! আপনি আজকের জন্য এই কমান্ডের লিমিট (২ বার) অতিক্রম করেছেন। ২৪ ঘন্টা পরে আবার চেষ্টা করুন! 🚀"
+    
+    # Increment usage count
+    user_command_usage[user_id][command]['count'] += 1
+    return True, ""
 
 class TelegramGeminiBot:
     def __init__(self):
@@ -78,7 +100,6 @@ class TelegramGeminiBot:
         self.application.add_handler(CommandHandler("menu", self.menu_command))
         self.application.add_handler(CommandHandler("setmodel", self.setmodel_command))
         self.application.add_handler(CommandHandler("info", self.info_command))
-        # New handlers for /like, /level, and /stats
         self.application.add_handler(CommandHandler("like", self.like_command))
         self.application.add_handler(CommandHandler("level", self.level_command))
         self.application.add_handler(CommandHandler("stats", self.stats_command))
@@ -125,9 +146,9 @@ Available commands:
 - /status: Check bot status
 - /checkmail: Check temporary email inbox
 - /info: Show user profile information
-- /like <uid> [region]: Check Free Fire player likes
-- /level <uid> [region]: Check Free Fire player level
-- /stats <uid> [region]: Check Free Fire player stats
+- /like <uid> [region]: Check Free Fire player likes (2 times per day)
+- /level <uid> [region]: Check Free Fire player level (2 times per day)
+- /stats <uid> [region]: Check Free Fire player stats (2 times per day)
 {'' if user_id != ADMIN_USER_ID else '- /api <key>: Set Gemini API key (admin only)\n- /setadmin: Set yourself as admin (first-time only)\n- /setmodel: Choose a different model (admin only)'}
 
 In groups, mention @I MasterTools or reply to my messages to get a response. I'm excited to chat with you!
@@ -167,6 +188,7 @@ How I work:
 - I remember conversation context until you clear it
 - I'm an expert in coding (Python, JavaScript, CSS, HTML, etc.) and provide accurate, beginner-friendly solutions
 - I'm designed to be friendly, helpful, and human-like
+- Free Fire commands (/like, /level, /stats) are limited to 2 uses per day per user
 
 Available commands:
 - /start: Show welcome message with group link
@@ -176,9 +198,9 @@ Available commands:
 - /status: Check bot status
 - /checkmail: Check temporary email inbox
 - /info: Show user profile information
-- /like <uid> [region]: Check Free Fire player likes
-- /level <uid> [region]: Check Free Fire player level
-- /stats <uid> [region]: Check Free Fire player stats
+- /like <uid> [region]: Check Free Fire player likes (2 times per day)
+- /level <uid> [region]: Check Free Fire player level (2 times per day)
+- /stats <uid> [region]: Check Free Fire player stats (2 times per day)
 {'' if user_id != ADMIN_USER_ID else '- /api <key>: Set Gemini API key (admin only)\n- /setadmin: Set yourself as admin (first-time only)\n- /setmodel: Choose a different model (admin only)'}
 
 My personality:
@@ -492,6 +514,12 @@ For security, the command message will be deleted after setting the key.
             await update.message.reply_text(response, reply_markup=reply_markup)
             return
 
+        # Check daily command limit
+        allowed, limit_message = check_command_limit(user_id, "like")
+        if not allowed:
+            await update.message.reply_text(limit_message, parse_mode='Markdown')
+            return
+
         if not context.args:
             await update.message.reply_text("Usage: /like <uid> [region]\nExample: /like 3533918864 BD", parse_mode='Markdown')
             return
@@ -509,7 +537,7 @@ For security, the command message will be deleted after setting the key.
 ━━━━━━━━━━━━━━━━
 *নিকনেম:* {data['nickname']}
 *ইউআইডি:* {data['uid']}
-*রিজিয়ন:* 🇧🇦 {data['region']}
+*রিজিয়ন:* 🇧🇩 {data['region']}
 *লাইক সংখ্যা:* {data['likes']}
 ━━━━━━━━━━━━━━━━
 ওয়াও! {data['likes']} লাইক! এই প্লেয়ার তো আগুন! 🌟 আরেকটি ইউআইডি চেক করতে চান? শুধু বলুন `/like <uid> [region]`!
@@ -535,6 +563,12 @@ For security, the command message will be deleted after setting the key.
         if chat_type == 'private' and user_id != ADMIN_USER_ID:
             response, reply_markup = await self.get_private_chat_redirect()
             await update.message.reply_text(response, reply_markup=reply_markup)
+            return
+
+        # Check daily command limit
+        allowed, limit_message = check_command_limit(user_id, "level")
+        if not allowed:
+            await update.message.reply_text(limit_message, parse_mode='Markdown')
             return
 
         if not context.args:
@@ -580,6 +614,12 @@ For security, the command message will be deleted after setting the key.
         if chat_type == 'private' and user_id != ADMIN_USER_ID:
             response, reply_markup = await self.get_private_chat_redirect()
             await update.message.reply_text(response, reply_markup=reply_markup)
+            return
+
+        # Check daily command limit
+        allowed, limit_message = check_command_limit(user_id, "stats")
+        if not allowed:
+            await update.message.reply_text(limit_message, parse_mode='Markdown')
             return
 
         if not context.args:
