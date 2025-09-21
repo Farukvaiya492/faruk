@@ -33,6 +33,9 @@ available_models = [
 ]
 current_model = 'gemini-1.5-flash'  # Default model
 
+# API key for phone number validation
+PHONE_API_KEY = "num_live_Nf2vjeM19tHdi42qQ2LaVVMg2IGk1ReU2BYBKnvm"
+
 def initialize_gemini_models(api_key):
     """Initialize Gemini models with the provided API key"""
     global general_model, coding_model, current_gemini_api_key
@@ -91,6 +94,43 @@ async def fetch_weather():
         logger.error(f"Error fetching weather: {e}")
         return "Something went wrong while fetching the weather. Shall we try again?"
 
+async def validate_phone_number(phone_number: str, api_key: str, country_code: str = None):
+    """
+    ফোন নম্বর ভ্যালিডেট করার ফাংশন
+    :param phone_number: যাচাই করতে চাওয়া ফোন নম্বর (string)
+    :param api_key: আপনার API কী
+    :param country_code: দেশ কোড (যেমন BD, US) — অপশনাল
+    :return: ফরম্যাটেড রেসপন্স স্ট্রিং
+    """
+    base_url = "https://api.numlookupapi.com/v1/validate"
+    params = {
+        "apikey": api_key,
+        "country_code": country_code
+    }
+    url = f"{base_url}/{phone_number}"
+    
+    try:
+        response = requests.get(url, params=params)
+        if response.status_code == 200:
+            data = response.json()
+            valid = data.get('valid', False)
+            if valid:
+                return f"""
+✅ ফোন নম্বর যাচাই সম্পন্ন:
+📞 নম্বর: {data.get('number', 'N/A')}
+🌍 দেশ: {data.get('country_name', 'N/A')} ({data.get('country_code', 'N/A')})
+📍 লোকেশন: {data.get('location', 'N/A')}
+📡 ক্যারিয়ার: {data.get('carrier', 'N/A')}
+📱 লাইন টাইপ: {data.get('line_type', 'N/A')}
+"""
+            else:
+                return "❌ ফোন নম্বরটি বৈধ নয়।"
+        else:
+            return f"❌ ডেটা আনা যায়নি: স্ট্যাটাস কোড {response.status_code}\nএরর: {response.text}"
+    except Exception as e:
+        logger.error(f"Error validating phone number: {e}")
+        return "ফোন নম্বর যাচাই করতে সমস্যা হয়েছে। আবার চেষ্টা করবেন?"
+
 class TelegramGeminiBot:
     def __init__(self):
         self.application = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
@@ -109,6 +149,7 @@ class TelegramGeminiBot:
         self.application.add_handler(CommandHandler("setmodel", self.setmodel_command))
         self.application.add_handler(CommandHandler("info", self.info_command))
         self.application.add_handler(CommandHandler("weather", self.weather_command))
+        self.application.add_handler(CommandHandler("validatephone", self.validatephone_command))
         self.application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_message))
         self.application.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, self.handle_new_member))
         self.application.add_handler(CallbackQueryHandler(self.button_callback, pattern='^copy_code$'))
@@ -152,6 +193,7 @@ Available commands:
 - /status: Check bot status
 - /checkmail: Check temporary email inbox
 - /info: Show user profile information
+- /weather: Check weather forecast for Berlin
 {'' if user_id != ADMIN_USER_ID else '- /api <key>: Set Gemini API key (admin only)\n- /setadmin: Set yourself as admin (first-time only)\n- /setmodel: Choose a different model (admin only)'}
 
 In groups, mention @I MasterTools or reply to my messages to get a response. I'm excited to chat with you!
@@ -200,6 +242,8 @@ Available commands:
 - /status: Check bot status
 - /checkmail: Check temporary email inbox
 - /info: Show user profile information
+- /weather: Check weather forecast for Berlin
+- /validatephone <number> [country_code]: Validate a phone number
 {'' if user_id != ADMIN_USER_ID else '- /api <key>: Set Gemini API key (admin only)\n- /setadmin: Set yourself as admin (first-time only)\n- /setmodel: Choose a different model (admin only)'}
 
 My personality:
@@ -511,6 +555,25 @@ For security, the command message will be deleted after setting the key.
         else:
             weather_message = await fetch_weather()
             await update.message.reply_text(weather_message)
+
+    async def validatephone_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle /validatephone command to validate a phone number"""
+        user_id = update.effective_user.id
+        chat_type = update.effective_chat.type
+
+        if chat_type == 'private' and user_id != ADMIN_USER_ID:
+            response, reply_markup = await self.get_private_chat_redirect()
+            await update.message.reply_text(response, reply_markup=reply_markup)
+            return
+
+        if not context.args:
+            await update.message.reply_text("ব্যবহার: /validatephone <phone_number> [country_code]\nউদাহরণ: /validatephone 01613950781 BD")
+            return
+
+        phone_number = context.args[0]
+        country_code = context.args[1] if len(context.args) > 1 else None
+        response_message = await validate_phone_number(phone_number, PHONE_API_KEY, country_code)
+        await update.message.reply_text(response_message)
 
     async def handle_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle regular text messages"""
