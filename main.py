@@ -78,6 +78,10 @@ class TelegramGeminiBot:
         self.application.add_handler(CommandHandler("menu", self.menu_command))
         self.application.add_handler(CommandHandler("setmodel", self.setmodel_command))
         self.application.add_handler(CommandHandler("info", self.info_command))
+        # New handlers for /like, /level, and /stats
+        self.application.add_handler(CommandHandler("like", self.like_command))
+        self.application.add_handler(CommandHandler("level", self.level_command))
+        self.application.add_handler(CommandHandler("stats", self.stats_command))
         self.application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_message))
         self.application.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, self.handle_new_member))
         self.application.add_handler(CallbackQueryHandler(self.button_callback, pattern='^copy_code$'))
@@ -121,6 +125,9 @@ Available commands:
 - /status: Check bot status
 - /checkmail: Check temporary email inbox
 - /info: Show user profile information
+- /like <uid> [region]: Check Free Fire player likes
+- /level <uid> [region]: Check Free Fire player level
+- /stats <uid> [region]: Check Free Fire player stats
 {'' if user_id != ADMIN_USER_ID else '- /api <key>: Set Gemini API key (admin only)\n- /setadmin: Set yourself as admin (first-time only)\n- /setmodel: Choose a different model (admin only)'}
 
 In groups, mention @I MasterTools or reply to my messages to get a response. I'm excited to chat with you!
@@ -169,6 +176,9 @@ Available commands:
 - /status: Check bot status
 - /checkmail: Check temporary email inbox
 - /info: Show user profile information
+- /like <uid> [region]: Check Free Fire player likes
+- /level <uid> [region]: Check Free Fire player level
+- /stats <uid> [region]: Check Free Fire player stats
 {'' if user_id != ADMIN_USER_ID else '- /api <key>: Set Gemini API key (admin only)\n- /setadmin: Set yourself as admin (first-time only)\n- /setmodel: Choose a different model (admin only)'}
 
 My personality:
@@ -197,6 +207,9 @@ Powered by Google Gemini
                 [InlineKeyboardButton("Bot Status", callback_data="status")],
                 [InlineKeyboardButton("Clear History", callback_data="clear")],
                 [InlineKeyboardButton("User Info", callback_data="info")],
+                [InlineKeyboardButton("Check Likes", callback_data="like")],
+                [InlineKeyboardButton("Check Level", callback_data="level")],
+                [InlineKeyboardButton("Check Stats", callback_data="stats")],
                 [InlineKeyboardButton("Join Group", url="https://t.me/VPSHUB_BD_CHAT")]
             ]
             if user_id == ADMIN_USER_ID:
@@ -467,6 +480,143 @@ For security, the command message will be deleted after setting the key.
                 parse_mode="Markdown",
                 reply_to_message_id=update.message.message_id,
                 reply_markup=InlineKeyboardMarkup(keyboard) if keyboard else None
+            )
+
+    async def like_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle /like command to fetch Free Fire player likes"""
+        user_id = update.effective_user.id
+        chat_type = update.effective_chat.type
+
+        if chat_type == 'private' and user_id != ADMIN_USER_ID:
+            response, reply_markup = await self.get_private_chat_redirect()
+            await update.message.reply_text(response, reply_markup=reply_markup)
+            return
+
+        if not context.args:
+            await update.message.reply_text("Usage: /like <uid> [region]\nExample: /like 3533918864 BD", parse_mode='Markdown')
+            return
+
+        uid = context.args[0]
+        region = context.args[1] if len(context.args) > 1 else "BD"
+
+        try:
+            response = requests.get(f"https://free-fire-visit-api.vercel.app/{region}/{uid}")
+            data = response.json()
+
+            if data.get("fail") == 0:
+                reply_text = f"""
+🎮 *Free Fire লাইক চেকার* 🔥
+━━━━━━━━━━━━━━━━
+*নিকনেম:* {data['nickname']}
+*ইউআইডি:* {data['uid']}
+*রিজিয়ন:* 🇧🇦 {data['region']}
+*লাইক সংখ্যা:* {data['likes']}
+━━━━━━━━━━━━━━━━
+ওয়াও! {data['likes']} লাইক! এই প্লেয়ার তো আগুন! 🌟 আরেকটি ইউআইডি চেক করতে চান? শুধু বলুন `/like <uid> [region]`!
+"""
+                await update.message.reply_text(reply_text, parse_mode='Markdown')
+            else:
+                await update.message.reply_text(
+                    "😕 ওহো! কোনো ডেটা পাওয়া যায়নি। ইউআইডি বা রিজিয়ন চেক করে আবার চেষ্টা করুন! `/like <uid> [region]`",
+                    parse_mode='Markdown'
+                )
+        except Exception as e:
+            logger.error(f"Error fetching Free Fire likes: {e}")
+            await update.message.reply_text(
+                "😕 লাইক চেক করতে সমস্যা হচ্ছে। আবার চেষ্টা করুন! `/like <uid> [region]`",
+                parse_mode='Markdown'
+            )
+
+    async def level_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle /level command to fetch Free Fire player level"""
+        user_id = update.effective_user.id
+        chat_type = update.effective_chat.type
+
+        if chat_type == 'private' and user_id != ADMIN_USER_ID:
+            response, reply_markup = await self.get_private_chat_redirect()
+            await update.message.reply_text(response, reply_markup=reply_markup)
+            return
+
+        if not context.args:
+            await update.message.reply_text("Usage: /level <uid> [region]\nExample: /level 3533918864 BD", parse_mode='Markdown')
+            return
+
+        uid = context.args[0]
+        region = context.args[1] if len(context.args) > 1 else "BD"
+
+        try:
+            response = requests.get(f"https://free-fire-visit-api.vercel.app/{region}/{uid}")
+            data = response.json()
+
+            if data.get("fail") == 0:
+                reply_text = f"""
+🎮 *Free Fire লেভেল চেকার* 🔥
+━━━━━━━━━━━━━━━━
+*নিকনেম:* {data['nickname']}
+*ইউআইডি:* {data['uid']}
+*রিজিয়ন:* 🇧🇦 {data['region']}
+*লেভেল:* {data['level']}
+━━━━━━━━━━━━━━━━
+লেভেল {data['level']}! এই প্লেয়ার তো প্রো! 😎 আরেকটি ইউআইডি চেক করতে চান? শুধু বলুন `/level <uid> [region]`!
+"""
+                await update.message.reply_text(reply_text, parse_mode='Markdown')
+            else:
+                await update.message.reply_text(
+                    "😕 ওহো! কোনো ডেটা পাওয়া যায়নি। ইউআইডি বা রিজিয়ন চেক করে আবার চেষ্টা করুন! `/level <uid> [region]`",
+                    parse_mode='Markdown'
+                )
+        except Exception as e:
+            logger.error(f"Error fetching Free Fire level: {e}")
+            await update.message.reply_text(
+                "😕 লেভেল চেক করতে সমস্যা হচ্ছে। আবার চেষ্টা করুন! `/level <uid> [region]`",
+                parse_mode='Markdown'
+            )
+
+    async def stats_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle /stats command to fetch Free Fire player stats"""
+        user_id = update.effective_user.id
+        chat_type = update.effective_chat.type
+
+        if chat_type == 'private' and user_id != ADMIN_USER_ID:
+            response, reply_markup = await self.get_private_chat_redirect()
+            await update.message.reply_text(response, reply_markup=reply_markup)
+            return
+
+        if not context.args:
+            await update.message.reply_text("Usage: /stats <uid> [region]\nExample: /stats 3533918864 BD", parse_mode='Markdown')
+            return
+
+        uid = context.args[0]
+        region = context.args[1] if len(context.args) > 1 else "BD"
+
+        try:
+            response = requests.get(f"https://free-fire-visit-api.vercel.app/{region}/{uid}")
+            data = response.json()
+
+            if data.get("fail") == 0:
+                reply_text = f"""
+🎮 *Free Fire প্লেয়ার স্ট্যাটস* 🔥
+━━━━━━━━━━━━━━━━
+*নিকনেম:* {data['nickname']}
+*ইউআইডি:* {data['uid']}
+*রিজিয়ন:* 🇧🇦 {data['region']}
+*লেভেল:* {data['level']}
+*লাইক সংখ্যা:* {data['likes']}
+*সাকসেস:* {data['success']}
+━━━━━━━━━━━━━━━━
+এই প্লেয়ার তো সুপারস্টার! 🌟 আরেকটি ইউআইডি চেক করতে চান? শুধু বলুন `/stats <uid> [region]`!
+"""
+                await update.message.reply_text(reply_text, parse_mode='Markdown')
+            else:
+                await update.message.reply_text(
+                    "😕 ওহো! কোনো ডেটা পাওয়া যায়নি। ইউআইডি বা রিজিয়ন চেক করে আবার চেষ্টা করুন! `/stats <uid> [region]`",
+                    parse_mode='Markdown'
+                )
+        except Exception as e:
+            logger.error(f"Error fetching Free Fire stats: {e}")
+            await update.message.reply_text(
+                "😕 স্ট্যাটস চেক করতে সমস্যা হচ্ছে। আবার চেষ্টা করুন! `/stats <uid> [region]`",
+                parse_mode='Markdown'
             )
 
     async def handle_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
