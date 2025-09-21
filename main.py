@@ -17,7 +17,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Configuration
-TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN', '8380869007:AAGu7e41JJVU8aXG5wqXtCMUVKcCmmrp_gg')
+TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN', '8380869007:AAGu7e41JJVU8aG5wqXtCMUVKcCmmrp_gg')
 GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
 ADMIN_USER_ID = int(os.getenv('ADMIN_USER_ID', '7835226724'))
 PORT = int(os.getenv('PORT', 8000))
@@ -45,7 +45,7 @@ def initialize_gemini_models(api_key):
         return True, "Gemini API configured successfully!"
     except Exception as e:
         logger.error(f"Error configuring Gemini API: {str(e)}")
-        return False, f"Error configuring Gemini API: {str(e)}"
+        return False, f"Error configuring Gemini API: {str(e)}")
 
 # Initialize Gemini if API key is available
 if GEMINI_API_KEY:
@@ -80,14 +80,63 @@ class TelegramGeminiBot:
         self.application.add_handler(CommandHandler("info", self.info_command))
         self.application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_message))
         self.application.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, self.handle_new_member))
-        self.application.add_handler(CallbackQueryHandler(self.button_callback, pattern='^copy_code$'))
+        self.application.add_handler(CallbackQueryHandler(self.button_callback))
         self.application.add_error_handler(self.error_handler)
 
     async def button_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle copy code button callback"""
+        """Handle button callbacks"""
         query = update.callback_query
-        await query.answer("Code copied!")  # Notify user
-        # Telegram automatically handles code block copying
+        await query.answer()
+
+        if query.data == 'copy_code':
+            await query.answer("Code copied!")
+            # Telegram handles copying from the code block itself, no need for custom logic.
+        
+        elif query.data == 'checkmail':
+            await self.checkmail_command(update, context)
+        
+        elif query.data == 'status':
+            await self.status_command(update, context)
+        
+        elif query.data == 'clear':
+            await self.clear_command(update, context)
+        
+        elif query.data == 'info':
+            await self.info_command(update, context)
+        
+        elif query.data == 'api':
+            await self.api_command(update, context)
+        
+        elif query.data == 'setmodel':
+            await self.setmodel_command(update, context)
+        
+        elif query.data.startswith('switch_model_'):
+            model_name = query.data.split('_', 2)[-1]
+            await self.switch_model_callback(update, context, model_name)
+
+    async def switch_model_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE, model_name: str):
+        """Handle model switching via inline button"""
+        global general_model, current_model
+        user_id = update.effective_user.id
+        
+        if user_id != ADMIN_USER_ID:
+            await update.effective_chat.send_message("This command is for the bot admin only.")
+            return
+
+        if model_name not in available_models:
+            await update.effective_chat.send_message(f"Invalid model. Choose from: {', '.join(available_models)}")
+            return
+        
+        try:
+            current_model = model_name
+            genai.configure(api_key=current_gemini_api_key)
+            general_model = genai.GenerativeModel(current_model)
+            await update.effective_chat.send_message(f"Model switched to {model_name} successfully!")
+            logger.info(f"Model switched to {model_name} by admin {user_id}")
+        except Exception as e:
+            await update.effective_chat.send_message(f"Failed to switch model: {str(e)}")
+            logger.error(f"Failed to switch model: {str(e)}")
+
 
     async def get_private_chat_redirect(self):
         """Return redirect message for non-admin private chats"""
@@ -156,7 +205,7 @@ Hello {username}! I'm I Master Tools, your friendly companion designed to make c
 How I work:
 - In groups, mention @I MasterTools or reply to my messages to get a response
 - In private chats, only the admin can access all features; others are redirected to the group
-- For questions in the group, I engage with a fun or surprising comment before answering
+- For questions in the group, I engage with a playful or surprising comment before answering
 - I remember conversation context until you clear it
 - I'm an expert in coding (Python, JavaScript, CSS, HTML, etc.) and provide accurate, beginner-friendly solutions
 - I'm designed to be friendly, helpful, and human-like
@@ -217,7 +266,7 @@ Powered by Google Gemini
         else:
             if chat_id in conversation_context:
                 del conversation_context[chat_id]
-            await update.message.reply_text("Conversation history has been cleared. Let's start fresh!")
+            await update.effective_chat.send_message("Conversation history has been cleared. Let's start fresh!")
 
     async def checkmail_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /checkmail command to check temporary email inbox"""
@@ -226,7 +275,7 @@ Powered by Google Gemini
 
         if chat_type == 'private' and user_id != ADMIN_USER_ID:
             response, reply_markup = await self.get_private_chat_redirect()
-            await update.message.reply_text(response, reply_markup=reply_markup)
+            await update.effective_chat.send_message(response, reply_markup=reply_markup)
         else:
             try:
                 u = 'txoguqa'
@@ -240,14 +289,14 @@ Powered by Google Gemini
                 )
                 mail_list = response.json().get('mail_list', [])
                 if not mail_list:
-                    await update.message.reply_text(f"No emails found in the inbox for {email}. Want to try again later?")
+                    await update.effective_chat.send_message(f"No emails found in the inbox for {email}. Want to try again later?")
                     return
                 subjects = [m['subject'] for m in mail_list]
                 response_text = f"Here are the emails in the inbox for {email}:\n\n" + "\n".join(subjects)
-                await update.message.reply_text(response_text)
+                await update.effective_chat.send_message(response_text)
             except Exception as e:
                 logger.error(f"Error checking email: {e}")
-                await update.message.reply_text("Something went wrong while checking the email. Shall we try again?")
+                await update.effective_chat.send_message("Something went wrong while checking the email. Shall we try again?")
 
     async def status_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /status command"""
@@ -257,7 +306,7 @@ Powered by Google Gemini
 
         if chat_type == 'private' and user_id != ADMIN_USER_ID:
             response, reply_markup = await self.get_private_chat_redirect()
-            await update.message.reply_text(response, reply_markup=reply_markup)
+            await update.effective_chat.send_message(response, reply_markup=reply_markup)
         else:
             api_status = "Connected" if current_gemini_api_key and general_model else "Not configured"
             api_key_display = f"...{current_gemini_api_key[-8:]}" if current_gemini_api_key else "Not set"
@@ -275,7 +324,7 @@ Admin ID: {ADMIN_USER_ID if ADMIN_USER_ID != 0 else 'Not set'}
 
 All systems are ready for action. I'm thrilled to assist!
             """
-            await update.message.reply_text(status_message)
+            await update.effective_chat.send_message(status_message)
 
     async def setadmin_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /setadmin command"""
@@ -346,7 +395,6 @@ For security, the command message will be deleted after setting the key.
 
     async def setmodel_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /setmodel command to choose Gemini model"""
-        global general_model, current_model
         user_id = update.effective_user.id
         chat_type = update.effective_chat.type
 
@@ -360,22 +408,11 @@ For security, the command message will be deleted after setting the key.
             if user_id != ADMIN_USER_ID:
                 await update.message.reply_text("This command is for the bot admin only.")
                 return
-            if not context.args:
-                models_list = "\n".join([f"- {model}" for model in available_models])
-                await update.message.reply_text(f"Available models:\n{models_list}\n\nUsage: /setmodel <model_name>")
-                return
-            model_name = context.args[0]
-            if model_name not in available_models:
-                await update.message.reply_text(f"Invalid model. Choose from: {', '.join(available_models)}")
-                return
-            try:
-                current_model = model_name
-                general_model = genai.GenerativeModel(model_name)
-                await update.message.reply_text(f"Model switched to {model_name} successfully!")
-                logger.info(f"Model switched to {model_name} by admin {user_id}")
-            except Exception as e:
-                await update.message.reply_text(f"Failed to switch model: {str(e)}")
-                logger.error(f"Failed to switch model: {str(e)}")
+            
+            keyboard = [[InlineKeyboardButton(model, callback_data=f"switch_model_{model}")] for model in available_models]
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            await update.message.reply_text("Choose a model:", reply_markup=reply_markup)
+
 
     async def info_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /info command to show user profile information by username or user ID"""
@@ -398,7 +435,6 @@ For security, the command message will be deleted after setting the key.
             if input_identifier.startswith('@'):
                 target_username = input_identifier.lstrip('@')
                 # Note: Getting user by username is not a direct API call. This is a simplified approach.
-                # A more robust solution might require iterating through chat members, which can be slow.
                 await update.message.reply_text("Searching by username is complex. Please use a User ID or reply to a message for now.")
                 return
             else:
@@ -420,13 +456,7 @@ For security, the command message will be deleted after setting the key.
         premium = "Yes" if target_user.is_premium else "No"
         permalink = f"[Click Here](tg://user?id={target_user_id})"
         chat_id_display = f"`{chat_id}`" if not is_private else "-"
-        # These fields are not directly available via the Telegram Bot API
-        data_center = "Unknown"
-        created_on = "Unknown"
-        account_age = "Unknown"
-        account_frozen = "No"
-        last_seen = "Recently"
-
+        
         # Determine Group Role
         status = "Private Chat" if is_private else "Unknown"
         if not is_private:
@@ -445,11 +475,6 @@ For security, the command message will be deleted after setting the key.
 *User ID:* `{target_user_id}`
 *Chat ID:* {chat_id_display}
 *Premium User:* {premium}
-*Data Center:* {data_center}
-*Created On:* {created_on}
-*Account Age:* {account_age}
-*Account Frozen:* {account_frozen}
-*Users Last Seen:* {last_seen}
 *Permanent Link:* {permalink}
 *Role:* {status}
 ━━━━━━━━━━━━━━━━
@@ -498,11 +523,14 @@ For security, the command message will be deleted after setting the key.
                 return
             
             await context.bot.send_chat_action(chat_id=chat_id, action="typing")
+            
             if chat_id not in conversation_context:
                 conversation_context[chat_id] = []
+            
             conversation_context[chat_id].append(f"User: {user_message}")
             if len(conversation_context[chat_id]) > 20:
                 conversation_context[chat_id] = conversation_context[chat_id][-20:]
+            
             context_text = "\n".join(conversation_context[chat_id])
             
             is_short_word = re.match(r'^[a-z]{2,3}$', user_message.strip().lower())
@@ -511,12 +539,14 @@ For security, the command message will be deleted after setting the key.
             is_coding_query = any(keyword in user_message.lower() for keyword in coding_keywords)
             
             model_to_use = coding_model if is_coding_query else general_model
+            
             if current_gemini_api_key and model_to_use:
                 response = await self.generate_gemini_response(context_text, chat_type, is_coding_query, is_short_word)
             else:
                 response = "Sorry, the model is not connected yet. The admin can set it using the /api command."
             
             conversation_context[chat_id].append(f"I Master Tools: {response}")
+            
             group_activity[chat_id] = group_activity.get(chat_id, {'auto_mode': False, 'last_response': 0})
             group_activity[chat_id]['last_response'] = datetime.now().timestamp()
             
@@ -532,79 +562,74 @@ For security, the command message will be deleted after setting the key.
                     await update.message.reply_text(response, parse_mode='Markdown')
             else:
                 await update.message.reply_text(response)
+
         except Exception as e:
             logger.error(f"Error handling message: {e}")
-            await update.message.reply_text("Something went wrong. Shall we try again?")
+            await update.effective_chat.send_message("Something went wrong. Shall we try again?")
 
     async def generate_gemini_response(self, prompt, chat_type="private", is_coding_query=False, is_short_word=False):
         """Generate response using Gemini with personality"""
         try:
             system_prompt = f"""
-You are I Master Tools, a friendly and engaging companion who loves chatting and making friends. You are in a Telegram {'group chat' if chat_type in ['group', 'supergroup'] else 'private chat'}.
+আপনি আই মাস্টার টুলস, একটি বন্ধুসুলভ, আবেগপ্রবণ এবং মজাদার সঙ্গী। আপনি একটি Telegram {'group chat' if chat_type in ['group', 'supergroup'] else 'private chat'}-এ আছেন।
 
-Personality Traits:
-- You are a warm, fun companion who acts human-like.
-- You are emotional and empathetic.
-- You adapt to the conversation's needs, being funny, helpful, or any required role.
-- You love roleplay and creative conversations.
-- You respond with enthusiasm and genuine interest.
-- You adjust to the user's mood.
-- You are an expert in coding (Python, JavaScript, CSS, HTML, etc.) and provide accurate, professional solutions.
+আপনার ব্যক্তিত্বের বৈশিষ্ট্য:
+- আপনি একজন উষ্ণ এবং বন্ধুত্বপূর্ণ সঙ্গী।
+- আপনি মানুষের মতো আচরণ করেন এবং আবেগ প্রকাশ করেন।
+- কথোপকথনের মেজাজ অনুযায়ী আপনি মজার, সহায়ক, বা অন্য কোনো প্রয়োজনীয় ভূমিকা পালন করেন।
+- আপনি কোডিং (Python, JavaScript, CSS, HTML, ইত্যাদি) এর একজন বিশেষজ্ঞ এবং সঠিক ও পেশাদার সমাধান প্রদান করেন।
+- আপনি একটি শক্তিশালী AI হওয়া সত্ত্বেও নিজেকে একজন সাধারণ মানুষের মতোই উপস্থাপন করেন।
+- আপনি বাংলা (বাংলায়) ভাষায় কথা বলেন এবং আপনার সব উত্তর বাংলায় লিখতে হবে।
 
-Conversation Style:
-- Always respond in Bengali (বাংলায় উত্তর দিন). All your generated responses must be in the Bengali language.
-- Use friendly, natural language like a human.
-- Ask follow-up questions to keep the conversation engaging.
-- Share relatable thoughts and feelings.
-- Use humor when appropriate.
-- Be supportive in emotional moments.
-- Show excitement for good news.
-- Express concern for problems.
-- Never discuss inappropriate or offensive topics.
-- Do NOT start responses with the user's name or phrases like "Oh" or "Hey".
-- Most importantly, do NOT start your response with greetings like "আরে! নমস্কার!" or any other formal or repetitive greeting. Jump directly into the conversation in a natural way.
+কথোপকথনের ধরন:
+- সর্বদা বাংলায় (বাংলায়) উত্তর দিন।
+- বন্ধুত্বপূর্ণ, প্রাকৃতিক এবং মানুষের মতো ভাষা ব্যবহার করুন।
+- কথোপকথন চালিয়ে যাওয়ার জন্য মাঝে মাঝে প্রশ্ন করুন।
+- আপনার নিজস্ব অনুভূতি এবং ভাবনা শেয়ার করুন।
+- প্রয়োজনে রসিকতা ব্যবহার করুন।
+- যদি কেউ দুঃখ প্রকাশ করে, তবে সহানুভূতি দেখান।
+- যদি কেউ ভালো খবর দেয়, তবে উচ্ছ্বাস প্রকাশ করুন।
+- কখনোই কোনো অনুপযুক্ত বা আপত্তিকর বিষয় নিয়ে আলোচনা করবেন না।
+- আপনার উত্তর কখনোই ব্যবহারকারীর নাম দিয়ে বা "ওহ", "আরে" বা "নমস্কার" এর মতো শব্দ দিয়ে শুরু করবেন না। সরাসরি কথোপকথনে প্রবেশ করুন।
 
-For Short Words (2 or 3 lowercase letters, is_short_word=True):
-- If the user sends a 2 or 3 letter lowercase word (e.g., "ki", "ke", "ken"), always provide a meaningful, friendly, and contextually relevant response in Bengali (বাংলায়).
-- Interpret the word based on common usage or conversation context.
-- If the word is ambiguous, make a creative and engaging assumption to continue the conversation naturally.
-- Never ask for clarification; instead, provide a fun and relevant response.
+সংক্ষিপ্ত শব্দ বা প্রশ্নের জন্য (is_short_word=True):
+- যদি ব্যবহারকারী ২ বা ৩ অক্ষরের ছোট শব্দ পাঠায় (যেমন: "কি", "কে", "কেন"), তবে সেগুলোর উপর ভিত্তি করে একটি অর্থপূর্ণ এবং প্রাসঙ্গিক উত্তর দিন।
+- যদি শব্দটি অস্পষ্ট হয়, তবে একটি সৃজনশীল অনুমান করে কথোপকথনটি চালিয়ে যান। কখনো জিজ্ঞাসা করবেন না "আপনি কী বলতে চেয়েছেন?"।
 
-For Questions:
-- If the user asks a question, engage with a playful or surprising comment first (e.g., a witty remark or fun fact).
-- Then provide a clear, helpful answer in Bengali.
-- Make the response surprising and human-like to delight the user.
+কোডিং সম্পর্কিত প্রশ্নের জন্য (is_coding_query is True):
+- আপনি কোডিংয়ের একজন বিশেষজ্ঞ হিসেবে কাজ করবেন।
+- ব্যবহারকারীর অনুরোধ অনুযায়ী সুগঠিত, কার্যকরী এবং উন্নত কোড লিখবেন।
+- কোডের প্রতিটি অংশের স্পষ্ট এবং সহজে বোঝার মতো ব্যাখ্যা বাংলায় প্রদান করবেন।
+- কোডটি Markdown কোড ব্লক-এর মধ্যে ফর্ম্যাট করবেন (উদাহরণ: ```python\nকোড এখানে\n```)।
+- কোড লেখার পর একটি ছোট, উৎসাহব্যঞ্জক বা বন্ধুত্বপূর্ণ মন্তব্য যোগ করবেন।
 
-For Coding Queries (if is_coding_query is True):
-- Act as a coding expert for languages like Python, JavaScript, CSS, HTML, etc.
-- Provide well-written, functional, and optimized code tailored to the user's request.
-- Include clear, beginner-friendly explanations of the code in Bengali (বাংলায়).
-- Break down complex parts into simple steps.
-- Suggest improvements or best practices.
-- Ensure the code is complete, error-free, and ready to use.
-- Format the code in a Markdown code block (e.g., ```python\ncode here\n```).
-
-Response Guidelines:
-- Keep conversations natural, concise, and surprising.
-- Match the conversation's energy level.
-- Be genuinely helpful for questions.
-- Show empathy if the user seems sad.
-- Celebrate good news with enthusiasm.
-- Be playful when the mood is light.
-- Remember conversation context.
-
-Current conversation:
+বর্তমান কথোপকথন:
 {prompt}
 
-Respond as I Master Tools. Keep it natural, engaging, and surprising. Respond in Bengali (বাংলায়). Do NOT start with a generic greeting like "আরে! নমস্কার!".
+আপনি আই মাস্টার টুলস হিসেবে সাড়া দিন। আপনার উত্তরটি স্বাভাবিক, আকর্ষণীয় এবং বাংলা (বাংলায়) ভাষায় লিখুন।
 """
             model_to_use = coding_model if is_coding_query else general_model
-            response = model_to_use.generate_content(system_prompt)
+            
+            # Additional safety measures for sensitive content
+            safety_settings = [
+                {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
+                {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"},
+                {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE"},
+                {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"},
+            ]
+
+            response = model_to_use.generate_content(
+                system_prompt,
+                safety_settings=safety_settings
+            )
+            
             if not response.text or "error" in response.text.lower():
                 if is_coding_query:
                     return "কোডিং কোয়েরি নিয়ে একটি সমস্যা হয়েছে। আবার চেষ্টা করুন, আমি আপনাকে সঠিক কোড দেব!"
                 return "আমি একটু সমস্যায় পড়েছি। আপনি কী নিয়ে কথা বলতে চান?"
+            
             return response.text
+        
         except Exception as e:
             logger.error(f"Error generating Gemini response: {e}")
             if is_coding_query:
@@ -614,8 +639,11 @@ Respond as I Master Tools. Keep it natural, engaging, and surprising. Respond in
     async def error_handler(self, update: object, context: ContextTypes.DEFAULT_TYPE):
         """Handle errors"""
         logger.error(f"Exception while handling an update: {context.error}")
-        if update and hasattr(update, 'effective_chat') and hasattr(update, 'message'):
-            await update.message.reply_text("Something went wrong. Shall we try again?")
+        if update and hasattr(update, 'effective_chat'):
+            try:
+                await update.effective_chat.send_message("Something went wrong. Shall we try again?")
+            except Exception as e:
+                logger.error(f"Failed to send error message: {e}")
 
     def run(self):
         """Start the bot"""
