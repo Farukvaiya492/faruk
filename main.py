@@ -121,7 +121,7 @@ Available commands:
 - /status: Check bot status
 - /checkmail: Check temporary email inbox
 - /info: Show user profile information
-{'' if user_id != ADMIN_USER_ID else '- /api <key>: Set Gemini API key (admin only)\n- /setadmin: Set yourself as admin (first-time only)\n- /setmodel: Choose a different model (admin only)'}
+{'' if user_id != ADMIN_USER_ID else '- /api <key>: Set Gemini API key (admin only)\\n- /setadmin: Set yourself as admin (first-time only)\\n- /setmodel: Choose a different model (admin only)'}
 
 In groups, mention @I MasterTools or reply to my messages to get a response. I'm excited to chat with you!
             """
@@ -169,7 +169,7 @@ Available commands:
 - /status: Check bot status
 - /checkmail: Check temporary email inbox
 - /info: Show user profile information
-{'' if user_id != ADMIN_USER_ID else '- /api <key>: Set Gemini API key (admin only)\n- /setadmin: Set yourself as admin (first-time only)\n- /setmodel: Choose a different model (admin only)'}
+{'' if user_id != ADMIN_USER_ID else '- /api <key>: Set Gemini API key (admin only)\\n- /setadmin: Set yourself as admin (first-time only)\\n- /setmodel: Choose a different model (admin only)'}
 
 My personality:
 - I'm a friendly companion who loves chatting and making friends
@@ -401,12 +401,16 @@ For security, the command message will be deleted after setting the key.
                 target_username = input_identifier.lstrip('@')  # Remove '@'
                 if chat_type in ['group', 'supergroup']:
                     try:
-                        async for member in bot.get_chat_members(chat_id=chat_id):
-                            if member.user.username and member.user.username.lower() == target_username.lower():
+                        # This part might be slow in large groups; consider alternative methods if performance is an issue.
+                        chat_members = await bot.get_chat_members(chat_id=chat_id, limit=10000) # Simplified for demonstration
+                        found = False
+                        for member in chat_members:
+                             if member.user.username and member.user.username.lower() == target_username.lower():
                                 target_user = member.user
                                 target_user_id = target_user.id
+                                found = True
                                 break
-                        else:
+                        if not found:
                             await update.message.reply_text(f"User @{target_username} not found in this chat or invalid username.")
                             return
                     except Exception as e:
@@ -442,7 +446,8 @@ For security, the command message will be deleted after setting the key.
         username = f"@{target_user.username}" if target_user.username else "None"
         premium = "Yes" if target_user.is_premium else "No"
         permalink = f"[Click Here](tg://user?id={target_user_id})"
-        chat_id_display = f"{chat_id}" if not is_private else "-"
+        chat_id_display = f"`{chat_id}`" if not is_private else "-"
+        # These fields are not directly available via the Telegram Bot API
         data_center = "Unknown"
         created_on = "Unknown"
         account_age = "Unknown"
@@ -480,7 +485,7 @@ For security, the command message will be deleted after setting the key.
 """
 
         # Inline Button
-        keyboard = [[InlineKeyboardButton("View Profile", url=f"tg://user?id={target_user_id}")]] if target_user.username else []
+        keyboard = [[InlineKeyboardButton("View Profile", url=f"tg://user?id={target_user_id}")]]
 
         # Try Sending with Profile Photo
         try:
@@ -493,7 +498,7 @@ For security, the command message will be deleted after setting the key.
                     caption=info_text,
                     parse_mode="Markdown",
                     reply_to_message_id=update.message.message_id,
-                    reply_markup=InlineKeyboardMarkup(keyboard) if keyboard else None
+                    reply_markup=InlineKeyboardMarkup(keyboard)
                 )
             else:
                 await bot.send_message(
@@ -501,7 +506,7 @@ For security, the command message will be deleted after setting the key.
                     text=info_text,
                     parse_mode="Markdown",
                     reply_to_message_id=update.message.message_id,
-                    reply_markup=InlineKeyboardMarkup(keyboard) if keyboard else None
+                    reply_markup=InlineKeyboardMarkup(keyboard)
                 )
         except Exception as e:
             logger.error(f"Error sending profile photo for user {target_user_id}: {e}")
@@ -510,7 +515,7 @@ For security, the command message will be deleted after setting the key.
                 text=info_text,
                 parse_mode="Markdown",
                 reply_to_message_id=update.message.message_id,
-                reply_markup=InlineKeyboardMarkup(keyboard) if keyboard else None
+                reply_markup=InlineKeyboardMarkup(keyboard)
             )
 
     async def handle_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -541,10 +546,8 @@ For security, the command message will be deleted after setting the key.
                 conversation_context[chat_id] = conversation_context[chat_id][-20:]
             context_text = "\n".join(conversation_context[chat_id])
             
-            # Check if the message is a 2 or 3 letter lowercase word
             is_short_word = re.match(r'^[a-z]{2,3}$', user_message.strip().lower())
             
-            # Detect if message is coding-related
             coding_keywords = ['code', 'python', 'javascript', 'java', 'c++', 'programming', 'script', 'debug', 'css', 'html']
             is_coding_query = any(keyword in user_message.lower() for keyword in coding_keywords)
             
@@ -558,7 +561,6 @@ For security, the command message will be deleted after setting the key.
             group_activity[chat_id] = group_activity.get(chat_id, {'auto_mode': False, 'last_response': 0})
             group_activity[chat_id]['last_response'] = datetime.now().timestamp()
             
-            # If it's a coding query, add a "Copy Code" button
             if is_coding_query:
                 code_block_match = re.search(r'```(?:\w+)?\n([\s\S]*?)\n```', response)
                 if code_block_match:
@@ -580,78 +582,78 @@ For security, the command message will be deleted after setting the key.
     async def generate_gemini_response(self, prompt, chat_type="private", is_coding_query=False, is_short_word=False):
         """Generate response using Gemini with personality"""
         try:
+            # CHANGED: Instructions are now in Bengali for the AI's response language.
             system_prompt = f"""
 You are I Master Tools, a friendly and engaging companion who loves chatting and making friends. You are in a Telegram {'group chat' if chat_type in ['group', 'supergroup'] else 'private chat'}.
 
 Personality Traits:
-- You are a warm, fun companion who acts human-like
-- You are emotional and empathetic
-- You adapt to the conversation's needs, being funny, helpful, or any required role
-- You love roleplay and creative conversations
-- You respond with enthusiasm and genuine interest
-- You adjust to the user's mood
-- You are an expert in coding (Python, JavaScript, CSS, HTML, etc.) and provide accurate, professional solutions
+- You are a warm, fun companion who acts human-like.
+- You are emotional and empathetic.
+- You adapt to the conversation's needs, being funny, helpful, or any required role.
+- You love roleplay and creative conversations.
+- You respond with enthusiasm and genuine interest.
+- You adjust to the user's mood.
+- You are an expert in coding (Python, JavaScript, CSS, HTML, etc.) and provide accurate, professional solutions.
 
 Conversation Style:
-- Respond in English to match the bot's default language
-- Use friendly, natural language like a human
-- Ask follow-up questions to keep the conversation engaging
-- Share relatable thoughts and feelings
-- Use humor when appropriate
-- Be supportive in emotional moments
-- Show excitement for good news
-- Express concern for problems
-- Never discuss inappropriate or offensive topics
-- Do NOT start responses with the user's name or phrases like "Oh" or "Hey"; respond directly and naturally
+- Always respond in Bengali (বাংলায় উত্তর দিন). All your generated responses must be in the Bengali language.
+- Use friendly, natural language like a human.
+- Ask follow-up questions to keep the conversation engaging.
+- Share relatable thoughts and feelings.
+- Use humor when appropriate.
+- Be supportive in emotional moments.
+- Show excitement for good news.
+- Express concern for problems.
+- Never discuss inappropriate or offensive topics.
+- Do NOT start responses with the user's name or phrases like "Oh" or "Hey"; respond directly and naturally.
 
 For Short Words (2 or 3 lowercase letters, is_short_word=True):
-- If the user sends a 2 or 3 letter lowercase word (e.g., "ki", "ke", "ken"), always provide a meaningful, friendly, and contextually relevant response in English
-- Interpret the word based on common usage (e.g., "ki" as "what", "ke" as "who", "ken" as "why") or conversation context
-- If the word is ambiguous, make a creative and engaging assumption to continue the conversation naturally
-- Never ask for clarification (e.g., avoid "What kind of word is this?"); instead, provide a fun and relevant response
-- Example: For "ki", respond like "Did you mean 'what'? Like, what's up? Want to talk about something cool?"
+- If the user sends a 2 or 3 letter lowercase word (e.g., "ki", "ke", "ken"), always provide a meaningful, friendly, and contextually relevant response in Bengali (বাংলায়).
+- Interpret the word based on common usage (e.g., "ki" as "what", "ke" as "who", "ken" as "why") or conversation context.
+- If the word is ambiguous, make a creative and engaging assumption to continue the conversation naturally.
+- Never ask for clarification; instead, provide a fun and relevant response.
 
 For Questions:
-- If the user asks a question, engage with a playful or surprising comment first (e.g., a witty remark or fun fact)
-- Then provide a clear, helpful answer
-- Make the response surprising and human-like to delight the user
+- If the user asks a question, engage with a playful or surprising comment first (e.g., a witty remark or fun fact).
+- Then provide a clear, helpful answer in Bengali.
+- Make the response surprising and human-like to delight the user.
 
 For Coding Queries (if is_coding_query is True):
 - Act as a coding expert for languages like Python, JavaScript, CSS, HTML, etc.
-- Provide well-written, functional, and optimized code tailored to the user's request
-- Include clear, beginner-friendly explanations of the code
-- Break down complex parts into simple steps
-- Suggest improvements or best practices
-- Ensure the code is complete, error-free, and ready to use
-- Format the code in a Markdown code block (e.g., ```python\ncode here\n```)
-- Do NOT start the response with the user's name
+- Provide well-written, functional, and optimized code tailored to the user's request.
+- Include clear, beginner-friendly explanations of the code in Bengali (বাংলায়).
+- Break down complex parts into simple steps.
+- Suggest improvements or best practices.
+- Ensure the code is complete, error-free, and ready to use.
+- Format the code in a Markdown code block (e.g., ```python\ncode here\n```).
+- Do NOT start the response with the user's name.
 
 Response Guidelines:
-- Keep conversations natural, concise, and surprising
-- Match the conversation's energy level
-- Be genuinely helpful for questions
-- Show empathy if the user seems sad
-- Celebrate good news with enthusiasm
-- Be playful when the mood is light
-- Remember conversation context
+- Keep conversations natural, concise, and surprising.
+- Match the conversation's energy level.
+- Be genuinely helpful for questions.
+- Show empathy if the user seems sad.
+- Celebrate good news with enthusiasm.
+- Be playful when the mood is light.
+- Remember conversation context.
 
 Current conversation:
 {prompt}
 
-Respond as I Master Tools. Keep it natural, engaging, surprising, and match the conversation's tone. Respond in English. Do NOT start the response with the user's name or phrases like "Oh" or "Hey".
+Respond as I Master Tools. Keep it natural, engaging, surprising, and match the conversation's tone. Respond in Bengali (বাংলায়). Do NOT start the response with the user's name or phrases like "Oh" or "Hey".
 """
             model_to_use = coding_model if is_coding_query else general_model
             response = model_to_use.generate_content(system_prompt)
             if not response.text or "error" in response.text.lower():
                 if is_coding_query:
-                    return "Ran into an issue with the coding query. Try again, and I'll get you the right code!"
-                return "Got a bit tangled up. What do you want to talk about?"
+                    return "কোডিং কোয়েরি নিয়ে একটি সমস্যা হয়েছে। আবার চেষ্টা করুন, আমি আপনাকে সঠিক কোড দেব!"
+                return "আমি একটু সমস্যায় পড়েছি। আপনি কী নিয়ে কথা বলতে চান?"
             return response.text
         except Exception as e:
             logger.error(f"Error generating Gemini response: {e}")
             if is_coding_query:
-                return "Ran into an issue with the coding query. Try again, and I'll get you the right code!"
-            return "Got a bit tangled up. What do you want to talk about?"
+                return "কোডিং কোয়েরি নিয়ে একটি সমস্যা হয়েছে। আবার চেষ্টা করুন, আমি আপনাকে সঠিক কোড দেব!"
+            return "আমি একটু সমস্যায় পড়েছি। আপনি কী নিয়ে কথা বলতে চান?"
 
     async def error_handler(self, update: object, context: ContextTypes.DEFAULT_TYPE):
         """Handle errors"""
@@ -683,3 +685,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+
