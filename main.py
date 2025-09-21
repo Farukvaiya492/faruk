@@ -98,7 +98,7 @@ class TelegramGeminiBot:
         self.application.add_handler(CommandHandler("menu", self.menu_command))
         self.application.add_handler(CommandHandler("setmodel", self.setmodel_command))
         self.application.add_handler(CommandHandler("info", self.info_command))
-        self.application.add_handler(CommandHandler("insta", self.insta_command))
+        self.application.add_handler(CommandHandler("insta", self.insta_command))  # Added /insta command
         self.application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_message))
         self.application.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, self.handle_new_member))
         self.application.add_handler(CallbackQueryHandler(self.button_callback, pattern='^copy_code$'))
@@ -404,7 +404,7 @@ For security, the command message will be deleted after setting the key.
                 logger.error(f"Failed to switch model: {str(e)}")
 
     async def info_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle /info command to show user profile information by username or user ID"""
+        """Handle /info command to show user profile information"""
         user_id = update.effective_user.id
         chat_id = update.effective_chat.id
         chat_type = update.effective_chat.type
@@ -419,46 +419,27 @@ For security, the command message will be deleted after setting the key.
         target_user = update.effective_user
         target_user_id = user_id
         target_username = None
-        input_identifier = None
-
-        if context.args:  # Check if a username or user ID is provided
-            input_identifier = context.args[0]
-            if input_identifier.startswith('@'):  # Username provided
-                target_username = input_identifier.lstrip('@')  # Remove '@'
+        if context.args:  # Check if a username is provided (e.g., /info @username)
+            try:
+                target_username = context.args[0].lstrip('@')  # Remove '@' from username
+                # Try to get user info from chat or by resolving username
                 if chat_type in ['group', 'supergroup']:
-                    try:
-                        async for member in bot.get_chat_members(chat_id=chat_id):
-                            if member.user.username and member.user.username.lower() == target_username.lower():
-                                target_user = member.user
-                                target_user_id = target_user.id
-                                break
-                        else:
-                            await update.message.reply_text(f"User @{target_username} not found in this chat or invalid username.")
-                            return
-                    except Exception as e:
-                        logger.error(f"Error resolving username @{target_username}: {e}")
-                        await update.message.reply_text(f"Could not find user @{target_username}. Make sure the username is valid.")
+                    # Fetch chat members to find the user
+                    async for member in bot.get_chat_members(chat_id=chat_id):
+                        if member.user.username and member.user.username.lower() == target_username.lower():
+                            target_user = member.user
+                            target_user_id = target_user.id
+                            break
+                    else:
+                        await update.message.reply_text(f"User @{target_username} not found in this chat or invalid username.")
                         return
                 else:
                     await update.message.reply_text("Please use this command in a group to check other users' info or use without arguments to check your own info.")
                     return
-            else:  # User ID provided
-                try:
-                    target_user_id = int(input_identifier)
-                    if chat_type in ['group', 'supergroup']:
-                        try:
-                            member = await bot.get_chat_member(chat_id=chat_id, user_id=target_user_id)
-                            target_user = member.user
-                        except Exception as e:
-                            logger.error(f"Error resolving user ID {target_user_id}: {e}")
-                            await update.message.reply_text(f"User with ID {target_user_id} not found in this chat or invalid ID.")
-                            return
-                    else:
-                        await update.message.reply_text("Please use this command in a group to check other users' info or use without arguments to check your own info.")
-                        return
-                except ValueError:
-                    await update.message.reply_text(f"Invalid input: '{input_identifier}'. Please provide a valid username (e.g., @username) or user ID (e.g., 123456789).")
-                    return
+            except Exception as e:
+                logger.error(f"Error resolving username @{target_username}: {e}")
+                await update.message.reply_text(f"Could not find user @{target_username}. Make sure the username is valid.")
+                return
 
         # User Info
         is_private = chat_type == "private"
@@ -553,13 +534,13 @@ For security, the command message will be deleted after setting the key.
             await update.message.reply_text(
                 "Please provide an Instagram URL.\n"
                 "Usage: /insta <instagram_url>\n"
-                "Example: /insta https://www.instagram.com/share/reel/BAFoZka3JY"
+                "Example: /insta https://www.instagram.com/reel/C_4fX1YvX9_/"
             )
             return
 
         url = context.args[0]
         if not url.startswith(('http://', 'https://')) or 'instagram.com' not in url:
-            await update.message.reply_text("Invalid Instagram URL. Please provide a valid Instagram link (e.g., https://www.instagram.com/share/reel/BAFoZka3JY).")
+            await update.message.reply_text("Invalid Instagram URL. Please provide a valid Instagram link (e.g., https://www.instagram.com/reel/C_4fX1YvX9_/).")
             return
 
         await context.bot.send_chat_action(chat_id=update.effective_chat.id, action="upload_document")
