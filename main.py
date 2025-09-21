@@ -1,7 +1,7 @@
 import os
 import logging
 import google.generativeai as genai
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, CallbackQuery
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters, ContextTypes
 import asyncio
 from datetime import datetime
@@ -39,7 +39,7 @@ def initialize_gemini_models(api_key):
     try:
         genai.configure(api_key=api_key)
         general_model = genai.GenerativeModel(current_model)
-        coding_model = genai.GenerativeModel('gemini-1.5-pro')  # Dedicated for coding
+        coding_model = genai.GenerativeModel('gemini-1.5-pro')
         current_gemini_api_key = api_key
         logger.info("Gemini API configured successfully")
         return True, "Gemini API configured successfully!"
@@ -86,20 +86,28 @@ class TelegramGeminiBot:
     async def button_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle button callbacks for direct feature execution"""
         query = update.callback_query
-        if not query or not query.data:
-            logger.error("Invalid callback query received")
+        if not query or not query.data or not query.message:
+            logger.error(f"Invalid callback query: query={query}, data={getattr(query, 'data', None)}, message={getattr(query, 'message', None)}")
             return
         callback_data = query.data
-        await query.answer()  # Acknowledge the button press
+        try:
+            await query.answer()  # Acknowledge the button press
+        except Exception as e:
+            logger.error(f"Error answering callback query: {str(e)}")
 
         user_id = query.from_user.id
-        chat_type = query.message.chat.type if query.message else 'unknown'
-        chat_id = query.message.chat.id if query.message else None
+        chat_id = query.message.chat.id
+        chat_type = query.message.chat.type
+
+        logger.info(f"Button callback received: data={callback_data}, user_id={user_id}, chat_type={chat_type}")
 
         # Handle non-admin private chat redirect
         if chat_type == 'private' and user_id != ADMIN_USER_ID:
             response, reply_markup = await self.get_private_chat_redirect()
-            await query.message.reply_text(response, reply_markup=reply_markup)
+            try:
+                await query.message.reply_text(response, reply_markup=reply_markup)
+            except Exception as e:
+                logger.error(f"Error sending redirect message: {str(e)}")
             return
 
         # Command mapping for direct feature execution
@@ -122,30 +130,23 @@ class TelegramGeminiBot:
                 mock_update = Update(
                     update_id=update.update_id,
                     callback_query=query,
-                    message=query.message if query.message else None
+                    message=query.message
                 )
                 mock_update.effective_user = query.from_user
-                mock_update.effective_chat = query.message.chat if query.message else None
+                mock_update.effective_chat = query.message.chat
 
-                # For commands requiring arguments, provide default behavior
-                if callback_data == "api":
+                # Handle commands requiring arguments
+                if callback_data in ["api", "setmodel", "info"]:
                     context.args = []
-                    await self.api_command(mock_update, context)
-                elif callback_data == "setmodel":
-                    context.args = []
-                    await self.setmodel_command(mock_update, context)
-                elif callback_data == "info":
-                    context.args = []
-                    await self.info_command(mock_update, context)
-                else:
-                    await command_mapping[callback_data](mock_update, context)
+                await command_mapping[callback_data](mock_update, context)
             else:
+                logger.warning(f"Unknown callback data: {callback_data}")
                 await query.message.reply_text(
                     "Oops! This button seems to be lost in space. 🚀 Try another one from the menu!",
                     reply_markup=await self.get_menu_keyboard(user_id)
                 )
         except Exception as e:
-            logger.error(f"Error in button callback for {callback_data}: {str(e)}")
+            logger.error(f"Error in button callback for {callback_data}: {str(e)}", exc_info=True)
             await query.message.reply_text(
                 f"Something went wrong with that action. 😔 Try again or use /menu to see all options!",
                 reply_markup=await self.get_menu_keyboard(user_id)
@@ -196,10 +197,7 @@ Hello, thanks for wanting to chat with me! I'm I Master Tools, your friendly com
 
         if chat_type == 'private' and user_id != ADMIN_USER_ID:
             response, reply_markup = await self.get_private_chat_redirect()
-            if update.message:
-                await update.message.reply_text(response, reply_markup=reply_markup)
-            elif update.callback_query and update.callback_query.message:
-                await update.callback_query.message.reply_text(response, reply_markup=reply_markup)
+            await self._send_response(update, response, reply_markup=reply_markup)
         else:
             reply_markup = await self.get_menu_keyboard(user_id)
             welcome_message = f"""
@@ -216,21 +214,7 @@ Available commands:
 - /info: Show user profile information
 {'' if user_id != ADMIN_USER_ID else '- /api <key>: Set Gemini API key (admin only)\n- /setadmin: Set yourself as admin (first-time only)\n- /setmodel: Choose a different model (admin only)'}
             """
-            if update.message:
-                await update.message.reply_text(welcome_message, reply_markup=reply_markup)
-            elif update.callback_query and update.callback_query.message:
-                await update.callback_query.message.reply_text(welcome_message, reply_markup=reply_markup)
-
-    async def handle_new_member(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle new members joining the group"""
-        for new_member in update.message.new_chat_members:
-            username = new_member.first_name or "User"
-            user_id = new_member.id
-            user_mention = f"@{new_member.username}" if new_member.username else username
-            welcome_message = f"""
-Welcome {user_mention}! We're thrilled to have you in our VPSHUB_BD_CHAT group! I'm I Master Tools, your friendly companion. Here, you'll find fun conversations, helpful answers, and more. Mention @I MasterTools or reply to my messages to start chatting. What do you want to talk about?
-            """
-            await update.message.reply_text(welcome_message)
+            await self._send_response(update, welcome_message, reply_markup=reply_markup)
 
     async def help_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /help command"""
@@ -240,10 +224,7 @@ Welcome {user_mention}! We're thrilled to have you in our VPSHUB_BD_CHAT group! 
 
         if chat_type == 'private' and user_id != ADMIN_USER_ID:
             response, reply_markup = await self.get_private_chat_redirect()
-            if update.message:
-                await update.message.reply_text(response, reply_markup=reply_markup)
-            elif update.callback_query and update.callback_query.message:
-                await update.callback_query.message.reply_text(response, reply_markup=reply_markup)
+            await self._send_response(update, response, reply_markup=reply_markup)
         else:
             reply_markup = await self.get_menu_keyboard(user_id)
             help_message = f"""
@@ -267,10 +248,7 @@ Available commands:
 - /info: Show user profile information
 {'' if user_id != ADMIN_USER_ID else '- /api <key>: Set Gemini API key (admin only)\n- /setadmin: Set yourself as admin (first-time only)\n- /setmodel: Choose a different model (admin only)'}
             """
-            if update.message:
-                await update.message.reply_text(help_message, reply_markup=reply_markup)
-            elif update.callback_query and update.callback_query.message:
-                await update.callback_query.message.reply_text(help_message, reply_markup=reply_markup)
+            await self._send_response(update, help_message, reply_markup=reply_markup)
 
     async def menu_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /menu command with direct feature buttons"""
@@ -280,14 +258,11 @@ Available commands:
 
         if chat_type == 'private' and user_id != ADMIN_USER_ID:
             response, reply_markup = await self.get_private_chat_redirect()
-            await update.message.reply_text(response, reply_markup=reply_markup)
+            await self._send_response(update, response, reply_markup=reply_markup)
         else:
             reply_markup = await self.get_menu_keyboard(user_id)
-            await update.message.reply_text(
-                f"🌟 Hello {username}, welcome to I Master Tools! 🌟\n"
-                "Tap a button to explore our awesome features:",
-                reply_markup=reply_markup
-            )
+            response = f"🌟 Hello {username}, welcome to I Master Tools! 🌟\nTap a button to explore our awesome features:"
+            await self._send_response(update, response, reply_markup=reply_markup)
 
     async def clear_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /clear command"""
@@ -297,18 +272,12 @@ Available commands:
 
         if chat_type == 'private' and user_id != ADMIN_USER_ID:
             response, reply_markup = await self.get_private_chat_redirect()
-            if update.message:
-                await update.message.reply_text(response, reply_markup=reply_markup)
-            elif update.callback_query and update.callback_query.message:
-                await update.callback_query.message.reply_text(response, reply_markup=reply_markup)
+            await self._send_response(update, response, reply_markup=reply_markup)
         else:
             if chat_id in conversation_context:
                 del conversation_context[chat_id]
             response = "Conversation history has been cleared. Let's start fresh!"
-            if update.message:
-                await update.message.reply_text(response)
-            elif update.callback_query and update.callback_query.message:
-                await update.callback_query.message.reply_text(response)
+            await self._send_response(update, response)
 
     async def checkmail_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /checkmail command to check temporary email inbox"""
@@ -317,10 +286,7 @@ Available commands:
 
         if chat_type == 'private' and user_id != ADMIN_USER_ID:
             response, reply_markup = await self.get_private_chat_redirect()
-            if update.message:
-                await update.message.reply_text(response, reply_markup=reply_markup)
-            elif update.callback_query and update.callback_query.message:
-                await update.callback_query.message.reply_text(response, reply_markup=reply_markup)
+            await self._send_response(update, response, reply_markup=reply_markup)
         else:
             try:
                 u = 'txoguqa'
@@ -338,17 +304,10 @@ Available commands:
                 else:
                     subjects = [m['subject'] for m in mail_list]
                     response_text = f"Here are the emails in the inbox for {email}:\n\n" + "\n".join(subjects)
-                if update.message:
-                    await update.message.reply_text(response_text)
-                elif update.callback_query and update.callback_query.message:
-                    await update.callback_query.message.reply_text(response_text)
+                await self._send_response(update, response_text)
             except Exception as e:
-                logger.error(f"Error checking email: {e}")
-                response_text = "Something went wrong while checking the email. Shall we try again?"
-                if update.message:
-                    await update.message.reply_text(response_text)
-                elif update.callback_query and update.callback_query.message:
-                    await update.callback_query.message.reply_text(response_text)
+                logger.error(f"Error checking email: {str(e)}")
+                await self._send_response(update, "Something went wrong while checking the email. Shall we try again?")
 
     async def status_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /status command"""
@@ -358,10 +317,7 @@ Available commands:
 
         if chat_type == 'private' and user_id != ADMIN_USER_ID:
             response, reply_markup = await self.get_private_chat_redirect()
-            if update.message:
-                await update.message.reply_text(response, reply_markup=reply_markup)
-            elif update.callback_query and update.callback_query.message:
-                await update.callback_query.message.reply_text(response, reply_markup=reply_markup)
+            await self._send_response(update, response, reply_markup=reply_markup)
         else:
             api_status = "Connected" if current_gemini_api_key and general_model else "Not configured"
             api_key_display = f"...{current_gemini_api_key[-8:]}" if current_gemini_api_key else "Not set"
@@ -379,10 +335,7 @@ Admin ID: {ADMIN_USER_ID if ADMIN_USER_ID != 0 else 'Not set'}
 
 All systems are ready for action. I'm thrilled to assist!
             """
-            if update.message:
-                await update.message.reply_text(status_message)
-            elif update.callback_query and update.callback_query.message:
-                await update.callback_query.message.reply_text(status_message)
+            await self._send_response(update, status_message)
 
     async def setadmin_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /setadmin command"""
@@ -393,24 +346,16 @@ All systems are ready for action. I'm thrilled to assist!
 
         if chat_type == 'private' and user_id != ADMIN_USER_ID:
             response, reply_markup = await self.get_private_chat_redirect()
-            if update.message:
-                await update.message.reply_text(response, reply_markup=reply_markup)
-            elif update.callback_query and update.callback_query.message:
-                await update.callback_query.message.reply_text(response, reply_markup=reply_markup)
+            await self._send_response(update, response, reply_markup=reply_markup)
         else:
             if ADMIN_USER_ID == 0:
                 ADMIN_USER_ID = user_id
                 response = f"Congratulations {username}, you are now the bot admin! Your user ID: {user_id}"
                 logger.info(f"Admin set to user ID: {user_id}")
             else:
-                if user_id == ADMIN_USER_ID:
-                    response = f"You're already the admin! Your user ID: {user_id}"
-                else:
-                    response = "Sorry, the admin is already set. Only the current admin can manage the bot."
-            if update.message:
-                await update.message.reply_text(response)
-            elif update.callback_query and update.callback_query.message:
-                await update.callback_query.message.reply_text(response)
+                response = f"You're already the admin! Your user ID: {user_id}" if user_id == ADMIN_USER_ID else \
+                          "Sorry, the admin is already set. Only the current admin can manage the bot."
+            await self._send_response(update, response)
 
     async def api_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /api command to set Gemini API key"""
@@ -420,24 +365,13 @@ All systems are ready for action. I'm thrilled to assist!
 
         if chat_type == 'private' and user_id != ADMIN_USER_ID:
             response, reply_markup = await self.get_private_chat_redirect()
-            if update.message:
-                await update.message.reply_text(response, reply_markup=reply_markup)
-            elif update.callback_query and update.callback_query.message:
-                await update.callback_query.message.reply_text(response, reply_markup=reply_markup)
+            await self._send_response(update, response, reply_markup=reply_markup)
         else:
             if ADMIN_USER_ID == 0:
-                response = "No admin set. Please use /setadmin first."
-                if update.message:
-                    await update.message.reply_text(response)
-                elif update.callback_query and update.callback_query.message:
-                    await update.callback_query.message.reply_text(response)
+                await self._send_response(update, "No admin set. Please use /setadmin first.")
                 return
             if user_id != ADMIN_USER_ID:
-                response = "This command is for the bot admin only."
-                if update.message:
-                    await update.message.reply_text(response)
-                elif update.callback_query and update.callback_query.message:
-                    await update.callback_query.message.reply_text(response)
+                await self._send_response(update, "This command is for the bot admin only.")
                 return
             if not context.args:
                 response = """
@@ -452,18 +386,11 @@ To get a Gemini API key:
 
 For security, the command message will be deleted after setting the key.
                 """
-                if update.message:
-                    await update.message.reply_text(response, parse_mode='Markdown')
-                elif update.callback_query and update.callback_query.message:
-                    await update.callback_query.message.reply_text(response, parse_mode='Markdown')
+                await self._send_response(update, response, parse_mode='Markdown')
                 return
             api_key = ' '.join(context.args)
             if len(api_key) < 20 or not api_key.startswith('AI'):
-                response = "Invalid API key format. Gemini API keys typically start with 'AI' and are over 20 characters."
-                if update.message:
-                    await update.message.reply_text(response)
-                elif update.callback_query and update.callback_query.message:
-                    await update.callback_query.message.reply_text(response)
+                await self._send_response(update, "Invalid API key format. Gemini API keys typically start with 'AI' and are over 20 characters.")
                 return
             success, message = initialize_gemini_models(api_key)
             try:
@@ -472,12 +399,9 @@ For security, the command message will be deleted after setting the key.
                 elif update.callback_query and update.callback_query.message:
                     await context.bot.delete_message(chat_id=update.effective_chat.id, message_id=update.callback_query.message.message_id)
             except Exception as e:
-                logger.error(f"Error deleting API command message: {e}")
+                logger.error(f"Error deleting API command message: {str(e)}")
             response = f"Gemini API key updated successfully! Key: ...{api_key[-8:]}" if success else f"Failed to set API key: {message}"
-            if update.message:
-                await update.effective_chat.send_message(response)
-            elif update.callback_query and update.callback_query.message:
-                await update.callback_query.message.reply_text(response)
+            await self._send_response(update, response)
             logger.info(f"Gemini API key updated by admin {user_id}" if success else f"Failed to set API key: {message}")
 
     async def setmodel_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -488,40 +412,22 @@ For security, the command message will be deleted after setting the key.
 
         if chat_type == 'private' and user_id != ADMIN_USER_ID:
             response, reply_markup = await self.get_private_chat_redirect()
-            if update.message:
-                await update.message.reply_text(response, reply_markup=reply_markup)
-            elif update.callback_query and update.callback_query.message:
-                await update.callback_query.message.reply_text(response, reply_markup=reply_markup)
+            await self._send_response(update, response, reply_markup=reply_markup)
         else:
             if ADMIN_USER_ID == 0:
-                response = "No admin set. Please use /setadmin first."
-                if update.message:
-                    await update.message.reply_text(response)
-                elif update.callback_query and update.callback_query.message:
-                    await update.callback_query.message.reply_text(response)
+                await self._send_response(update, "No admin set. Please use /setadmin first.")
                 return
             if user_id != ADMIN_USER_ID:
-                response = "This command is for the bot admin only."
-                if update.message:
-                    await update.message.reply_text(response)
-                elif update.callback_query and update.callback_query.message:
-                    await update.callback_query.message.reply_text(response)
+                await self._send_response(update, "This command is for the bot admin only.")
                 return
             if not context.args:
                 models_list = "\n".join([f"- {model}" for model in available_models])
                 response = f"Available models:\n{models_list}\n\nUsage: /setmodel <model_name>"
-                if update.message:
-                    await update.message.reply_text(response)
-                elif update.callback_query and update.callback_query.message:
-                    await update.callback_query.message.reply_text(response)
+                await self._send_response(update, response)
                 return
             model_name = context.args[0]
             if model_name not in available_models:
-                response = f"Invalid model. Choose from: {', '.join(available_models)}"
-                if update.message:
-                    await update.message.reply_text(response)
-                elif update.callback_query and update.callback_query.message:
-                    await update.callback_query.message.reply_text(response)
+                await self._send_response(update, f"Invalid model. Choose from: {', '.join(available_models)}")
                 return
             try:
                 current_model = model_name
@@ -531,10 +437,7 @@ For security, the command message will be deleted after setting the key.
             except Exception as e:
                 response = f"Failed to switch model: {str(e)}"
                 logger.error(f"Failed to switch model: {str(e)}")
-            if update.message:
-                await update.message.reply_text(response)
-            elif update.callback_query and update.callback_query.message:
-                await update.callback_query.message.reply_text(response)
+            await self._send_response(update, response)
 
     async def info_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /info command to show user profile information by username or user ID"""
@@ -545,10 +448,7 @@ For security, the command message will be deleted after setting the key.
 
         if chat_type == 'private' and user_id != ADMIN_USER_ID:
             response, reply_markup = await self.get_private_chat_redirect()
-            if update.message:
-                await update.message.reply_text(response, reply_markup=reply_markup)
-            elif update.callback_query and update.callback_query.message:
-                await update.callback_query.message.reply_text(response, reply_markup=reply_markup)
+            await self._send_response(update, response, reply_markup=reply_markup)
             return
 
         # Determine target user
@@ -557,10 +457,10 @@ For security, the command message will be deleted after setting the key.
         target_username = None
         input_identifier = None
 
-        if context.args:  # Check if a username or user ID is provided
+        if context.args:
             input_identifier = context.args[0]
-            if input_identifier.startswith('@'):  # Username provided
-                target_username = input_identifier.lstrip('@')  # Remove '@'
+            if input_identifier.startswith('@'):
+                target_username = input_identifier.lstrip('@')
                 if chat_type in ['group', 'supergroup']:
                     try:
                         async for member in bot.get_chat_members(chat_id=chat_id):
@@ -569,28 +469,16 @@ For security, the command message will be deleted after setting the key.
                                 target_user_id = target_user.id
                                 break
                         else:
-                            response = f"User @{target_username} not found in this chat or invalid username."
-                            if update.message:
-                                await update.message.reply_text(response)
-                            elif update.callback_query and update.callback_query.message:
-                                await update.callback_query.message.reply_text(response)
+                            await self._send_response(update, f"User @{target_username} not found in this chat or invalid username.")
                             return
                     except Exception as e:
-                        logger.error(f"Error resolving username @{target_username}: {e}")
-                        response = f"Could not find user @{target_username}. Make sure the username is valid."
-                        if update.message:
-                            await update.message.reply_text(response)
-                        elif update.callback_query and update.callback_query.message:
-                            await update.callback_query.message.reply_text(response)
+                        logger.error(f"Error resolving username @{target_username}: {str(e)}")
+                        await self._send_response(update, f"Could not find user @{target_username}. Make sure the username is valid.")
                         return
                 else:
-                    response = "Please use this command in a group to check other users' info or use without arguments to check your own info."
-                    if update.message:
-                        await update.message.reply_text(response)
-                    elif update.callback_query and update.callback_query.message:
-                        await update.callback_query.message.reply_text(response)
+                    await self._send_response(update, "Please use this command in a group to check other users' info or use without arguments to check your own info.")
                     return
-            else:  # User ID provided
+            else:
                 try:
                     target_user_id = int(input_identifier)
                     if chat_type in ['group', 'supergroup']:
@@ -598,26 +486,14 @@ For security, the command message will be deleted after setting the key.
                             member = await bot.get_chat_member(chat_id=chat_id, user_id=target_user_id)
                             target_user = member.user
                         except Exception as e:
-                            logger.error(f"Error resolving user ID {target_user_id}: {e}")
-                            response = f"User with ID {target_user_id} not found in this chat or invalid ID."
-                            if update.message:
-                                await update.message.reply_text(response)
-                            elif update.callback_query and update.callback_query.message:
-                                await update.callback_query.message.reply_text(response)
+                            logger.error(f"Error resolving user ID {target_user_id}: {str(e)}")
+                            await self._send_response(update, f"User with ID {target_user_id} not found in this chat or invalid ID.")
                             return
                     else:
-                        response = "Please use this command in a group to check other users' info or use without arguments to check your own info."
-                        if update.message:
-                            await update.message.reply_text(response)
-                        elif update.callback_query and update.callback_query.message:
-                            await update.callback_query.message.reply_text(response)
+                        await self._send_response(update, "Please use this command in a group to check other users' info or use without arguments to check your own info.")
                         return
                 except ValueError:
-                    response = f"Invalid input: '{input_identifier}'. Please provide a valid username (e.g., @username) or user ID (e.g., 123456789)."
-                    if update.message:
-                        await update.message.reply_text(response)
-                    elif update.callback_query and update.callback_query.message:
-                        await update.callback_query.message.reply_text(response)
+                    await self._send_response(update, f"Invalid input: '{input_identifier}'. Please provide a valid username (e.g., @username) or user ID (e.g., 123456789).")
                     return
 
         # User Info
@@ -642,7 +518,7 @@ For security, the command message will be deleted after setting the key.
                 member = await bot.get_chat_member(chat_id=chat_id, user_id=target_user_id)
                 status = "Admin" if member.status in ["administrator", "creator"] else "Member"
             except Exception as e:
-                logger.error(f"Error checking group role for user {target_user_id}: {e}")
+                logger.error(f"Error checking group role for user {target_user_id}: {str(e)}")
                 status = "Unknown"
 
         # Message Body
@@ -673,59 +549,47 @@ For security, the command message will be deleted after setting the key.
             photos = await bot.get_user_profile_photos(target_user_id, limit=1)
             if photos.total_count > 0:
                 file_id = photos.photos[0][0].file_id
-                if update.message:
-                    await bot.send_photo(
-                        chat_id=chat_id,
-                        photo=file_id,
-                        caption=info_text,
-                        parse_mode="Markdown",
-                        reply_to_message_id=update.message.message_id,
-                        reply_markup=InlineKeyboardMarkup(keyboard) if keyboard else None
-                    )
-                elif update.callback_query and update.callback_query.message:
-                    await bot.send_photo(
-                        chat_id=chat_id,
-                        photo=file_id,
-                        caption=info_text,
-                        parse_mode="Markdown",
-                        reply_to_message_id=update.callback_query.message.message_id,
-                        reply_markup=InlineKeyboardMarkup(keyboard) if keyboard else None
-                    )
+                await self._send_photo_response(update, chat_id, file_id, info_text, keyboard)
             else:
-                if update.message:
-                    await bot.send_message(
-                        chat_id=chat_id,
-                        text=info_text,
-                        parse_mode="Markdown",
-                        reply_to_message_id=update.message.message_id,
-                        reply_markup=InlineKeyboardMarkup(keyboard) if keyboard else None
-                    )
-                elif update.callback_query and update.callback_query.message:
-                    await bot.send_message(
-                        chat_id=chat_id,
-                        text=info_text,
-                        parse_mode="Markdown",
-                        reply_to_message_id=update.callback_query.message.message_id,
-                        reply_markup=InlineKeyboardMarkup(keyboard) if keyboard else None
-                    )
+                await self._send_response(update, info_text, parse_mode="Markdown", reply_markup=InlineKeyboardMarkup(keyboard) if keyboard else None)
         except Exception as e:
-            logger.error(f"Error sending profile photo for user {target_user_id}: {e}")
+            logger.error(f"Error sending profile photo for user {target_user_id}: {str(e)}")
+            await self._send_response(update, info_text, parse_mode="Markdown", reply_markup=InlineKeyboardMarkup(keyboard) if keyboard else None)
+
+    async def _send_response(self, update: Update, text: str, parse_mode: str = None, reply_markup=None):
+        """Helper method to send response for both message and callback query"""
+        try:
             if update.message:
-                await bot.send_message(
-                    chat_id=chat_id,
-                    text=info_text,
+                await update.message.reply_text(text, parse_mode=parse_mode, reply_markup=reply_markup)
+            elif update.callback_query and update.callback_query.message:
+                await update.callback_query.message.reply_text(text, parse_mode=parse_mode, reply_markup=reply_markup)
+            else:
+                logger.error("No valid message or callback query to send response")
+        except Exception as e:
+            logger.error(f"Error sending response: {str(e)}")
+
+    async def _send_photo_response(self, update: Update, chat_id: int, photo: str, caption: str, reply_markup=None):
+        """Helper method to send photo response for both message and callback query"""
+        try:
+            if update.message:
+                await update.message.reply_photo(
+                    photo=photo,
+                    caption=caption,
                     parse_mode="Markdown",
-                    reply_to_message_id=update.message.message_id,
-                    reply_markup=InlineKeyboardMarkup(keyboard) if keyboard else None
+                    reply_markup=reply_markup
                 )
             elif update.callback_query and update.callback_query.message:
-                await bot.send_message(
-                    chat_id=chat_id,
-                    text=info_text,
+                await update.callback_query.message.reply_photo(
+                    photo=photo,
+                    caption=caption,
                     parse_mode="Markdown",
-                    reply_to_message_id=update.callback_query.message.message_id,
-                    reply_markup=InlineKeyboardMarkup(keyboard) if keyboard else None
+                    reply_markup=reply_markup
                 )
+            else:
+                logger.error("No valid message or callback query to send photo response")
+        except Exception as e:
+            logger.error(f"Error sending photo response: {str(e)}")
+            await self._send_response(update, caption, parse_mode="Markdown", reply_markup=reply_markup)
 
     async def handle_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle regular text messages"""
@@ -755,10 +619,7 @@ For security, the command message will be deleted after setting the key.
                 conversation_context[chat_id] = conversation_context[chat_id][-20:]
             context_text = "\n".join(conversation_context[chat_id])
             
-            # Check if the message is a 2 or 3 letter lowercase word
             is_short_word = re.match(r'^[a-z]{2,3}$', user_message.strip().lower())
-            
-            # Detect if message is coding-related
             coding_keywords = ['code', 'python', 'javascript', 'java', 'c++', 'programming', 'script', 'debug', 'css', 'html']
             is_coding_query = any(keyword in user_message.lower() for keyword in coding_keywords)
             
@@ -772,23 +633,18 @@ For security, the command message will be deleted after setting the key.
             group_activity[chat_id] = group_activity.get(chat_id, {'auto_mode': False, 'last_response': 0})
             group_activity[chat_id]['last_response'] = datetime.now().timestamp()
             
-            # If it's a coding query, add a "Copy Code" button
             if is_coding_query:
                 code_block_match = re.search(r'```(?:\w+)?\n([\s\S]*?)\n```', response)
                 if code_block_match:
                     keyboard = [[InlineKeyboardButton("Copy Code", callback_data="copy_code")]]
                     reply_markup = InlineKeyboardMarkup(keyboard)
-                    await update.message.reply_text(
-                        response,
-                        parse_mode='Markdown',
-                        reply_markup=reply_markup
-                    )
+                    await update.message.reply_text(response, parse_mode='Markdown', reply_markup=reply_markup)
                 else:
                     await update.message.reply_text(response, parse_mode='Markdown')
             else:
                 await update.message.reply_text(response)
         except Exception as e:
-            logger.error(f"Error handling message: {e}")
+            logger.error(f"Error handling message: {str(e)}")
             await update.message.reply_text("Something went wrong. Shall we try again?")
 
     async def generate_gemini_response(self, prompt, chat_type="private", is_coding_query=False, is_short_word=False):
@@ -862,21 +718,25 @@ Respond as I Master Tools. Keep it natural, engaging, surprising, and match the 
                 return "Got a bit tangled up. What do you want to talk about?"
             return response.text
         except Exception as e:
-            logger.error(f"Error generating Gemini response: {e}")
+            logger.error(f"Error generating Gemini response: {str(e)}")
             if is_coding_query:
                 return "Ran into an issue with the coding query. Try again, and I'll get you the right code!"
             return "Got a bit tangled up. What do you want to talk about?"
 
     async def error_handler(self, update: object, context: ContextTypes.DEFAULT_TYPE):
         """Handle errors"""
-        logger.error(f"Exception while handling an update: {context.error}")
-        if update and hasattr(update, 'effective_chat') and hasattr(update, 'message'):
-            await update.message.reply_text("Something went wrong. Shall we try again?")
-        elif update and hasattr(update, 'callback_query') and update.callback_query.message:
-            await update.callback_query.message.reply_text(
-                "Something went wrong. Shall we try again?",
-                reply_markup=await self.get_menu_keyboard(update.callback_query.from_user.id)
-            )
+        logger.error(f"Exception while handling an update: {context.error}", exc_info=True)
+        if update and hasattr(update, 'effective_chat'):
+            if hasattr(update, 'message') and update.message:
+                await update.message.reply_text(
+                    "Something went wrong. Shall we try again?",
+                    reply_markup=await self.get_menu_keyboard(update.effective_user.id)
+                )
+            elif hasattr(update, 'callback_query') and update.callback_query and update.callback_query.message:
+                await update.callback_query.message.reply_text(
+                    "Something went wrong. Shall we try again?",
+                    reply_markup=await self.get_menu_keyboard(update.callback_query.from_user.id)
+                )
 
     def run(self):
         """Start the bot"""
