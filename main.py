@@ -33,8 +33,9 @@ available_models = [
 ]
 current_model = 'gemini-1.5-flash'  # Default model
 
-# API key for phone number validation
+# API keys for external services
 PHONE_API_KEY = "num_live_Nf2vjeM19tHdi42qQ2LaVVMg2IGk1ReU2BYBKnvm"
+BIN_API_KEY = "kEXNklIYqLiLU657swFB1VXE0e4NF21G"
 
 def initialize_gemini_models(api_key):
     """Initialize Gemini models with the provided API key"""
@@ -131,6 +132,40 @@ async def validate_phone_number(phone_number: str, api_key: str, country_code: s
         logger.error(f"Error validating phone number: {e}")
         return "ফোন নম্বর যাচাই করতে সমস্যা হয়েছে। আবার চেষ্টা করবেন?"
 
+async def validate_bin(bin_number: str, api_key: str):
+    """
+    BIN বা IIN যাচাই করার ফাংশন
+    :param bin_number: কার্ড নম্বরের প্রথম 6-11 ডিজিট
+    :param api_key: আপনার API কী
+    :return: ফরম্যাটেড রেসপন্স স্ট্রিং
+    """
+    base_url = "https://api.iinapi.com/iin"
+    params = {
+        "key": api_key,
+        "digits": bin_number
+    }
+    
+    try:
+        response = requests.get(base_url, params=params)
+        response.raise_for_status()
+        data = response.json()
+        if data.get("valid", False):
+            result = data.get("result", {})
+            return f"""
+✅ BIN যাচাই সম্পন্ন:
+💳 BIN: {result.get('Bin', 'N/A')}
+🏦 কার্ড ব্র্যান্ড: {result.get('CardBrand', 'N/A')}
+🏛️ ইস্যুকারী প্রতিষ্ঠান: {result.get('IssuingInstitution', 'N/A')}
+📋 কার্ড টাইপ: {result.get('CardType', 'N/A')}
+🏷️ কার্ড ক্যাটাগরি: {result.get('CardCategory', 'N/A')}
+🌍 ইস্যুকারী দেশ: {result.get('IssuingCountry', 'N/A')} ({result.get('IssuingCountryCode', 'N/A')})
+"""
+        else:
+            return "❌ BINটি বৈধ নয়।"
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error validating BIN: {e}")
+        return f"❌ BIN যাচাই করতে সমস্যা হয়েছে: {str(e)}"
+
 class TelegramGeminiBot:
     def __init__(self):
         self.application = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
@@ -150,6 +185,7 @@ class TelegramGeminiBot:
         self.application.add_handler(CommandHandler("info", self.info_command))
         self.application.add_handler(CommandHandler("weather", self.weather_command))
         self.application.add_handler(CommandHandler("validatephone", self.validatephone_command))
+        self.application.add_handler(CommandHandler("validatebin", self.validatebin_command))
         self.application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_message))
         self.application.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, self.handle_new_member))
         self.application.add_handler(CallbackQueryHandler(self.button_callback, pattern='^copy_code$'))
@@ -194,6 +230,8 @@ Available commands:
 - /checkmail: Check temporary email inbox
 - /info: Show user profile information
 - /weather: Check weather forecast for Berlin
+- /validatephone <number> [country_code]: Validate a phone number
+- /validatebin <bin_number>: Validate a BIN number
 {'' if user_id != ADMIN_USER_ID else '- /api <key>: Set Gemini API key (admin only)\n- /setadmin: Set yourself as admin (first-time only)\n- /setmodel: Choose a different model (admin only)'}
 
 In groups, mention @I MasterTools or reply to my messages to get a response. I'm excited to chat with you!
@@ -244,6 +282,7 @@ Available commands:
 - /info: Show user profile information
 - /weather: Check weather forecast for Berlin
 - /validatephone <number> [country_code]: Validate a phone number
+- /validatebin <bin_number>: Validate a BIN number
 {'' if user_id != ADMIN_USER_ID else '- /api <key>: Set Gemini API key (admin only)\n- /setadmin: Set yourself as admin (first-time only)\n- /setmodel: Choose a different model (admin only)'}
 
 My personality:
@@ -573,6 +612,24 @@ For security, the command message will be deleted after setting the key.
         phone_number = context.args[0]
         country_code = context.args[1] if len(context.args) > 1 else None
         response_message = await validate_phone_number(phone_number, PHONE_API_KEY, country_code)
+        await update.message.reply_text(response_message)
+
+    async def validatebin_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle /validatebin command to validate a BIN number"""
+        user_id = update.effective_user.id
+        chat_type = update.effective_chat.type
+
+        if chat_type == 'private' and user_id != ADMIN_USER_ID:
+            response, reply_markup = await self.get_private_chat_redirect()
+            await update.message.reply_text(response, reply_markup=reply_markup)
+            return
+
+        if not context.args:
+            await update.message.reply_text("ব্যবহার: /validatebin <bin_number>\nউদাহরণ: /validatebin 324000")
+            return
+
+        bin_number = context.args[0]
+        response_message = await validate_bin(bin_number, BIN_API_KEY)
         await update.message.reply_text(response_message)
 
     async def handle_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
