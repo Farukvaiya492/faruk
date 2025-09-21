@@ -4,5 +4,4 @@ aiohttp==3.9.5
 pytz==2023.4
 python-telegram-bot==20.8
 google-generativeai==0.7.2
-requests==2.32.3
 python-dotenv==1.0.1
