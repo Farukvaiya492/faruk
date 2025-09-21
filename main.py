@@ -6,7 +6,7 @@ from telegram import Update, ReplyKeyboardMarkup, ReplyKeyboardRemove
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes, ConversationHandler
 
 # বটের টোকেন (আপনার বটের টোকেন দিয়ে প্রতিস্থাপন করুন)
-BOT_TOKEN = "YOUR_BOT_TOKEN_HERE"
+BOT_TOKEN = "8380869007:AAGu7e41JJVU8aXG5wqXtCMUVKcCmmrp_gg"
 
 # কনভারসেশন স্টেটস
 UID, REGION, AMOUNT, CONFIRM = range(4)
