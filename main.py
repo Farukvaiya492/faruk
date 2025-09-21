@@ -5,6 +5,7 @@ from telegram.ext import Application, CommandHandler, CallbackQueryHandler, Cont
 import asyncio
 import random
 import requests
+from datetime import datetime
 
 # Configure logging
 logging.basicConfig(
@@ -47,17 +48,17 @@ class TelegramBot:
             logger.error(f"Invalid callback query: query={query}, data={getattr(query, 'data', None)}, message={getattr(query, 'message', None)}")
             return
         callback_data = query.data
-        try:
-            await query.answer()
-        except Exception as e:
-            logger.error(f"Error answering callback query: {str(e)}")
-
         user_id = query.from_user.id
         chat_id = query.message.chat.id
         chat_type = query.message.chat.type
-        logger.info(f"Button callback: data={callback_data}, user_id={user_id}, chat_type={chat_type}")
 
-        # Handle non-admin private chat redirect
+        try:
+            await query.answer()
+            logger.info(f"Button clicked: data={callback_data}, user_id={user_id}, chat_type={chat_type}")
+        except Exception as e:
+            logger.error(f"Error answering callback query: {str(e)}")
+
+        # Non-admin private chat redirect
         if chat_type == 'private' and user_id != ADMIN_USER_ID:
             response, reply_markup = await self.get_private_chat_redirect()
             await query.message.reply_text(response, reply_markup=reply_markup)
@@ -90,18 +91,18 @@ class TelegramBot:
             else:
                 logger.warning(f"Unknown callback data: {callback_data}")
                 await query.message.reply_text(
-                    "Oops! This button is lost in space. 🚀 Try another one!",
+                    "This button seems lost! 🚀 Try another one!",
                     reply_markup=await self.get_menu_keyboard(user_id)
                 )
         except Exception as e:
             logger.error(f"Error in button callback for {callback_data}: {str(e)}", exc_info=True)
             await query.message.reply_text(
-                f"Something went wrong with that action. 😔 Try again or use /menu!",
+                f"Oops, something went wrong! 😔 Try /menu to explore again.",
                 reply_markup=await self.get_menu_keyboard(user_id)
             )
 
     async def get_menu_keyboard(self, user_id):
-        """Generate the menu keyboard dynamically"""
+        """Generate the menu keyboard"""
         keyboard = [
             [
                 InlineKeyboardButton("🚀 Start", callback_data="start"),
@@ -134,7 +135,7 @@ class TelegramBot:
         keyboard = [[InlineKeyboardButton("Join VPSHUB_BD_CHAT", url="https://t.me/VPSHUB_BD_CHAT")]]
         reply_markup = InlineKeyboardMarkup(keyboard)
         return """
-Hello, thanks for reaching out! I'm I Master Tools, your friendly companion. To chat with me, join our official group by clicking below and mention @IMasterTools. I'm waiting for you there!
+Hello! I'm I Master Tools, your friendly bot. Join our group to chat with me! Click below and mention @IMasterTools.
         """, reply_markup
 
     async def start_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -148,21 +149,20 @@ Hello, thanks for reaching out! I'm I Master Tools, your friendly companion. To 
             await self._send_response(update, response, reply_markup=reply_markup)
         else:
             reply_markup = await self.get_menu_keyboard(user_id)
-            welcome_message = f"""
-Hello {username}, welcome to I Master Tools!
-
-Join our group or mention @IMasterTools to chat. Explore features with the buttons below!
+            response = f"""
+Hello {username}, welcome to I Master Tools! 🌟
+Explore features below or join our group and mention @IMasterTools.
 
 Commands:
 - /help: Get help
 - /menu: Show menu
 - /clear: Clear history
-- /status: Check bot status
+- /status: Bot status
 - /checkmail: Check email
 - /info: User info
-{'' if user_id != ADMIN_USER_ID else '- /api <key>: Set API key (admin)\n- /setadmin: Set admin\n- /setmodel: Set model (admin)'}
+{'' if user_id != ADMIN_USER_ID else '- /api <key>: Set API key\n- /setadmin: Set admin\n- /setmodel: Set model'}
             """
-            await self._send_response(update, welcome_message, reply_markup=reply_markup)
+            await self._send_response(update, response, reply_markup=reply_markup)
 
     async def help_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /help command"""
@@ -175,13 +175,13 @@ Commands:
             await self._send_response(update, response, reply_markup=reply_markup)
         else:
             reply_markup = await self.get_menu_keyboard(user_id)
-            help_message = f"""
-Hello {username}! I'm I Master Tools, your friendly companion.
+            response = f"""
+Hello {username}! I'm I Master Tools, your friendly bot. 😊
 
 How I work:
-- In groups, mention @IMasterTools or reply to my messages
-- In private chats, only admin can use all features
-- I'm fun, helpful, and human-like!
+- In groups, mention @IMasterTools or reply to me
+- In private, only admins access all features
+- Use buttons to explore!
 
 Commands:
 - /start: Welcome message
@@ -191,9 +191,9 @@ Commands:
 - /status: Bot status
 - /checkmail: Check email
 - /info: User info
-{'' if user_id != ADMIN_USER_ID else '- /api <key>: Set API key (admin)\n- /setadmin: Set admin\n- /setmodel: Set model (admin)'}
+{'' if user_id != ADMIN_USER_ID else '- /api <key>: Set API key\n- /setadmin: Set admin\n- /setmodel: Set model'}
             """
-            await self._send_response(update, help_message, reply_markup=reply_markup)
+            await self._send_response(update, response, reply_markup=reply_markup)
 
     async def menu_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /menu command"""
@@ -221,7 +221,7 @@ Commands:
         else:
             if chat_id in conversation_context:
                 del conversation_context[chat_id]
-            response = "Conversation history cleared. Let's start fresh!"
+            response = "Conversation history cleared! Ready for a fresh start? 😄"
             await self._send_response(update, response)
 
     async def checkmail_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -249,7 +249,7 @@ Commands:
                 await self._send_response(update, response_text)
             except Exception as e:
                 logger.error(f"Error checking email: {str(e)}")
-                await self._send_response(update, "Error checking email. Try again?")
+                await self._send_response(update, "Couldn't check email. Try again? 😅")
 
     async def status_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /status command"""
@@ -261,15 +261,15 @@ Commands:
             response, reply_markup = await self.get_private_chat_redirect()
             await self._send_response(update, response, reply_markup=reply_markup)
         else:
-            status_message = f"""
+            response = f"""
 I Master Tools Status:
 Bot: Online
 Conversations: {len(conversation_context)}
 Admin ID: {ADMIN_USER_ID if ADMIN_USER_ID != 0 else 'Not set'}
 Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
-Ready to assist! 🚀
+Ready to roll! 🚀
             """
-            await self._send_response(update, status_message)
+            await self._send_response(update, response)
 
     async def setadmin_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /setadmin command"""
@@ -284,7 +284,7 @@ Ready to assist! 🚀
         else:
             if ADMIN_USER_ID == 0:
                 ADMIN_USER_ID = user_id
-                response = f"Congratulations {username}, you're now the admin! ID: {user_id}"
+                response = f"Congrats {username}, you're the admin! ID: {user_id}"
                 logger.info(f"Admin set to user ID: {user_id}")
             else:
                 response = f"You're already admin! ID: {user_id}" if user_id == ADMIN_USER_ID else \
@@ -334,7 +334,7 @@ Ready to assist! 🚀
                 await self._send_response(update, response)
                 return
             model_name = context.args[0]
-            response = f"Model set to {model_name}." if model_name else "Invalid model."
+            response = f"Model set to {model_name}."
             await self._send_response(update, response)
 
     async def info_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -353,7 +353,7 @@ Ready to assist! 🚀
         if target_user.last_name:
             full_name += f" {target_user.last_name}"
         username = f"@{target_user.username}" if target_user.username else "None"
-        info_text = f"""
+        response = f"""
 User Info:
 Name: {full_name}
 Username: {username}
@@ -361,7 +361,7 @@ User ID: {user_id}
 Chat ID: {chat_id if chat_type != 'private' else '-'}
 Role: {'Admin' if user_id == ADMIN_USER_ID else 'User'}
         """
-        await self._send_response(update, info_text)
+        await self._send_response(update, response)
 
     async def _send_response(self, update: Update, text: str, parse_mode: str = None, reply_markup=None):
         """Helper method to send response"""
@@ -373,7 +373,7 @@ Role: {'Admin' if user_id == ADMIN_USER_ID else 'User'}
             else:
                 logger.error("No valid message or callback query to send response")
         except Exception as e:
-            logger.error(f"Error sending response: {str(e)}")
+            logger.error(f"Error sending response: {str(e)}", exc_info=True)
 
     async def error_handler(self, update: object, context: ContextTypes.DEFAULT_TYPE):
         """Handle errors"""
@@ -382,12 +382,12 @@ Role: {'Admin' if user_id == ADMIN_USER_ID else 'User'}
             user_id = update.effective_user.id if update.effective_user else 0
             if hasattr(update, 'message') and update.message:
                 await update.message.reply_text(
-                    "Something went wrong. 😔 Try /menu!",
+                    "Oops, something went wrong! 😔 Try /menu!",
                     reply_markup=await self.get_menu_keyboard(user_id)
                 )
             elif hasattr(update, 'callback_query') and update.callback_query and update.callback_query.message:
                 await update.callback_query.message.reply_text(
-                    "Something went wrong. 😔 Try /menu!",
+                    "Oops, something went wrong! 😔 Try /menu!",
                     reply_markup=await self.get_menu_keyboard(user_id)
                 )
 
