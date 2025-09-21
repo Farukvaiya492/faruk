@@ -3,7 +3,7 @@ import logging
 import google.generativeai as genai
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, CallbackQuery
 from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters, ContextTypes
-import asyncio
+from datetime import datetime
 import random
 import re
 import requests
@@ -13,7 +13,7 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     level=logging.INFO
 )
-logger = logging.getLogger(__name__) 
+logger = logging.getLogger(__name__)
 
 # Configuration
 TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN', '8380869007:AAGu7e41JJVU8aXG5wqXtCMUVKcCmmrp_gg')
@@ -86,6 +86,7 @@ class TelegramGeminiBot:
         """Handle copy code button callback"""
         query = update.callback_query
         await query.answer("Code copied!")  # Notify user
+        # Telegram automatically handles code block copying
 
     async def get_private_chat_redirect(self):
         """Return redirect message for non-admin private chats"""
