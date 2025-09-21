@@ -84,14 +84,13 @@ class TelegramGeminiBot:
         self.application.add_error_handler(self.error_handler)
 
     async def button_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle button callbacks for main menu and sub-menus"""
+        """Handle button callbacks for direct feature execution"""
         query = update.callback_query
         callback_data = query.data
         await query.answer()  # Acknowledge the button press
 
         user_id = query.from_user.id
         chat_type = query.message.chat.type
-        username = query.from_user.first_name or "User"
 
         # Handle non-admin private chat redirect
         if chat_type == 'private' and user_id != ADMIN_USER_ID:
@@ -113,72 +112,22 @@ class TelegramGeminiBot:
             "copy_code": lambda u, c: query.answer("Code copied!")
         }
 
-        # Sub-menu definitions
-        sub_menus = {
-            "general": [
-                [InlineKeyboardButton("🚀 Start", callback_data="start")],
-                [InlineKeyboardButton("ℹ️ Help", callback_data="help")],
-                [InlineKeyboardButton("🔙 Back to Main Menu", callback_data="main_menu")]
-            ],
-            "tools": [
-                [InlineKeyboardButton("📧 Check Email", callback_data="checkmail")],
-                [InlineKeyboardButton("📊 Bot Status", callback_data="status")],
-                [InlineKeyboardButton("🗑️ Clear History", callback_data="clear")],
-                [InlineKeyboardButton("👤 User Info", callback_data="info")],
-                [InlineKeyboardButton("🔙 Back to Main Menu", callback_data="main_menu")]
-            ],
-            "admin": [
-                [InlineKeyboardButton("🔑 Set API Key", callback_data="api")],
-                [InlineKeyboardButton("⚙️ Change Model", callback_data="setmodel")],
-                [InlineKeyboardButton("👑 Set Admin", callback_data="setadmin")],
-                [InlineKeyboardButton("🔙 Back to Main Menu", callback_data="main_menu")]
-            ]
-        }
-
-        # Handle main menu request
-        if callback_data == "main_menu":
-            keyboard = [
-                [InlineKeyboardButton("🌟 General Features", callback_data="general")],
-                [InlineKeyboardButton("🛠️ Tools", callback_data="tools")],
-                [InlineKeyboardButton("🔗 Join Group", url="https://t.me/VPSHUB_BD_CHAT")]
-            ]
-            if user_id == ADMIN_USER_ID:
-                keyboard.insert(2, [InlineKeyboardButton("🔐 Admin Settings", callback_data="admin")])
-            reply_markup = InlineKeyboardMarkup(keyboard)
-            await query.message.edit_text(
-                f"🌟 Welcome, {username}! Explore I Master Tools' features below! 🌟\n"
-                "Choose a category to dive in:",
-                reply_markup=reply_markup
-            )
-        # Handle sub-menu requests
-        elif callback_data in sub_menus:
-            reply_markup = InlineKeyboardMarkup(sub_menus[callback_data])
-            menu_titles = {
-                "general": "🌟 General Features",
-                "tools": "🛠️ Tools & Utilities",
-                "admin": "🔐 Admin Settings"
-            }
-            await query.message.edit_text(
-                f"{menu_titles[callback_data]}\nSelect an option:",
-                reply_markup=reply_markup
-            )
-        # Handle command execution
-        elif callback_data in command_mapping:
+        if callback_data in command_mapping:
+            # For commands requiring arguments, provide default behavior
             if callback_data == "api":
-                await query.message.reply_text(
-                    "Please provide the Gemini API key using: /api <your_api_key>",
-                    parse_mode='Markdown'
-                )
+                # Simulate /api without arguments to trigger help message
+                context.args = []
+                await self.api_command(query, context)
             elif callback_data == "setmodel":
-                models_list = "\n".join([f"- {model}" for model in available_models])
-                await query.message.reply_text(
-                    f"Available models:\n{models_list}\n\nPlease use: /setmodel <model_name>"
-                )
+                # Simulate /setmodel without arguments to show available models
+                context.args = []
+                await self.setmodel_command(query, context)
             elif callback_data == "info":
-                await query.message.reply_text(
-                    "To view user info, use: /info or /info <@username> or /info <user_id>"
-                )
+                # Simulate /info for the current user
+                context.args = []
+                await self.info_command(query, context)
             else:
+                # Execute other commands directly
                 await command_mapping[callback_data](query, context)
         else:
             await query.message.reply_text("Unknown action. Please try another option from the menu!")
@@ -277,7 +226,7 @@ Powered by Google Gemini
             await update.message.reply_text(help_message, reply_markup=reply_markup)
 
     async def menu_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle /menu command with dynamic category-based menu"""
+        """Handle /menu command with direct feature buttons"""
         user_id = update.effective_user.id
         username = update.effective_user.first_name or "User"
         chat_type = update.effective_chat.type
@@ -286,17 +235,37 @@ Powered by Google Gemini
             response, reply_markup = await self.get_private_chat_redirect()
             await update.message.reply_text(response, reply_markup=reply_markup)
         else:
+            # Define the inline keyboard with direct feature buttons
             keyboard = [
-                [InlineKeyboardButton("🌟 General Features", callback_data="general")],
-                [InlineKeyboardButton("🛠️ Tools", callback_data="tools")],
-                [InlineKeyboardButton("🔗 Join Group", url="https://t.me/VPSHUB_BD_CHAT")]
+                [
+                    InlineKeyboardButton("🚀 Start", callback_data="start"),
+                    InlineKeyboardButton("ℹ️ Help", callback_data="help")
+                ],
+                [
+                    InlineKeyboardButton("📧 Check Email", callback_data="checkmail"),
+                    InlineKeyboardButton("📊 Status", callback_data="status")
+                ],
+                [
+                    InlineKeyboardButton("🗑️ Clear History", callback_data="clear"),
+                    InlineKeyboardButton("👤 User Info", callback_data="info")
+                ],
+                [
+                    InlineKeyboardButton("🔗 Join Group", url="https://t.me/VPSHUB_BD_CHAT")
+                ]
             ]
+            # Add admin-only buttons if the user is the admin
             if user_id == ADMIN_USER_ID:
-                keyboard.insert(2, [InlineKeyboardButton("🔐 Admin Settings", callback_data="admin")])
+                keyboard.append([
+                    InlineKeyboardButton("🔑 Set API", callback_data="api"),
+                    InlineKeyboardButton("⚙️ Set Model", callback_data="setmodel")
+                ])
+                keyboard.append([
+                    InlineKeyboardButton("👑 Set Admin", callback_data="setadmin")
+                ])
             reply_markup = InlineKeyboardMarkup(keyboard)
             await update.message.reply_text(
-                f"🌟 Welcome, {username}! Explore I Master Tools' features below! 🌟\n"
-                "Choose a category to dive in:",
+                f"🌟 Hello {username}, welcome to I Master Tools! 🌟\n"
+                "Tap a button to explore our awesome features:",
                 reply_markup=reply_markup
             )
 
@@ -394,7 +363,7 @@ All systems are ready for action. I'm thrilled to assist!
                     await update.message.reply_text("Sorry, the admin is already set. Only the current admin can manage the bot.")
 
     async def api_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle /api command to set the Gemini API key"""
+        """Handle /api command to set Gemini API key"""
         global current_gemini_api_key, general_model, coding_model
         user_id = update.effective_user.id
         chat_type = update.effective_chat.type
@@ -693,7 +662,7 @@ Conversation Style:
 - Ask follow-up questions to keep the conversation engaging
 - Share relatable thoughts and feelings
 - Use humor when appropriate
-- Be supportive in personally moments
+- Be supportive in emotional moments
 - Show excitement for good news
 - Express concern for problems
 - Never discuss inappropriate or offensive topics
