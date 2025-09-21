@@ -4,7 +4,7 @@ import google.generativeai as genai
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, CallbackQuery
 from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters, ContextTypes
 import asyncio
-from datetime import datetime, timedelta
+from datetime import datetime
 import random
 import re
 import requests
@@ -33,14 +33,6 @@ available_models = [
 ]
 current_model = 'gemini-1.5-flash'  # Default model
 
-# Store conversation context and command usage for each user
-conversation_context = {}
-group_activity = {}
-user_command_usage = {}  # New dictionary to track command usage per user
-
-# NEW: Track like history for each UID and region
-like_history = {}  # Format: {uid: {region: {'likes': int, 'last_check': float}}}
-
 def initialize_gemini_models(api_key):
     """Initialize Gemini models with the provided API key"""
     global general_model, coding_model, current_gemini_api_key
@@ -65,26 +57,9 @@ if GEMINI_API_KEY:
 else:
     logger.warning("GEMINI_API_KEY not set. Use /api command to configure.")
 
-def check_command_limit(user_id, command):
-    """Check if user has exceeded daily command limit (2 uses per 24 hours)"""
-    current_time = datetime.now().timestamp()
-    if user_id not in user_command_usage:
-        user_command_usage[user_id] = {}
-    
-    if command not in user_command_usage[user_id]:
-        user_command_usage[user_id][command] = {'count': 0, 'last_reset': current_time}
-    
-    # Reset count if 24 hours have passed
-    if current_time - user_command_usage[user_id][command]['last_reset'] >= 86400:  # 24 hours in seconds
-        user_command_usage[user_id][command] = {'count': 0, 'last_reset': current_time}
-    
-    # Check if limit (2 uses) is exceeded
-    if user_command_usage[user_id][command]['count'] >= 2:
-        return False, "😕 Oops! You've reached today's limit for this command (2 times). Try again in 24 hours! 🚀"
-    
-    # Increment usage count
-    user_command_usage[user_id][command]['count'] += 1
-    return True, ""
+# Store conversation context for each chat
+conversation_context = {}
+group_activity = {}
 
 class TelegramGeminiBot:
     def __init__(self):
@@ -103,9 +78,6 @@ class TelegramGeminiBot:
         self.application.add_handler(CommandHandler("menu", self.menu_command))
         self.application.add_handler(CommandHandler("setmodel", self.setmodel_command))
         self.application.add_handler(CommandHandler("info", self.info_command))
-        self.application.add_handler(CommandHandler("like", self.like_command))
-        self.application.add_handler(CommandHandler("level", self.level_command))
-        self.application.add_handler(CommandHandler("stats", self.stats_command))
         self.application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_message))
         self.application.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, self.handle_new_member))
         self.application.add_handler(CallbackQueryHandler(self.button_callback, pattern='^copy_code$'))
@@ -149,9 +121,6 @@ Available commands:
 - /status: Check bot status
 - /checkmail: Check temporary email inbox
 - /info: Show user profile information
-- /like <uid> [region]: Check Free Fire player likes (2 times per day)
-- /level <uid> [region]: Check Free Fire player level (2 times per day)
-- /stats <uid> [region]: Check Free Fire player stats (2 times per day)
 {'' if user_id != ADMIN_USER_ID else '- /api <key>: Set Gemini API key (admin only)\n- /setadmin: Set yourself as admin (first-time only)\n- /setmodel: Choose a different model (admin only)'}
 
 In groups, mention @I MasterTools or reply to my messages to get a response. I'm excited to chat with you!
@@ -191,7 +160,6 @@ How I work:
 - I remember conversation context until you clear it
 - I'm an expert in coding (Python, JavaScript, CSS, HTML, etc.) and provide accurate, beginner-friendly solutions
 - I'm designed to be friendly, helpful, and human-like
-- Free Fire commands (/like, /level, /stats) are limited to 2 uses per day per user
 
 Available commands:
 - /start: Show welcome message with group link
@@ -201,9 +169,6 @@ Available commands:
 - /status: Check bot status
 - /checkmail: Check temporary email inbox
 - /info: Show user profile information
-- /like <uid> [region]: Check Free Fire player likes (2 times per day)
-- /level <uid> [region]: Check Free Fire player level (2 times per day)
-- /stats <uid> [region]: Check Free Fire player stats (2 times per day)
 {'' if user_id != ADMIN_USER_ID else '- /api <key>: Set Gemini API key (admin only)\n- /setadmin: Set yourself as admin (first-time only)\n- /setmodel: Choose a different model (admin only)'}
 
 My personality:
@@ -232,9 +197,6 @@ Powered by Google Gemini
                 [InlineKeyboardButton("Bot Status", callback_data="status")],
                 [InlineKeyboardButton("Clear History", callback_data="clear")],
                 [InlineKeyboardButton("User Info", callback_data="info")],
-                [InlineKeyboardButton("Check Likes", callback_data="like")],
-                [InlineKeyboardButton("Check Level", callback_data="level")],
-                [InlineKeyboardButton("Check Stats", callback_data="stats")],
                 [InlineKeyboardButton("Join Group", url="https://t.me/VPSHUB_BD_CHAT")]
             ]
             if user_id == ADMIN_USER_ID:
@@ -416,12 +378,10 @@ For security, the command message will be deleted after setting the key.
                 logger.error(f"Failed to switch model: {str(e)}")
 
     async def info_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle /info command to show user profile information"""
+        """Handle /info command to show user profile information by username or user ID"""
         user_id = update.effective_user.id
         chat_id = update.effective_chat.id
         chat_type = update.effective_chat.type
-        user = update.effective_user
-        chat = update.effective_chat
         bot = context.bot
 
         if chat_type == 'private' and user_id != ADMIN_USER_ID:
@@ -429,14 +389,59 @@ For security, the command message will be deleted after setting the key.
             await update.message.reply_text(response, reply_markup=reply_markup)
             return
 
+        # Determine target user
+        target_user = update.effective_user
+        target_user_id = user_id
+        target_username = None
+        input_identifier = None
+
+        if context.args:  # Check if a username or user ID is provided
+            input_identifier = context.args[0]
+            if input_identifier.startswith('@'):  # Username provided
+                target_username = input_identifier.lstrip('@')  # Remove '@'
+                if chat_type in ['group', 'supergroup']:
+                    try:
+                        async for member in bot.get_chat_members(chat_id=chat_id):
+                            if member.user.username and member.user.username.lower() == target_username.lower():
+                                target_user = member.user
+                                target_user_id = target_user.id
+                                break
+                        else:
+                            await update.message.reply_text(f"User @{target_username} not found in this chat or invalid username.")
+                            return
+                    except Exception as e:
+                        logger.error(f"Error resolving username @{target_username}: {e}")
+                        await update.message.reply_text(f"Could not find user @{target_username}. Make sure the username is valid.")
+                        return
+                else:
+                    await update.message.reply_text("Please use this command in a group to check other users' info or use without arguments to check your own info.")
+                    return
+            else:  # User ID provided
+                try:
+                    target_user_id = int(input_identifier)
+                    if chat_type in ['group', 'supergroup']:
+                        try:
+                            member = await bot.get_chat_member(chat_id=chat_id, user_id=target_user_id)
+                            target_user = member.user
+                        except Exception as e:
+                            logger.error(f"Error resolving user ID {target_user_id}: {e}")
+                            await update.message.reply_text(f"User with ID {target_user_id} not found in this chat or invalid ID.")
+                            return
+                    else:
+                        await update.message.reply_text("Please use this command in a group to check other users' info or use without arguments to check your own info.")
+                        return
+                except ValueError:
+                    await update.message.reply_text(f"Invalid input: '{input_identifier}'. Please provide a valid username (e.g., @username) or user ID (e.g., 123456789).")
+                    return
+
         # User Info
         is_private = chat_type == "private"
-        full_name = user.first_name or "No Name"
-        if user.last_name:
-            full_name += f" {user.last_name}"
-        username = f"@{user.username}" if user.username else "None"
-        premium = "Yes" if user.is_premium else "No"
-        permalink = f"[Click Here](tg://user?id={user_id})"
+        full_name = target_user.first_name or "No Name"
+        if target_user.last_name:
+            full_name += f" {target_user.last_name}"
+        username = f"@{target_user.username}" if target_user.username else "None"
+        premium = "Yes" if target_user.is_premium else "No"
+        permalink = f"[Click Here](tg://user?id={target_user_id})"
         chat_id_display = f"{chat_id}" if not is_private else "-"
         data_center = "Unknown"
         created_on = "Unknown"
@@ -448,10 +453,10 @@ For security, the command message will be deleted after setting the key.
         status = "Private Chat" if is_private else "Unknown"
         if not is_private:
             try:
-                member = await bot.get_chat_member(chat_id=chat_id, user_id=user_id)
+                member = await bot.get_chat_member(chat_id=chat_id, user_id=target_user_id)
                 status = "Admin" if member.status in ["administrator", "creator"] else "Member"
             except Exception as e:
-                logger.error(f"Error checking group role: {e}")
+                logger.error(f"Error checking group role for user {target_user_id}: {e}")
                 status = "Unknown"
 
         # Message Body
@@ -460,7 +465,7 @@ For security, the command message will be deleted after setting the key.
 ━━━━━━━━━━━━━━━━
 *Full Name:* {full_name}
 *Username:* {username}
-*User ID:* `{user_id}`
+*User ID:* `{target_user_id}`
 *Chat ID:* {chat_id_display}
 *Premium User:* {premium}
 *Data Center:* {data_center}
@@ -469,16 +474,17 @@ For security, the command message will be deleted after setting the key.
 *Account Frozen:* {account_frozen}
 *Users Last Seen:* {last_seen}
 *Permanent Link:* {permalink}
+*Role:* {status}
 ━━━━━━━━━━━━━━━━
 👁 *Thank You for Using Our Tool* ✅
 """
 
         # Inline Button
-        keyboard = [[InlineKeyboardButton("View Profile", url=f"tg://user?id={user_id}")]] if user.username else []
+        keyboard = [[InlineKeyboardButton("View Profile", url=f"tg://user?id={target_user_id}")]] if target_user.username else []
 
         # Try Sending with Profile Photo
         try:
-            photos = await bot.get_user_profile_photos(user_id, limit=1)
+            photos = await bot.get_user_profile_photos(target_user_id, limit=1)
             if photos.total_count > 0:
                 file_id = photos.photos[0][0].file_id
                 await bot.send_photo(
@@ -498,196 +504,13 @@ For security, the command message will be deleted after setting the key.
                     reply_markup=InlineKeyboardMarkup(keyboard) if keyboard else None
                 )
         except Exception as e:
-            logger.error(f"Error sending profile photo: {e}")
+            logger.error(f"Error sending profile photo for user {target_user_id}: {e}")
             await bot.send_message(
                 chat_id=chat_id,
                 text=info_text,
                 parse_mode="Markdown",
                 reply_to_message_id=update.message.message_id,
                 reply_markup=InlineKeyboardMarkup(keyboard) if keyboard else None
-            )
-
-    async def like_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle /like command to fetch Free Fire player likes with change tracking"""
-        user_id = update.effective_user.id
-        chat_type = update.effective_chat.type
-
-        if chat_type == 'private' and user_id != ADMIN_USER_ID:
-            response, reply_markup = await self.get_private_chat_redirect()
-            await update.message.reply_text(response, reply_markup=reply_markup)
-            return
-
-        # Check daily command limit
-        allowed, limit_message = check_command_limit(user_id, "like")
-        if not allowed:
-            await update.message.reply_text(limit_message, parse_mode='Markdown')
-            return
-
-        if not context.args:
-            await update.message.reply_text("Usage: /like <uid> [region]\nExample: /like 3533918864 BD", parse_mode='Markdown')
-            return
-
-        uid = context.args[0]
-        region = context.args[1] if len(context.args) > 1 else "BD"
-
-        try:
-            response = requests.get(f"https://free-fire-visit-api.vercel.app/{region}/{uid}")
-            data = response.json()
-
-            if data.get("fail") == 0:
-                # Initialize like history if not exists
-                if uid not in like_history:
-                    like_history[uid] = {}
-                if region not in like_history[uid]:
-                    like_history[uid][region] = {'likes': 0, 'last_check': 0}
-
-                # Get previous likes
-                previous_likes = like_history[uid][region]['likes']
-                current_likes = data['likes']
-                likes_change = current_likes - previous_likes
-
-                # Determine change status
-                if likes_change > 0:
-                    change_text = f"📈 +{likes_change} (Increased!)"
-                elif likes_change < 0:
-                    change_text = f"📉 {likes_change} (Decreased!)"
-                else:
-                    change_text = "📊 (No change)"
-
-                # Update history
-                like_history[uid][region] = {
-                    'likes': current_likes,
-                    'last_check': datetime.now().timestamp()
-                }
-
-                reply_text = f"""
-🎮 *Free Fire Likes Checker* 🔥
-━━━━━━━━━━━━━━━━
-*Nickname:* {data['nickname']}
-*UID:* {data['uid']}
-*Region:* 🇧🇩 {data['region']}
-*Previous Likes:* {previous_likes}
-*Current Likes:* {current_likes}
-*Change:* {change_text}
-*Total Likes:* {current_likes}
-━━━━━━━━━━━━━━━━
-Wow! {current_likes} likes! This player is on fire! 🌟 Want to check another? Just type `/like <uid> [region]`!
-"""
-                await update.message.reply_text(reply_text, parse_mode='Markdown')
-            else:
-                await update.message.reply_text(
-                    "😕 Oops! No data found. Please check the UID or region and try again! `/like <uid> [region]`",
-                    parse_mode='Markdown'
-                )
-        except Exception as e:
-            logger.error(f"Error fetching Free Fire likes: {e}")
-            await update.message.reply_text(
-                "😕 Something went wrong while checking likes. Try again! `/like <uid> [region]`",
-                parse_mode='Markdown'
-            )
-
-    async def level_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle /level command to fetch Free Fire player level"""
-        user_id = update.effective_user.id
-        chat_type = update.effective_chat.type
-
-        if chat_type == 'private' and user_id != ADMIN_USER_ID:
-            response, reply_markup = await self.get_private_chat_redirect()
-            await update.message.reply_text(response, reply_markup=reply_markup)
-            return
-
-        # Check daily command limit
-        allowed, limit_message = check_command_limit(user_id, "level")
-        if not allowed:
-            await update.message.reply_text(limit_message, parse_mode='Markdown')
-            return
-
-        if not context.args:
-            await update.message.reply_text("Usage: /level <uid> [region]\nExample: /level 3533918864 BD", parse_mode='Markdown')
-            return
-
-        uid = context.args[0]
-        region = context.args[1] if len(context.args) > 1 else "BD"
-
-        try:
-            response = requests.get(f"https://free-fire-visit-api.vercel.app/{region}/{uid}")
-            data = response.json()
-
-            if data.get("fail") == 0:
-                reply_text = f"""
-🎮 *Free Fire Level Checker* 🔥
-━━━━━━━━━━━━━━━━
-*Nickname:* {data['nickname']}
-*UID:* {data['uid']}
-*Region:* 🇧🇩 {data['region']}
-*Level:* {data['level']}
-━━━━━━━━━━━━━━━━
-Level {data['level']}! This player is a pro! 😎 Want to check another? Just type `/level <uid> [region]`!
-"""
-                await update.message.reply_text(reply_text, parse_mode='Markdown')
-            else:
-                await update.message.reply_text(
-                    "😕 Oops! No data found. Please check the UID or region and try again! `/level <uid> [region]`",
-                    parse_mode='Markdown'
-                )
-        except Exception as e:
-            logger.error(f"Error fetching Free Fire level: {e}")
-            await update.message.reply_text(
-                "😕 Something went wrong while checking level. Try again! `/level <uid> [region]`",
-                parse_mode='Markdown'
-            )
-
-    async def stats_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle /stats command to fetch Free Fire player stats"""
-        user_id = update.effective_user.id
-        chat_type = update.effective_chat.type
-
-        if chat_type == 'private' and user_id != ADMIN_USER_ID:
-            response, reply_markup = await self.get_private_chat_redirect()
-            await update.message.reply_text(response, reply_markup=reply_markup)
-            return
-
-        # Check daily command limit
-        allowed, limit_message = check_command_limit(user_id, "stats")
-        if not allowed:
-            await update.message.reply_text(limit_message, parse_mode='Markdown')
-            return
-
-        if not context.args:
-            await update.message.reply_text("Usage: /stats <uid> [region]\nExample: /stats 3533918864 BD", parse_mode='Markdown')
-            return
-
-        uid = context.args[0]
-        region = context.args[1] if len(context.args) > 1 else "BD"
-
-        try:
-            response = requests.get(f"https://free-fire-visit-api.vercel.app/{region}/{uid}")
-            data = response.json()
-
-            if data.get("fail") == 0:
-                reply_text = f"""
-🎮 *Free Fire Player Stats* 🔥
-━━━━━━━━━━━━━━━━
-*Nickname:* {data['nickname']}
-*UID:* {data['uid']}
-*Region:* 🇧🇩 {data['region']}
-*Level:* {data['level']}
-*Likes:* {data['likes']}
-*Success:* {data['success']}
-━━━━━━━━━━━━━━━━
-This player is a superstar! 🌟 Want to check another? Just type `/stats <uid> [region]`!
-"""
-                await update.message.reply_text(reply_text, parse_mode='Markdown')
-            else:
-                await update.message.reply_text(
-                    "😕 Oops! No data found. Please check the UID or region and try again! `/stats <uid> [region]`",
-                    parse_mode='Markdown'
-                )
-        except Exception as e:
-            logger.error(f"Error fetching Free Fire stats: {e}")
-            await update.message.reply_text(
-                "😕 Something went wrong while checking stats. Try again! `/stats <uid> [region]`",
-                parse_mode='Markdown'
             )
 
     async def handle_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
