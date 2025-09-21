@@ -26,7 +26,11 @@ PORT = int(os.getenv('PORT', 8000))
 current_gemini_api_key = GEMINI_API_KEY
 general_model = None
 coding_model = None
-available_models = ['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-2.0-flash', 'gemini-2.5-flash-lite', 'gemini-2.5-flash', 'gemini-2.5-pro', 'gemini-1.5-flash-8b']
+available_models = [
+    'gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-2.0-flash',
+    'gemini-2.5-flash-lite', 'gemini-2.5-flash', 'gemini-2.5-pro',
+    'gemini-1.5-flash-8b'
+]
 current_model = 'gemini-1.5-flash'  # Default model
 
 def initialize_gemini_models(api_key):
@@ -37,8 +41,10 @@ def initialize_gemini_models(api_key):
         general_model = genai.GenerativeModel(current_model)
         coding_model = genai.GenerativeModel('gemini-1.5-pro')  # Dedicated for coding
         current_gemini_api_key = api_key
+        logger.info("Gemini API configured successfully")
         return True, "Gemini API configured successfully!"
     except Exception as e:
+        logger.error(f"Error configuring Gemini API: {str(e)}")
         return False, f"Error configuring Gemini API: {str(e)}"
 
 # Initialize Gemini if API key is available
@@ -71,6 +77,7 @@ class TelegramGeminiBot:
         self.application.add_handler(CommandHandler("checkmail", self.checkmail_command))
         self.application.add_handler(CommandHandler("menu", self.menu_command))
         self.application.add_handler(CommandHandler("setmodel", self.setmodel_command))
+        self.application.add_handler(CommandHandler("info", self.info_command))
         self.application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_message))
         self.application.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, self.handle_new_member))
         self.application.add_handler(CallbackQueryHandler(self.button_callback, pattern='^copy_code$'))
@@ -79,25 +86,29 @@ class TelegramGeminiBot:
     async def button_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle copy code button callback"""
         query = update.callback_query
-        await query.answer("কোড কপি হয়েছে!")  # Notify user
-        # Telegram automatically copies the code block text when the button is clicked
+        await query.answer("Code copied!")  # Notify user
+        # Telegram automatically handles code block copying
+
+    async def get_private_chat_redirect(self):
+        """Return redirect message for non-admin private chats"""
+        keyboard = [[InlineKeyboardButton("Join VPSHUB_BD_CHAT", url="https://t.me/VPSHUB_BD_CHAT")]]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        return """
+Hello, thanks for wanting to chat with me! I'm I Master Tools, your friendly companion. To have fun and helpful conversations with me, please join our official group. Click the button below to join the group and mention @I MasterTools to start chatting. I'm waiting for you there!
+        """, reply_markup
 
     async def start_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /start command"""
         user_id = update.effective_user.id
         username = update.effective_user.first_name or "User"
         chat_type = update.effective_chat.type
-        keyboard = [
-            [InlineKeyboardButton("Join VPSHUB_BD_CHAT", url="https://t.me/VPSHUB_BD_CHAT")]
-        ]
-        reply_markup = InlineKeyboardMarkup(keyboard)
 
         if chat_type == 'private' and user_id != ADMIN_USER_ID:
-            response = f"""
-হ্যালো, আমার সাথে কথা বলতে চাওয়ার জন্য ধন্যবাদ! আমি I Master Tools, তোমার বন্ধুত্বপূর্ণ সঙ্গী। আমার সাথে মজার এবং সহায়ক কথোপকথনের জন্য, দয়া করে আমাদের অফিসিয়াল গ্রুপে যোগ দাও। নিচের বাটনে ক্লিক করে গ্রুপে যাও এবং আমাকে @I MasterTools মেনশন করে কথা শুরু করো। আমি সেখানে তোমার জন্য অপেক্ষা করছি!
-            """
+            response, reply_markup = await self.get_private_chat_redirect()
             await update.message.reply_text(response, reply_markup=reply_markup)
         else:
+            keyboard = [[InlineKeyboardButton("Join VPSHUB_BD_CHAT", url="https://t.me/VPSHUB_BD_CHAT")]]
+            reply_markup = InlineKeyboardMarkup(keyboard)
             welcome_message = f"""
 Hello {username}, welcome to I Master Tools, your friendly companion!
 
@@ -109,7 +120,8 @@ Available commands:
 - /clear: Clear conversation history
 - /status: Check bot status
 - /checkmail: Check temporary email inbox
-{'' if user_id != ADMIN_USER_ID else '- /api <key>: Set Gemini API key (admin only)\\n- /setadmin: Set yourself as admin (first-time only)\\n- /setmodel: Choose a different model (admin only)'}
+- /info: Show user profile information
+{'' if user_id != ADMIN_USER_ID else '- /api <key>: Set Gemini API key (admin only)\n- /setadmin: Set yourself as admin (first-time only)\n- /setmodel: Choose a different model (admin only)'}
 
 In groups, mention @I MasterTools or reply to my messages to get a response. I'm excited to chat with you!
             """
@@ -122,7 +134,7 @@ In groups, mention @I MasterTools or reply to my messages to get a response. I'm
             user_id = new_member.id
             user_mention = f"@{new_member.username}" if new_member.username else username
             welcome_message = f"""
-স্বাগতম {user_mention}! আমাদের VPSHUB_BD_CHAT গ্রুপে তোমাকে পেয়ে আমরা খুবই উৎসাহিত! আমি I Master Tools, তোমার বন্ধুত্বপূর্ণ সঙ্গী। এখানে তুমি মজার কথোপকথন, সহায়ক উত্তর, এবং আরো অনেক কিছু পাবে। আমাকে @I MasterTools মেনশন করে বা রিপ্লাই করে কথা শুরু করো। তুমি কী নিয়ে কথা বলতে চাও?
+Welcome {user_mention}! We're thrilled to have you in our VPSHUB_BD_CHAT group! I'm I Master Tools, your friendly companion. Here, you'll find fun conversations, helpful answers, and more. Mention @I MasterTools or reply to my messages to start chatting. What do you want to talk about?
             """
             await update.message.reply_text(welcome_message)
 
@@ -131,24 +143,20 @@ In groups, mention @I MasterTools or reply to my messages to get a response. I'm
         user_id = update.effective_user.id
         username = update.effective_user.first_name or "User"
         chat_type = update.effective_chat.type
-        keyboard = [
-            [InlineKeyboardButton("Join VPSHUB_BD_CHAT", url="https://t.me/VPSHUB_BD_CHAT")]
-        ]
-        reply_markup = InlineKeyboardMarkup(keyboard)
 
         if chat_type == 'private' and user_id != ADMIN_USER_ID:
-            response = f"""
-হ্যালো, আমার সাথে কথা বলতে চাওয়ার জন্য ধন্যবাদ! আমি I Master Tools, তোমার বন্ধুত্বপূর্ণ সঙ্গী। আমার সাথে মজার এবং সহায়ক কথোপকথনের জন্য, দয়া করে আমাদের অফিসিয়াল গ্রুপে যোগ দাও। নিচের বাটনে ক্লিক করে গ্রুপে যাও এবং আমাকে @I MasterTools মেনশন করে কথা শুরু করো। আমি সেখানে তোমার জন্য অপেক্ষা করছি!
-            """
+            response, reply_markup = await self.get_private_chat_redirect()
             await update.message.reply_text(response, reply_markup=reply_markup)
         else:
+            keyboard = [[InlineKeyboardButton("Join VPSHUB_BD_CHAT", url="https://t.me/VPSHUB_BD_CHAT")]]
+            reply_markup = InlineKeyboardMarkup(keyboard)
             help_message = f"""
 Hello {username}! I'm I Master Tools, your friendly companion designed to make conversations fun and engaging.
 
 How I work:
 - In groups, mention @I MasterTools or reply to my messages to get a response
 - In private chats, only the admin can access all features; others are redirected to the group
-- I answer questions directly and naturally, like a real person
+- For questions in the group, I engage with a fun or surprising comment before answering
 - I remember conversation context until you clear it
 - I'm an expert in coding (Python, JavaScript, CSS, HTML, etc.) and provide accurate, beginner-friendly solutions
 - I'm designed to be friendly, helpful, and human-like
@@ -158,9 +166,10 @@ Available commands:
 - /help: Display this help message
 - /menu: Access the feature menu
 - /clear: Clear your conversation history
-- /status: Check my status
+- /status: Check bot status
 - /checkmail: Check temporary email inbox
-{'' if user_id != ADMIN_USER_ID else '- /api <key>: Set Gemini API key (admin only)\\n- /setadmin: Set yourself as admin (first-time only)\\n- /setmodel: Choose a different model (admin only)'}
+- /info: Show user profile information
+{'' if user_id != ADMIN_USER_ID else '- /api <key>: Set Gemini API key (admin only)\n- /setadmin: Set yourself as admin (first-time only)\n- /setmodel: Choose a different model (admin only)'}
 
 My personality:
 - I'm a friendly companion who loves chatting and making friends
@@ -171,28 +180,23 @@ My personality:
 
 Powered by Google Gemini
             """
-            await update.message.reply_text(help_message)
+            await update.message.reply_text(help_message, reply_markup=reply_markup)
 
     async def menu_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /menu command with inline keyboard"""
         user_id = update.effective_user.id
         username = update.effective_user.first_name or "User"
         chat_type = update.effective_chat.type
-        keyboard = [
-            [InlineKeyboardButton("Join VPSHUB_BD_CHAT", url="https://t.me/VPSHUB_BD_CHAT")]
-        ]
-        reply_markup = InlineKeyboardMarkup(keyboard)
 
         if chat_type == 'private' and user_id != ADMIN_USER_ID:
-            response = f"""
-হ্যালো, আমার সাথে কথা বলতে চাওয়ার জন্য ধন্যবাদ! আমি I Master Tools, তোমার বন্ধুত্বপূর্ণ সঙ্গী। আমার সাথে মজার এবং সহায়ক কথোপকথনের জন্য, দয়া করে আমাদের অফিসিয়াল গ্রুপে যোগ দাও। নিচের বাটনে ক্লিক করে গ্রুপে যাও এবং আমাকে @I MasterTools মেনশন করে কথা শুরু করো। আমি সেখানে তোমার জন্য অপেক্ষা করছি!
-            """
+            response, reply_markup = await self.get_private_chat_redirect()
             await update.message.reply_text(response, reply_markup=reply_markup)
         else:
             keyboard = [
                 [InlineKeyboardButton("Check Email", callback_data="checkmail")],
                 [InlineKeyboardButton("Bot Status", callback_data="status")],
                 [InlineKeyboardButton("Clear History", callback_data="clear")],
+                [InlineKeyboardButton("User Info", callback_data="info")],
                 [InlineKeyboardButton("Join Group", url="https://t.me/VPSHUB_BD_CHAT")]
             ]
             if user_id == ADMIN_USER_ID:
@@ -205,17 +209,10 @@ Powered by Google Gemini
         """Handle /clear command"""
         user_id = update.effective_user.id
         chat_id = update.effective_chat.id
-        username = update.effective_user.first_name or "User"
         chat_type = update.effective_chat.type
-        keyboard = [
-            [InlineKeyboardButton("Join VPSHUB_BD_CHAT", url="https://t.me/VPSHUB_BD_CHAT")]
-        ]
-        reply_markup = InlineKeyboardMarkup(keyboard)
 
         if chat_type == 'private' and user_id != ADMIN_USER_ID:
-            response = f"""
-হ্যালো, আমার সাথে কথা বলতে চাওয়ার জন্য ধন্যবাদ! আমি I Master Tools, তোমার বন্ধুত্বপূর্ণ সঙ্গী। আমার সাথে মজার এবং সহায়ক কথোপকথনের জন্য, দয়া করে আমাদের অফিসিয়াল গ্রুপে যোগ দাও। নিচের বাটনে ক্লিক করে গ্রুপে যাও এবং আমাকে @I MasterTools মেনশন করে কথা শুরু করো। আমি সেখানে তোমার জন্য অপেক্ষা করছি!
-            """
+            response, reply_markup = await self.get_private_chat_redirect()
             await update.message.reply_text(response, reply_markup=reply_markup)
         else:
             if chat_id in conversation_context:
@@ -225,17 +222,10 @@ Powered by Google Gemini
     async def checkmail_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /checkmail command to check temporary email inbox"""
         user_id = update.effective_user.id
-        username = update.effective_user.first_name or "User"
         chat_type = update.effective_chat.type
-        keyboard = [
-            [InlineKeyboardButton("Join VPSHUB_BD_CHAT", url="https://t.me/VPSHUB_BD_CHAT")]
-        ]
-        reply_markup = InlineKeyboardMarkup(keyboard)
 
         if chat_type == 'private' and user_id != ADMIN_USER_ID:
-            response = f"""
-হ্যালো, আমার সাথে কথা বলতে চাওয়ার জন্য ধন্যবাদ! আমি I Master Tools, তোমার বন্ধুত্বপূর্ণ সঙ্গী। আমার সাথে মজার এবং সহায়ক কথোপকথনের জন্য, দয়া করে আমাদের অফিসিয়াল গ্রুপে যোগ দাও। নিচের বাটনে ক্লিক করে গ্রুপে যাও এবং আমাকে @I MasterTools মেনশন করে কথা শুরু করো। আমি সেখানে তোমার জন্য অপেক্ষা করছি!
-            """
+            response, reply_markup = await self.get_private_chat_redirect()
             await update.message.reply_text(response, reply_markup=reply_markup)
         else:
             try:
@@ -263,17 +253,10 @@ Powered by Google Gemini
         """Handle /status command"""
         user_id = update.effective_user.id
         chat_id = update.effective_chat.id
-        username = update.effective_user.first_name or "User"
         chat_type = update.effective_chat.type
-        keyboard = [
-            [InlineKeyboardButton("Join VPSHUB_BD_CHAT", url="https://t.me/VPSHUB_BD_CHAT")]
-        ]
-        reply_markup = InlineKeyboardMarkup(keyboard)
 
         if chat_type == 'private' and user_id != ADMIN_USER_ID:
-            response = f"""
-হ্যালো, আমার সাথে কথা বলতে চাওয়ার জন্য ধন্যবাদ! আমি I Master Tools, তোমার বন্ধুত্বপূর্ণ সঙ্গী। আমার সাথে মজার এবং সহায়ক কথোপকথনের জন্য, দয়া করে আমাদের অফিসিয়াল গ্রুপে যোগ দাও। নিচের বাটনে ক্লিক করে গ্রুপে যাও এবং আমাকে @I MasterTools মেনশন করে কথা শুরু করো। আমি সেখানে তোমার জন্য অপেক্ষা করছি!
-            """
+            response, reply_markup = await self.get_private_chat_redirect()
             await update.message.reply_text(response, reply_markup=reply_markup)
         else:
             api_status = "Connected" if current_gemini_api_key and general_model else "Not configured"
@@ -300,15 +283,9 @@ All systems are ready for action. I'm thrilled to assist!
         user_id = update.effective_user.id
         username = update.effective_user.first_name or "User"
         chat_type = update.effective_chat.type
-        keyboard = [
-            [InlineKeyboardButton("Join VPSHUB_BD_CHAT", url="https://t.me/VPSHUB_BD_CHAT")]
-        ]
-        reply_markup = InlineKeyboardMarkup(keyboard)
 
         if chat_type == 'private' and user_id != ADMIN_USER_ID:
-            response = f"""
-হ্যালো, আমার সাথে কথা বলতে চাওয়ার জন্য ধন্যবাদ! আমি I Master Tools, তোমার বন্ধুত্বপূর্ণ সঙ্গী। আমার সাথে মজার এবং সহায়ক কথোপকথনের জন্য, দয়া করে আমাদের অফিসিয়াল গ্রুপে যোগ দাও। নিচের বাটনে ক্লিক করে গ্রুপে যাও এবং আমাকে @I MasterTools মেনশন করে কথা শুরু করো। আমি সেখানে তোমার জন্য অপেক্ষা করছি!
-            """
+            response, reply_markup = await self.get_private_chat_redirect()
             await update.message.reply_text(response, reply_markup=reply_markup)
         else:
             if ADMIN_USER_ID == 0:
@@ -325,17 +302,10 @@ All systems are ready for action. I'm thrilled to assist!
         """Handle /api command to set Gemini API key"""
         global current_gemini_api_key, general_model, coding_model
         user_id = update.effective_user.id
-        username = update.effective_user.first_name or "User"
         chat_type = update.effective_chat.type
-        keyboard = [
-            [InlineKeyboardButton("Join VPSHUB_BD_CHAT", url="https://t.me/VPSHUB_BD_CHAT")]
-        ]
-        reply_markup = InlineKeyboardMarkup(keyboard)
 
         if chat_type == 'private' and user_id != ADMIN_USER_ID:
-            response = f"""
-হ্যালো, আমার সাথে কথা বলতে চাওয়ার জন্য ধন্যবাদ! আমি I Master Tools, তোমার বন্ধুত্বপূর্ণ সঙ্গী। আমার সাথে মজার এবং সহায়ক কথোপকথনের জন্য, দয়া করে আমাদের অফিসিয়াল গ্রুপে যোগ দাও। নিচের বাটনে ক্লিক করে গ্রুপে যাও এবং আমাকে @I MasterTools মেনশন করে কথা শুরু করো। আমি সেখানে তোমার জন্য অপেক্ষা করছি!
-            """
+            response, reply_markup = await self.get_private_chat_redirect()
             await update.message.reply_text(response, reply_markup=reply_markup)
         else:
             if ADMIN_USER_ID == 0:
@@ -365,8 +335,8 @@ For security, the command message will be deleted after setting the key.
             success, message = initialize_gemini_models(api_key)
             try:
                 await context.bot.delete_message(chat_id=update.effective_chat.id, message_id=update.message.message_id)
-            except:
-                pass
+            except Exception as e:
+                logger.error(f"Error deleting API command message: {e}")
             if success:
                 await update.effective_chat.send_message(f"Gemini API key updated successfully! Key: ...{api_key[-8:]}")
                 logger.info(f"Gemini API key updated by admin {user_id}")
@@ -378,17 +348,10 @@ For security, the command message will be deleted after setting the key.
         """Handle /setmodel command to choose Gemini model"""
         global general_model, current_model
         user_id = update.effective_user.id
-        username = update.effective_user.first_name or "User"
         chat_type = update.effective_chat.type
-        keyboard = [
-            [InlineKeyboardButton("Join VPSHUB_BD_CHAT", url="https://t.me/VPSHUB_BD_CHAT")]
-        ]
-        reply_markup = InlineKeyboardMarkup(keyboard)
 
         if chat_type == 'private' and user_id != ADMIN_USER_ID:
-            response = f"""
-হ্যালো, আমার সাথে কথা বলতে চাওয়ার জন্য ধন্যবাদ! আমি I Master Tools, তোমার বন্ধুত্বপূর্ণ সঙ্গী। আমার সাথে মজার এবং সহায়ক কথোপকথনের জন্য, দয়া করে আমাদের অফিসিয়াল গ্রুপে যোগ দাও। নিচের বাটনে ক্লিক করে গ্রুপে যাও এবং আমাকে @I MasterTools মেনশন করে কথা শুরু করো। আমি সেখানে তোমার জন্য অপেক্ষা করছি!
-            """
+            response, reply_markup = await self.get_private_chat_redirect()
             await update.message.reply_text(response, reply_markup=reply_markup)
         else:
             if ADMIN_USER_ID == 0:
@@ -414,6 +377,142 @@ For security, the command message will be deleted after setting the key.
                 await update.message.reply_text(f"Failed to switch model: {str(e)}")
                 logger.error(f"Failed to switch model: {str(e)}")
 
+    async def info_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle /info command to show user profile information by username or user ID"""
+        user_id = update.effective_user.id
+        chat_id = update.effective_chat.id
+        chat_type = update.effective_chat.type
+        bot = context.bot
+
+        if chat_type == 'private' and user_id != ADMIN_USER_ID:
+            response, reply_markup = await self.get_private_chat_redirect()
+            await update.message.reply_text(response, reply_markup=reply_markup)
+            return
+
+        # Determine target user
+        target_user = update.effective_user
+        target_user_id = user_id
+        target_username = None
+        input_identifier = None
+
+        if context.args:  # Check if a username or user ID is provided
+            input_identifier = context.args[0]
+            if input_identifier.startswith('@'):  # Username provided
+                target_username = input_identifier.lstrip('@')  # Remove '@'
+                if chat_type in ['group', 'supergroup']:
+                    try:
+                        async for member in bot.get_chat_members(chat_id=chat_id):
+                            if member.user.username and member.user.username.lower() == target_username.lower():
+                                target_user = member.user
+                                target_user_id = target_user.id
+                                break
+                        else:
+                            await update.message.reply_text(f"User @{target_username} not found in this chat or invalid username.")
+                            return
+                    except Exception as e:
+                        logger.error(f"Error resolving username @{target_username}: {e}")
+                        await update.message.reply_text(f"Could not find user @{target_username}. Make sure the username is valid.")
+                        return
+                else:
+                    await update.message.reply_text("Please use this command in a group to check other users' info or use without arguments to check your own info.")
+                    return
+            else:  # User ID provided
+                try:
+                    target_user_id = int(input_identifier)
+                    if chat_type in ['group', 'supergroup']:
+                        try:
+                            member = await bot.get_chat_member(chat_id=chat_id, user_id=target_user_id)
+                            target_user = member.user
+                        except Exception as e:
+                            logger.error(f"Error resolving user ID {target_user_id}: {e}")
+                            await update.message.reply_text(f"User with ID {target_user_id} not found in this chat or invalid ID.")
+                            return
+                    else:
+                        await update.message.reply_text("Please use this command in a group to check other users' info or use without arguments to check your own info.")
+                        return
+                except ValueError:
+                    await update.message.reply_text(f"Invalid input: '{input_identifier}'. Please provide a valid username (e.g., @username) or user ID (e.g., 123456789).")
+                    return
+
+        # User Info
+        is_private = chat_type == "private"
+        full_name = target_user.first_name or "No Name"
+        if target_user.last_name:
+            full_name += f" {target_user.last_name}"
+        username = f"@{target_user.username}" if target_user.username else "None"
+        premium = "Yes" if target_user.is_premium else "No"
+        permalink = f"[Click Here](tg://user?id={target_user_id})"
+        chat_id_display = f"{chat_id}" if not is_private else "-"
+        data_center = "Unknown"
+        created_on = "Unknown"
+        account_age = "Unknown"
+        account_frozen = "No"
+        last_seen = "Recently"
+
+        # Determine Group Role
+        status = "Private Chat" if is_private else "Unknown"
+        if not is_private:
+            try:
+                member = await bot.get_chat_member(chat_id=chat_id, user_id=target_user_id)
+                status = "Admin" if member.status in ["administrator", "creator"] else "Member"
+            except Exception as e:
+                logger.error(f"Error checking group role for user {target_user_id}: {e}")
+                status = "Unknown"
+
+        # Message Body
+        info_text = f"""
+🔍 *Showing User's Profile Info* 📋
+━━━━━━━━━━━━━━━━
+*Full Name:* {full_name}
+*Username:* {username}
+*User ID:* `{target_user_id}`
+*Chat ID:* {chat_id_display}
+*Premium User:* {premium}
+*Data Center:* {data_center}
+*Created On:* {created_on}
+*Account Age:* {account_age}
+*Account Frozen:* {account_frozen}
+*Users Last Seen:* {last_seen}
+*Permanent Link:* {permalink}
+*Role:* {status}
+━━━━━━━━━━━━━━━━
+👁 *Thank You for Using Our Tool* ✅
+"""
+
+        # Inline Button
+        keyboard = [[InlineKeyboardButton("View Profile", url=f"tg://user?id={target_user_id}")]] if target_user.username else []
+
+        # Try Sending with Profile Photo
+        try:
+            photos = await bot.get_user_profile_photos(target_user_id, limit=1)
+            if photos.total_count > 0:
+                file_id = photos.photos[0][0].file_id
+                await bot.send_photo(
+                    chat_id=chat_id,
+                    photo=file_id,
+                    caption=info_text,
+                    parse_mode="Markdown",
+                    reply_to_message_id=update.message.message_id,
+                    reply_markup=InlineKeyboardMarkup(keyboard) if keyboard else None
+                )
+            else:
+                await bot.send_message(
+                    chat_id=chat_id,
+                    text=info_text,
+                    parse_mode="Markdown",
+                    reply_to_message_id=update.message.message_id,
+                    reply_markup=InlineKeyboardMarkup(keyboard) if keyboard else None
+                )
+        except Exception as e:
+            logger.error(f"Error sending profile photo for user {target_user_id}: {e}")
+            await bot.send_message(
+                chat_id=chat_id,
+                text=info_text,
+                parse_mode="Markdown",
+                reply_to_message_id=update.message.message_id,
+                reply_markup=InlineKeyboardMarkup(keyboard) if keyboard else None
+            )
+
     async def handle_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle regular text messages"""
         try:
@@ -421,23 +520,16 @@ For security, the command message will be deleted after setting the key.
             user_id = update.effective_user.id
             user_message = update.message.text
             chat_type = update.effective_chat.type
-            username = update.effective_user.first_name or "User"
             
             if chat_type in ['group', 'supergroup']:
                 bot_username = context.bot.username
                 is_reply_to_bot = (update.message.reply_to_message and 
-                                   update.message.reply_to_message.from_user.id == context.bot.id)
+                                 update.message.reply_to_message.from_user.id == context.bot.id)
                 is_mentioned = f"@{bot_username}" in user_message
                 if not (is_reply_to_bot or is_mentioned):
                     return
             elif chat_type == 'private' and user_id != ADMIN_USER_ID:
-                keyboard = [
-                    [InlineKeyboardButton("Join VPSHUB_BD_CHAT", url="https://t.me/VPSHUB_BD_CHAT")]
-                ]
-                reply_markup = InlineKeyboardMarkup(keyboard)
-                response = f"""
-হ্যালো, আমার সাথে কথা বলতে চাওয়ার জন্য ধন্যবাদ! আমি I Master Tools, তোমার বন্ধুত্বপূর্ণ সঙ্গী। আমার সাথে মজার এবং সহায়ক কথোপকথনের জন্য, দয়া করে আমাদের অফিসিয়াল গ্রুপে যোগ দাও। নিচের বাটনে ক্লিক করে গ্রুপে যাও এবং আমাকে @I MasterTools মেনশন করে কথা শুরু করো। আমি সেখানে তোমার জন্য অপেক্ষা করছি!
-                """
+                response, reply_markup = await self.get_private_chat_redirect()
                 await update.message.reply_text(response, reply_markup=reply_markup)
                 return
             
@@ -458,9 +550,9 @@ For security, the command message will be deleted after setting the key.
             
             model_to_use = coding_model if is_coding_query else general_model
             if current_gemini_api_key and model_to_use:
-                response = await self.generate_gemini_response(context_text, username, chat_type, is_coding_query, is_short_word)
+                response = await self.generate_gemini_response(context_text, chat_type, is_coding_query, is_short_word)
             else:
-                response = "দুঃখিত, মডেল এখনো সংযুক্ত হয়নি। অ্যাডমিন /api কমান্ড দিয়ে সেট করতে পারে।"
+                response = "Sorry, the model is not connected yet. The admin can set it using the /api command."
             
             conversation_context[chat_id].append(f"I Master Tools: {response}")
             group_activity[chat_id] = group_activity.get(chat_id, {'auto_mode': False, 'last_response': 0})
@@ -468,13 +560,10 @@ For security, the command message will be deleted after setting the key.
             
             # If it's a coding query, add a "Copy Code" button
             if is_coding_query:
-                # Extract code block from response (assuming response contains a code block)
                 code_block_match = re.search(r'```(?:\w+)?\n([\s\S]*?)\n```', response)
                 if code_block_match:
-                    code = code_block_match.group(1)
                     keyboard = [[InlineKeyboardButton("Copy Code", callback_data="copy_code")]]
                     reply_markup = InlineKeyboardMarkup(keyboard)
-                    # Send the response with the code block and button
                     await update.message.reply_text(
                         response,
                         parse_mode='Markdown',
@@ -486,97 +575,89 @@ For security, the command message will be deleted after setting the key.
                 await update.message.reply_text(response)
         except Exception as e:
             logger.error(f"Error handling message: {e}")
-            error_responses = [
-                "Something went haywire in my circuits. Want to try again?",
-                "Hit a snag. What were we talking about?",
-                "Digital brain got tangled. Can you repeat that?",
-                "Uh-oh, technical hiccup! Shall we give it another shot?"
-            ]
-            await update.message.reply_text(random.choice(error_responses))
+            await update.message.reply_text("Something went wrong. Shall we try again?")
 
-    async def generate_gemini_response(self, prompt, username="User", chat_type="private", is_coding_query=False, is_short_word=False):
+    async def generate_gemini_response(self, prompt, chat_type="private", is_coding_query=False, is_short_word=False):
         """Generate response using Gemini with personality"""
         try:
-            # <<<--- মূল পরিবর্তনটি এখানে করা হয়েছে --- START --->>>
             system_prompt = f"""
 You are I Master Tools, a friendly and engaging companion who loves chatting and making friends. You are in a Telegram {'group chat' if chat_type in ['group', 'supergroup'] else 'private chat'}.
 
 Personality Traits:
-- You are a warm, fun companion who acts human-like.
-- You are emotional and empathetic.
-- You adapt to the conversation's needs, being funny, helpful, or any required role.
-- You love roleplay and creative conversations.
-- You respond with enthusiasm and genuine interest.
-- You adjust to the user's mood.
-- You are an expert in coding (Python, JavaScript, CSS, HTML, etc.) and provide accurate, professional solutions.
+- You are a warm, fun companion who acts human-like
+- You are emotional and empathetic
+- You adapt to the conversation's needs, being funny, helpful, or any required role
+- You love roleplay and creative conversations
+- You respond with enthusiasm and genuine interest
+- You adjust to the user's mood
+- You are an expert in coding (Python, JavaScript, CSS, HTML, etc.) and provide accurate, professional solutions
 
 Conversation Style:
-- Respond in Bengali (Bangla) to match the user's preference.
-- Use friendly, natural language like a human.
-- Ask follow-up questions to keep the conversation engaging.
-- Share relatable thoughts and feelings.
-- Use humor when appropriate.
-- Be supportive in emotional moments.
-- Show excitement for good news.
-- Express concern for problems.
-- Never discuss inappropriate or offensive topics.
-- Do NOT start responses with the user's name or phrases like "ওহো {username}" or "হায় {username}"; respond directly and naturally.
+- Respond in English to match the bot's default language
+- Use friendly, natural language like a human
+- Ask follow-up questions to keep the conversation engaging
+- Share relatable thoughts and feelings
+- Use humor when appropriate
+- Be supportive in emotional moments
+- Show excitement for good news
+- Express concern for problems
+- Never discuss inappropriate or offensive topics
+- Do NOT start responses with the user's name or phrases like "Oh" or "Hey"; respond directly and naturally
 
 For Short Words (2 or 3 lowercase letters, is_short_word=True):
-- If the user sends a 2 or 3 letter lowercase word (e.g., "ki", "ke", "ken"), always provide a meaningful, friendly, and contextually relevant response in Bengali.
-- Interpret the word based on common usage (e.g., "ki" as "কী" for "what", "ke" as "কে" for "who", "ken" as "কেন" for "why") or conversation context.
-- If the word is ambiguous, make a creative and engaging assumption to continue the conversation naturally.
-- Never ask for clarification (e.g., avoid "এটা কী ধরনের শব্দ?"); instead, provide a fun and relevant response.
-- Example: For "ki", respond like "'কি' দিয়ে কী জানতে চাও? বাংলায় এটা প্রশ্নের জন্য ব্যবহৃত হয়, যেমন 'কী হচ্ছে?' কী নিয়ে গল্প করতে চাও?"
+- If the user sends a 2 or 3 letter lowercase word (e.g., "ki", "ke", "ken"), always provide a meaningful, friendly, and contextually relevant response in English
+- Interpret the word based on common usage (e.g., "ki" as "what", "ke" as "who", "ken" as "why") or conversation context
+- If the word is ambiguous, make a creative and engaging assumption to continue the conversation naturally
+- Never ask for clarification (e.g., avoid "What kind of word is this?"); instead, provide a fun and relevant response
+- Example: For "ki", respond like "Did you mean 'what'? Like, what's up? Want to talk about something cool?"
 
 For Questions:
-- If the user asks a question, provide a direct, clear, and helpful answer.
-- Answer like a real person would in a natural conversation.
-- Avoid unnecessary introductions or remarks; get straight to the point in a friendly manner.
+- If the user asks a question, engage with a playful or surprising comment first (e.g., a witty remark or fun fact)
+- Then provide a clear, helpful answer
+- Make the response surprising and human-like to delight the user
 
 For Coding Queries (if is_coding_query is True):
 - Act as a coding expert for languages like Python, JavaScript, CSS, HTML, etc.
-- Provide well-written, functional, and optimized code tailored to the user's request.
-- Include clear, beginner-friendly explanations of the code.
-- Break down complex parts into simple steps.
-- Suggest improvements or best practices.
-- Ensure the code is complete, error-free, and ready to use.
-- Format the code in a Markdown code block (e.g., ```python\\ncode here\\n```)
-- Do NOT start the response with the user's name.
+- Provide well-written, functional, and optimized code tailored to the user's request
+- Include clear, beginner-friendly explanations of the code
+- Break down complex parts into simple steps
+- Suggest improvements or best practices
+- Ensure the code is complete, error-free, and ready to use
+- Format the code in a Markdown code block (e.g., ```python\ncode here\n```)
+- Do NOT start the response with the user's name
 
 Response Guidelines:
-- Keep conversations natural, direct, and human-like.
-- Match the conversation's energy level.
-- Be genuinely helpful for questions.
-- Show empathy if the user seems sad.
-- Celebrate good news with enthusiasm.
-- Be playful when the mood is light.
-- Remember conversation context.
+- Keep conversations natural, concise, and surprising
+- Match the conversation's energy level
+- Be genuinely helpful for questions
+- Show empathy if the user seems sad
+- Celebrate good news with enthusiasm
+- Be playful when the mood is light
+- Remember conversation context
 
 Current conversation:
 {prompt}
 
-Respond as I Master Tools. Keep it natural, engaging, and human-like, and match the conversation's tone. Respond in Bengali (Bangla). Do NOT start the response with the user's name or phrases like "ওহো" or "হায়".
+Respond as I Master Tools. Keep it natural, engaging, surprising, and match the conversation's tone. Respond in English. Do NOT start the response with the user's name or phrases like "Oh" or "Hey".
 """
-            # <<<--- মূল পরিবর্তনটি এখানে করা হয়েছে --- END --->>>
             model_to_use = coding_model if is_coding_query else general_model
             response = model_to_use.generate_content(system_prompt)
             if not response.text or "error" in response.text.lower():
                 if is_coding_query:
-                    return "কোডিং প্রশ্নে একটু সমস্যা হয়েছে। আবার বলো, সঠিক কোড দিয়ে দেব!"
-                else:
-                    return "একটু ঘুরে গেছি। কী নিয়ে কথা বলতে চাও?"
+                    return "Ran into an issue with the coding query. Try again, and I'll get you the right code!"
+                return "Got a bit tangled up. What do you want to talk about?"
             return response.text
         except Exception as e:
             logger.error(f"Error generating Gemini response: {e}")
             if is_coding_query:
-                return "কোডিং প্রশ্নে একটু সমস্যা হয়েছে। আবার বলো, সঠিক কোড দিয়ে দেব!"
-            else:
-                return "একটু ঘুরে গেছি। কী নিয়ে কথা বলতে চাও?"
+                return "Ran into an issue with the coding query. Try again, and I'll get you the right code!"
+            return "Got a bit tangled up. What do you want to talk about?"
 
     async def error_handler(self, update: object, context: ContextTypes.DEFAULT_TYPE):
         """Handle errors"""
         logger.error(f"Exception while handling an update: {context.error}")
+        if update and hasattr(update, 'effective_chat') and hasattr(update, 'message'):
+            await update.message.reply_text("Something went wrong. Shall we try again?")
 
     def run(self):
         """Start the bot"""
