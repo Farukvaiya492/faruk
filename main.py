@@ -1,18 +1,12 @@
 import os
-from dotenv import load_dotenv
 import logging
 import google.generativeai as genai
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, CallbackQuery
 from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters, ContextTypes
 import asyncio
-import aiohttp
-from datetime import datetime
 import random
 import re
 import requests
-
-# Load environment variables
-load_dotenv()
 
 # Configure logging
 logging.basicConfig(
@@ -26,9 +20,8 @@ TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN', '8380869007:AAGu7e41JJVU8aX
 GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
 ADMIN_USER_ID = int(os.getenv('ADMIN_USER_ID', '7835226724'))
 PORT = int(os.getenv('PORT', 8000))
-INSTA_API_URL = os.getenv('INSTA_API_URL', 'http://127.0.0.1:5000/api/insta/dl')
 
-# Global variables
+# Global variables for dynamic API key and model management
 current_gemini_api_key = GEMINI_API_KEY
 general_model = None
 coding_model = None
@@ -37,36 +30,11 @@ available_models = [
     'gemini-2.5-flash-lite', 'gemini-2.5-flash', 'gemini-2.5-pro',
     'gemini-1.5-flash-8b'
 ]
-current_model = 'gemini-1.5-flash'
+current_model = 'gemini-1.5-flash'  # Default model
 
+# Store conversation context for each chat
 conversation_context = {}
 group_activity = {}
-
-async def fetch_insta_media(link: str) -> dict[str, any] | None:
-    """Fetch Instagram media using the FastAPI /api/insta/dl endpoint"""
-    params = {"url": link}
-    try:
-        async with aiohttp.ClientSession() as session:
-            async with session.get(INSTA_API_URL, params=params, timeout=30) as resp:
-                logger.info(f"API Response Status: {resp.status}")
-                if resp.status != 200:
-                    logger.error(f"API returned status {resp.status}")
-                    return None
-                data = await resp.json()
-                logger.info(f"API Response Data: {data}")
-                if not data.get("success") or not data.get("raw_response", {}).get("data", {}).get("downloads"):
-                    logger.error("No downloadable media found in response")
-                    return None
-                return data
-    except aiohttp.ClientError as e:
-        logger.error(f"Client error: {e}")
-        return None
-    except asyncio.TimeoutError:
-        logger.error("Request timed out")
-        return None
-    except Exception as e:
-        logger.error(f"Unexpected error: {e}")
-        return None
 
 def initialize_gemini_models(api_key):
     """Initialize Gemini models with the provided API key"""
@@ -74,7 +42,7 @@ def initialize_gemini_models(api_key):
     try:
         genai.configure(api_key=api_key)
         general_model = genai.GenerativeModel(current_model)
-        coding_model = genai.GenerativeModel('gemini-1.5-pro')
+        coding_model = genai.GenerativeModel('gemini-1.5-pro')  # Dedicated for coding
         current_gemini_api_key = api_key
         logger.info("Gemini API configured successfully")
         return True, "Gemini API configured successfully!"
@@ -82,6 +50,7 @@ def initialize_gemini_models(api_key):
         logger.error(f"Error configuring Gemini API: {str(e)}")
         return False, f"Error configuring Gemini API: {str(e)}"
 
+# Initialize Gemini if API key is available
 if GEMINI_API_KEY:
     success, message = initialize_gemini_models(GEMINI_API_KEY)
     if success:
@@ -97,6 +66,7 @@ class TelegramGeminiBot:
         self.setup_handlers()
 
     def setup_handlers(self):
+        """Set up command and message handlers"""
         self.application.add_handler(CommandHandler("start", self.start_command))
         self.application.add_handler(CommandHandler("help", self.help_command))
         self.application.add_handler(CommandHandler("clear", self.clear_command))
@@ -107,17 +77,18 @@ class TelegramGeminiBot:
         self.application.add_handler(CommandHandler("menu", self.menu_command))
         self.application.add_handler(CommandHandler("setmodel", self.setmodel_command))
         self.application.add_handler(CommandHandler("info", self.info_command))
-        self.application.add_handler(CommandHandler("insta", self.insta_command))
         self.application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_message))
         self.application.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, self.handle_new_member))
         self.application.add_handler(CallbackQueryHandler(self.button_callback, pattern='^copy_code$'))
         self.application.add_error_handler(self.error_handler)
 
     async def button_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle copy code button callback"""
         query = update.callback_query
-        await query.answer("Code copied!")
+        await query.answer("Code copied!")  # Notify user
 
     async def get_private_chat_redirect(self):
+        """Return redirect message for non-admin private chats"""
         keyboard = [[InlineKeyboardButton("Join VPSHUB_BD_CHAT", url="https://t.me/VPSHUB_BD_CHAT")]]
         reply_markup = InlineKeyboardMarkup(keyboard)
         return """
@@ -125,6 +96,7 @@ Hello, thanks for wanting to chat with me! I'm I Master Tools, your friendly com
         """, reply_markup
 
     async def start_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle /start command"""
         user_id = update.effective_user.id
         username = update.effective_user.first_name or "User"
         chat_type = update.effective_chat.type
@@ -147,7 +119,6 @@ Available commands:
 - /status: Check bot status
 - /checkmail: Check temporary email inbox
 - /info: Show user profile information
-- /insta: Download Instagram media
 {'' if user_id != ADMIN_USER_ID else '- /api <key>: Set Gemini API key (admin only)\n- /setadmin: Set yourself as admin (first-time only)\n- /setmodel: Choose a different model (admin only)'}
 
 In groups, mention @I MasterTools or reply to my messages to get a response. I'm excited to chat with you!
@@ -155,8 +126,10 @@ In groups, mention @I MasterTools or reply to my messages to get a response. I'm
             await update.message.reply_text(welcome_message, reply_markup=reply_markup)
 
     async def handle_new_member(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle new members joining the group"""
         for new_member in update.message.new_chat_members:
             username = new_member.first_name or "User"
+            user_id = new_member.id
             user_mention = f"@{new_member.username}" if new_member.username else username
             welcome_message = f"""
 Welcome {user_mention}! We're thrilled to have you in our VPSHUB_BD_CHAT group! I'm I Master Tools, your friendly companion. Here, you'll find fun conversations, helpful answers, and more. Mention @I MasterTools or reply to my messages to start chatting. What do you want to talk about?
@@ -164,6 +137,7 @@ Welcome {user_mention}! We're thrilled to have you in our VPSHUB_BD_CHAT group! 
             await update.message.reply_text(welcome_message)
 
     async def help_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle /help command"""
         user_id = update.effective_user.id
         username = update.effective_user.first_name or "User"
         chat_type = update.effective_chat.type
@@ -183,7 +157,6 @@ How I work:
 - For questions in the group, I engage with a fun or surprising comment before answering
 - I remember conversation context until you clear it
 - I'm an expert in coding (Python, JavaScript, CSS, HTML, etc.) and provide accurate, beginner-friendly solutions
-- I can download Instagram media with /insta
 - I'm designed to be friendly, helpful, and human-like
 
 Available commands:
@@ -194,7 +167,6 @@ Available commands:
 - /status: Check bot status
 - /checkmail: Check temporary email inbox
 - /info: Show user profile information
-- /insta: Download Instagram media
 {'' if user_id != ADMIN_USER_ID else '- /api <key>: Set Gemini API key (admin only)\n- /setadmin: Set yourself as admin (first-time only)\n- /setmodel: Choose a different model (admin only)'}
 
 My personality:
@@ -205,11 +177,11 @@ My personality:
 - I enjoy roleplay and creative conversations
 
 Powered by Google Gemini
-Instagram Downloader by @ISmartCoder, @abirxdhackz
             """
             await update.message.reply_text(help_message, reply_markup=reply_markup)
 
     async def menu_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle /menu command with inline keyboard"""
         user_id = update.effective_user.id
         username = update.effective_user.first_name or "User"
         chat_type = update.effective_chat.type
@@ -223,7 +195,6 @@ Instagram Downloader by @ISmartCoder, @abirxdhackz
                 [InlineKeyboardButton("Bot Status", callback_data="status")],
                 [InlineKeyboardButton("Clear History", callback_data="clear")],
                 [InlineKeyboardButton("User Info", callback_data="info")],
-                [InlineKeyboardButton("Download Instagram", callback_data="insta")],
                 [InlineKeyboardButton("Join Group", url="https://t.me/VPSHUB_BD_CHAT")]
             ]
             if user_id == ADMIN_USER_ID:
@@ -233,6 +204,7 @@ Instagram Downloader by @ISmartCoder, @abirxdhackz
             await update.message.reply_text(f"Hello {username}, choose a feature from the menu below:", reply_markup=reply_markup)
 
     async def clear_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle /clear command"""
         user_id = update.effective_user.id
         chat_id = update.effective_chat.id
         chat_type = update.effective_chat.type
@@ -246,6 +218,7 @@ Instagram Downloader by @ISmartCoder, @abirxdhackz
             await update.message.reply_text("Conversation history has been cleared. Let's start fresh!")
 
     async def checkmail_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle /checkmail command to check temporary email inbox"""
         user_id = update.effective_user.id
         chat_type = update.effective_chat.type
 
@@ -275,6 +248,7 @@ Instagram Downloader by @ISmartCoder, @abirxdhackz
                 await update.message.reply_text("Something went wrong while checking the email. Shall we try again?")
 
     async def status_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle /status command"""
         user_id = update.effective_user.id
         chat_id = update.effective_chat.id
         chat_type = update.effective_chat.type
@@ -302,6 +276,7 @@ All systems are ready for action. I'm thrilled to assist!
             await update.message.reply_text(status_message)
 
     async def setadmin_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle /setadmin command"""
         global ADMIN_USER_ID
         user_id = update.effective_user.id
         username = update.effective_user.first_name or "User"
@@ -322,6 +297,7 @@ All systems are ready for action. I'm thrilled to assist!
                     await update.message.reply_text("Sorry, the admin is already set. Only the current admin can manage the bot.")
 
     async def api_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle /api command to set Gemini API key"""
         global current_gemini_api_key, general_model, coding_model
         user_id = update.effective_user.id
         chat_type = update.effective_chat.type
@@ -367,6 +343,7 @@ For security, the command message will be deleted after setting the key.
                 logger.error(f"Failed to set API key: {message}")
 
     async def setmodel_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle /setmodel command to choose Gemini model"""
         global general_model, current_model
         user_id = update.effective_user.id
         chat_type = update.effective_chat.type
@@ -399,6 +376,7 @@ For security, the command message will be deleted after setting the key.
                 logger.error(f"Failed to switch model: {str(e)}")
 
     async def info_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle /info command to show user profile information"""
         user_id = update.effective_user.id
         chat_id = update.effective_chat.id
         chat_type = update.effective_chat.type
@@ -409,13 +387,16 @@ For security, the command message will be deleted after setting the key.
             await update.message.reply_text(response, reply_markup=reply_markup)
             return
 
+        # Determine target user
         target_user = update.effective_user
         target_user_id = user_id
         target_username = None
-        if context.args:
+        if context.args:  # Check if a username is provided (e.g., /info @username)
             try:
-                target_username = context.args[0].lstrip('@')
+                target_username = context.args[0].lstrip('@')  # Remove '@' from username
+                # Try to get user info from chat or by resolving username
                 if chat_type in ['group', 'supergroup']:
+                    # Fetch chat members to find the user
                     async for member in bot.get_chat_members(chat_id=chat_id):
                         if member.user.username and member.user.username.lower() == target_username.lower():
                             target_user = member.user
@@ -432,6 +413,7 @@ For security, the command message will be deleted after setting the key.
                 await update.message.reply_text(f"Could not find user @{target_username}. Make sure the username is valid.")
                 return
 
+        # User Info
         is_private = chat_type == "private"
         full_name = target_user.first_name or "No Name"
         if target_user.last_name:
@@ -445,6 +427,8 @@ For security, the command message will be deleted after setting the key.
         account_age = "Unknown"
         account_frozen = "No"
         last_seen = "Recently"
+
+        # Determine Group Role
         status = "Private Chat" if is_private else "Unknown"
         if not is_private:
             try:
@@ -454,6 +438,7 @@ For security, the command message will be deleted after setting the key.
                 logger.error(f"Error checking group role for user {target_user_id}: {e}")
                 status = "Unknown"
 
+        # Message Body
         info_text = f"""
 🔍 *Showing User's Profile Info* 📋
 ━━━━━━━━━━━━━━━━
@@ -473,7 +458,10 @@ For security, the command message will be deleted after setting the key.
 👁 *Thank You for Using Our Tool* ✅
 """
 
+        # Inline Button
         keyboard = [[InlineKeyboardButton("View Profile", url=f"tg://user?id={target_user_id}")]] if target_user.username else []
+
+        # Try Sending with Profile Photo
         try:
             photos = await bot.get_user_profile_photos(target_user_id, limit=1)
             if photos.total_count > 0:
@@ -504,54 +492,8 @@ For security, the command message will be deleted after setting the key.
                 reply_markup=InlineKeyboardMarkup(keyboard) if keyboard else None
             )
 
-    async def insta_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle /insta command to download Instagram media"""
-        user_id = update.effective_user.id
-        chat_type = update.effective_chat.type
-
-        if chat_type == 'private' and user_id != ADMIN_USER_ID:
-            response, reply_markup = await self.get_private_chat_redirect()
-            await update.message.reply_text(response, reply_markup=reply_markup)
-            return
-
-        if not context.args:
-            await update.message.reply_text(
-                "Please provide an Instagram URL.\n"
-                "Usage: /insta <instagram_url>\n"
-                "Example: /insta https://www.instagram.com/reel/C_4fX1YvX9_/"
-            )
-            return
-
-        url = context.args[0]
-        if not url.startswith(('http://', 'https://')) or 'instagram.com' not in url:
-            await update.message.reply_text("Invalid Instagram URL. Please provide a valid Instagram link.")
-            return
-
-        await context.bot.send_chat_action(chat_id=update.effective_chat.id, action="upload_document")
-        data = await fetch_insta_media(url)
-        if not data:
-            logger.error(f"Failed to retrieve media for URL: {url}")
-            await update.message.reply_text("Could not retrieve media. The post might be private, the URL is invalid, or the server is unavailable. Please try again.")
-            return
-
-        downloads = data.get("raw_response", {}).get("data", {}).get("downloads", [])
-        if not downloads:
-            await update.message.reply_text("No downloadable media found. The post might be private or unsupported.")
-            return
-
-        response_text = "Instagram Media Download Links:\n\n"
-        keyboard = []
-        for idx, item in enumerate(downloads, 1):
-            media_url = item.get("url")
-            media_type = item.get("type", "Unknown")
-            response_text += f"{idx}. {media_type}: {media_url}\n"
-            keyboard.append([InlineKeyboardButton(f"Download {media_type} {idx}", url=media_url)])
-
-        response_text += "\nPowered by @ISmartCoder & @abirxdhackz"
-        reply_markup = InlineKeyboardMarkup(keyboard)
-        await update.message.reply_text(response_text, reply_markup=reply_markup, disable_web_page_preview=True)
-
     async def handle_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle regular text messages"""
         try:
             chat_id = update.effective_chat.id
             user_id = update.effective_user.id
@@ -578,7 +520,10 @@ For security, the command message will be deleted after setting the key.
                 conversation_context[chat_id] = conversation_context[chat_id][-20:]
             context_text = "\n".join(conversation_context[chat_id])
             
+            # Check if the message is a 2 or 3 letter lowercase word
             is_short_word = re.match(r'^[a-z]{2,3}$', user_message.strip().lower())
+            
+            # Detect if message is coding-related
             coding_keywords = ['code', 'python', 'javascript', 'java', 'c++', 'programming', 'script', 'debug', 'css', 'html']
             is_coding_query = any(keyword in user_message.lower() for keyword in coding_keywords)
             
@@ -592,6 +537,7 @@ For security, the command message will be deleted after setting the key.
             group_activity[chat_id] = group_activity.get(chat_id, {'auto_mode': False, 'last_response': 0})
             group_activity[chat_id]['last_response'] = datetime.now().timestamp()
             
+            # If it's a coding query, add a "Copy Code" button
             if is_coding_query:
                 code_block_match = re.search(r'```(?:\w+)?\n([\s\S]*?)\n```', response)
                 if code_block_match:
@@ -611,6 +557,7 @@ For security, the command message will be deleted after setting the key.
             await update.message.reply_text("Something went wrong. Shall we try again?")
 
     async def generate_gemini_response(self, prompt, chat_type="private", is_coding_query=False, is_short_word=False):
+        """Generate response using Gemini with personality"""
         try:
             system_prompt = f"""
 You are I Master Tools, a friendly and engaging companion who loves chatting and making friends. You are in a Telegram {'group chat' if chat_type in ['group', 'supergroup'] else 'private chat'}.
@@ -640,18 +587,18 @@ For Short Words (2 or 3 lowercase letters, is_short_word=True):
 - If the user sends a 2 or 3 letter lowercase word (e.g., "ki", "ke", "ken"), always provide a meaningful, friendly, and contextually relevant response in English
 - Interpret the word based on common usage (e.g., "ki" as "what", "ke" as "who", "ken" as "why") or conversation context
 - If the word is ambiguous, make a creative and engaging assumption to continue the conversation naturally
-- Never ask for clarification; instead, provide a fun and relevant response
+- Never ask for clarification (e.g., avoid "What kind of word is this?"); instead, provide a fun and relevant response
 - Example: For "ki", respond like "Did you mean 'what'? Like, what's up? Want to talk about something cool?"
 
 For Questions:
-- If the user asks a question, engage with a playful or surprising comment first
+- If the user asks a question, engage with a playful or surprising comment first (e.g., a witty remark or fun fact)
 - Then provide a clear, helpful answer
 - Make the response surprising and human-like to delight the user
 
 For Coding Queries (if is_coding_query is True):
 - Act as a coding expert for languages like Python, JavaScript, CSS, HTML, etc.
 - Provide well-written, functional, and optimized code tailored to the user's request
-- Include clear, beginner-friendly explanations
+- Include clear, beginner-friendly explanations of the code
 - Break down complex parts into simple steps
 - Suggest improvements or best practices
 - Ensure the code is complete, error-free, and ready to use
@@ -686,15 +633,21 @@ Respond as I Master Tools. Keep it natural, engaging, surprising, and match the 
             return "Got a bit tangled up. What do you want to talk about?"
 
     async def error_handler(self, update: object, context: ContextTypes.DEFAULT_TYPE):
+        """Handle errors"""
         logger.error(f"Exception while handling an update: {context.error}")
         if update and hasattr(update, 'effective_chat') and hasattr(update, 'message'):
             await update.message.reply_text("Something went wrong. Shall we try again?")
 
     def run(self):
+        """Start the bot"""
         logger.info("Starting Telegram Bot...")
-        self.application.run_polling(allowed_updates=Update.ALL_TYPES, drop_pending_updates=True)
+        self.application.run_polling(
+            allowed_updates=Update.ALL_TYPES,
+            drop_pending_updates=True
+        )
 
 def main():
+    """Main function"""
     if not TELEGRAM_BOT_TOKEN:
         logger.error("TELEGRAM_BOT_TOKEN not provided!")
         return
