@@ -6,12 +6,14 @@ from telegram.ext import (
     Application, CommandHandler, MessageHandler, CallbackQueryHandler,
     filters, ContextTypes, ConversationHandler
 )
-import requests # For checkmail command
-import random   # For checkmail command
+import requests
+import random
+import re
 
 # --- CONFIGURATION SECTION ---
 logging.basicConfig(
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    level=logging.INFO
 )
 logger = logging.getLogger(__name__)
 
@@ -39,6 +41,8 @@ def initialize_gemini_models(api_key):
 
 if GEMINI_API_KEY:
     initialize_gemini_models(GEMINI_API_KEY)
+else:
+    logger.warning("GEMINI_API_KEY not set. Bot will have limited functionality.")
 
 # --- CONVERSATION HANDLER STATES ---
 ASK_KB_FILE, ASK_KB_QUERY, ASK_AGENT_GOAL = range(3)
@@ -91,7 +95,6 @@ class TelegramGeminiBot:
             [InlineKeyboardButton("🔑 API Key সেট করুন", callback_data="admin_api")],
             [InlineKeyboardButton("👑 নতুন অ্যাডমিন সেট", callback_data="admin_setadmin")],
             [InlineKeyboardButton("🔄 মডেল পরিবর্তন", callback_data="admin_setmodel")],
-            [InlineKeyboardButton("📈 অ্যাডমিন স্ট্যাটাস", callback_data="admin_stats")],
         ]
         return InlineKeyboardMarkup(buttons)
 
@@ -111,15 +114,17 @@ class TelegramGeminiBot:
         # Main Command Handlers
         self.application.add_handler(CommandHandler("start", self.start_command))
         self.application.add_handler(CommandHandler("menu", self.menu_command))
-        # NEW: Admin panel command
         self.application.add_handler(CommandHandler("admin", self.admin_command))
 
-        # Handlers for old direct commands (for backward compatibility)
+        # Handlers for direct commands
         self.application.add_handler(CommandHandler("checkmail", self.checkmail_command))
         self.application.add_handler(CommandHandler("remind", self.remind_command))
         self.application.add_handler(CommandHandler("api", self.api_command))
         self.application.add_handler(CommandHandler("setadmin", self.setadmin_command))
         self.application.add_handler(CommandHandler("setmodel", self.setmodel_command))
+        self.application.add_handler(CommandHandler("status", self.status_command_direct))
+        self.application.add_handler(CommandHandler("clear", self.clear_command_direct))
+        self.application.add_handler(CommandHandler("help", self.help_command_direct))
         
         # Callback Query (Button) Handlers
         self.application.add_handler(CallbackQueryHandler(self.menu_navigation_handler))
@@ -141,7 +146,7 @@ class TelegramGeminiBot:
         ]
         await application.bot.set_my_commands(commands)
 
-    # --- MAIN COMMANDS ---
+    # --- START & MENU COMMANDS ---
     async def start_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(
             "স্বাগতম! আমি আপনার উন্নত AI অ্যাসিস্ট্যান্ট।\n"
@@ -163,7 +168,6 @@ class TelegramGeminiBot:
         query = update.callback_query
         await query.answer()
         
-        # Unified handler for all callbacks
         callback_data = query.data
         
         # Menu Navigation
@@ -180,7 +184,7 @@ class TelegramGeminiBot:
         elif callback_data.startswith("tool_"):
             tool = callback_data.split('_')[1]
             if tool == "checkmail":
-                await self.checkmail_command(update, context) # Directly call the function
+                await self.checkmail_command(update, context)
                 return
             instructions = {
                 'image': "🖼️ একটি ছবির **রিপ্লাই** দিয়ে আপনার নির্দেশ লিখুন। যেমন: `এই UI এর ফিডব্যাক দাও`",
@@ -199,14 +203,9 @@ class TelegramGeminiBot:
                 context.user_data.clear()
                 await query.edit_message_text("✅ আপনার সমস্ত ডেটা এবং কথোপকথনের ইতিহাস মুছে ফেলা হয়েছে।")
             elif action == "status":
-                status = "✅ Connected" if pro_model else "❌ Disconnected"
-                await query.message.reply_text(f"**Bot Status:** Online\n**Gemini API:** {status}", parse_mode='Markdown')
+                await self.status_command_direct(update, context)
             elif action == "help":
-                 await query.message.reply_text(
-                    "**সাহায্য:**\n\n"
-                    "🔹 **AI টুলস:** মেনু থেকে টুল বেছে নিন। বেশিরভাগ টুলের জন্য, আপনাকে একটি ফাইল পাঠিয়ে সেই মেসেজের **রিপ্লাই** দিয়ে নির্দেশ লিখতে হবে।\n\n"
-                    "🔹 **পার্সোনাল এজেন্ট:** মেনু থেকে অপশন বেছে নিন। নলেজবেস-এ `.txt` ফাইল আপলোড করে তাকে প্রশ্ন করতে পারবেন অথবা তাকে একটি জটিল কাজ দিলে সে নিজে থেকেই টুলস ব্যবহার করে সমাধান করার চেষ্টা করবে।"
-                )
+                await self.help_command_direct(update, context)
         
         # Admin Actions
         elif callback_data.startswith("admin_"):
@@ -214,26 +213,39 @@ class TelegramGeminiBot:
             admin_instructions = {
                 'api': "🔑 API Key সেট করতে, টাইপ করুন: `/api <your_key>`",
                 'setadmin': "👑 প্রথমবার অ্যাডমিন সেট করতে, টাইপ করুন: `/setadmin`",
-                'setmodel': "🔄 মডেল পরিবর্তন করতে, টাইপ করুন: `/setmodel <model_name>`",
-                'stats': "📈 অ্যাডমিন স্ট্যাটাস দেখতে, টাইপ করুন: `/admin` (এটি একটি কমান্ড হিসেবেও কাজ করে)"
+                'setmodel': "🔄 মডেল পরিবর্তন করতে, টাইপ করুন: `/setmodel <model_name>`"
             }
             if action in admin_instructions:
                 await query.message.reply_text(admin_instructions[action])
 
-    # --- RE-INTEGRATED OLD COMMANDS ---
-    async def checkmail_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # --- RE-INTEGRATED OLD COMMANDS (as methods) ---
+    async def clear_command_direct(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        context.user_data.clear()
+        await update.message.reply_text("✅ কথোপকথনের ইতিহাস মুছে ফেলা হয়েছে।")
+        
+    async def status_command_direct(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         message_or_query = update.message or update.callback_query.message
+        status = "✅ Connected" if pro_model else "❌ Disconnected"
+        await message_or_query.reply_text(f"**Bot Status:** Online\n**Gemini API:** {status}", parse_mode='Markdown')
+
+    async def help_command_direct(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        message_or_query = update.message or update.callback_query.message
+        await message_or_query.reply_text(
+            "**সাহায্য:**\n\n"
+            "🔹 **AI টুলস:** মেনু থেকে টুল বেছে নিন। বেশিরভাগ টুলের জন্য, আপনাকে একটি ফাইল পাঠিয়ে সেই মেসেজের **রিপ্লাই** দিয়ে নির্দেশ লিখতে হবে।\n\n"
+            "🔹 **পার্সোনাল এজেন্ট:** মেনু থেকে অপশন বেছে নিন। নলেজবেস-এ `.txt` ফাইল আপলোড করে তাকে প্রশ্ন করতে পারবেন অথবা তাকে একটি জটিল কাজ দিলে সে নিজে থেকেই টুলস ব্যবহার করে সমাধান করার চেষ্টা করবে।"
+        )
+        
+    async def checkmail_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        message_or_query = update.message or getattr(update.callback_query, 'message', None)
         await message_or_query.reply_text("📧 Temporary email ইনবক্স চেক করা হচ্ছে...")
         try:
-            # Logic from your original code
             u = 'txoguqa'
             d = random.choice(['mailto.plus', 'fexpost.com', 'fexbox.org', 'rover.info'])
             email = f'{u}@{d}'
             response = requests.get(
-                'https://tempmail.plus/api/mails',
-                params={'email': email, 'limit': 20, 'epin': ''},
-                cookies={'email': email},
-                headers={'user-agent': 'Mozilla/5.0'}
+                'https://tempmail.plus/api/mails', params={'email': email, 'limit': 20, 'epin': ''},
+                cookies={'email': email}, headers={'user-agent': 'Mozilla/5.0'}
             )
             mail_list = response.json().get('mail_list', [])
             if not mail_list:
@@ -265,7 +277,9 @@ class TelegramGeminiBot:
         await context.bot.send_message(chat_id=context.job.chat_id, text=f"⏰ **রিমাইন্ডার:**\n\n{context.job.data}", parse_mode='Markdown')
 
     async def api_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        if update.effective_user.id != ADMIN_USER_ID: return
+        if update.effective_user.id != ADMIN_USER_ID:
+            await update.message.reply_text("❌ শুধুমাত্র অ্যাডমিন এই কমান্ড ব্যবহার করতে পারবে।")
+            return
         if not context.args:
             await update.message.reply_text("ব্যবহারবিধি: `/api <your_gemini_key>`")
             return
@@ -277,15 +291,15 @@ class TelegramGeminiBot:
 
     async def setadmin_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         global ADMIN_USER_ID
-        if ADMIN_USER_ID != 0:
+        if ADMIN_USER_ID != 0 and ADMIN_USER_ID != 7835226724: # Default ID check
             await update.message.reply_text(f"অ্যাডমিন আগে থেকেই সেট করা আছে: {ADMIN_USER_ID}")
         else:
             ADMIN_USER_ID = update.effective_user.id
             await update.message.reply_text(f"👑 আপনি এখন এই বটের অ্যাডমিন! User ID: {ADMIN_USER_ID}")
     
     async def setmodel_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        # This can be simplified or removed if you stick to Pro/Flash
-        await update.message.reply_text("মডেল পরিবর্তন বর্তমানে নিষ্ক্রিয় আছে।")
+        if update.effective_user.id != ADMIN_USER_ID: return
+        await update.message.reply_text("মডেল পরিবর্তন বর্তমানে নিষ্ক্রিয় আছে। বট স্বয়ংক্রিয়ভাবে সেরা মডেলটি ব্যবহার করে।")
     
     # --- AGENT & KNOWLEDGE BASE (Conversation Handler Logic) ---
     async def agent_actions_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -371,16 +385,36 @@ class TelegramGeminiBot:
         response = await pro_model.generate_content_async(prompt)
         await update.message.reply_text(response.text, parse_mode='Markdown')
         
-    async def general_chat_handler(self, update, context):
+    async def general_chat_handler(self, update, context: ContextTypes.DEFAULT_TYPE):
         await context.bot.send_chat_action(chat_id=update.effective_chat.id, action="typing")
-        if 'history' not in context.user_data: context.user_data['history'] = []
-        context.user_data['history'].append({'role': 'user', 'parts': [update.message.text]})
-        if len(context.user_data['history']) > 10: context.user_data['history'] = context.user_data['history'][-10:]
         
-        chat = flash_model.start_chat(history=context.user_data['history'])
-        response = await chat.send_message_async(update.message.text)
-        context.user_data['history'].append({'role': 'model', 'parts': [response.text]})
-        await update.message.reply_text(response.text)
+        # CLEANED AND SIMPLIFIED SYSTEM PROMPT
+        system_prompt = """
+        You are I Master Tools, a friendly, helpful, and human-like AI companion.
+        Your main goal is to assist users directly and accurately.
+        - Respond in clear, natural Bengali (Bangla).
+        - Be direct and get to the point in a friendly manner.
+        - For coding questions, provide accurate code with simple explanations.
+        - Adapt your tone to be helpful and engaging.
+        - Do not start responses with the user's name or fillers like "ওহো" or "হায়".
+        """
+
+        if 'history' not in context.user_data:
+            # Initialize history with the system prompt
+            context.user_data['history'] = [{'role': 'user', 'parts': [system_prompt]}, {'role': 'model', 'parts': ["OK, I am I Master Tools. How can I help?"]}]
+        
+        context.user_data['history'].append({'role': 'user', 'parts': [update.message.text]})
+        if len(context.user_data['history']) > 12:
+            context.user_data['history'] = context.user_data['history'][:1] + context.user_data['history'][-11:]
+        
+        try:
+            chat = flash_model.start_chat(history=context.user_data['history'])
+            response = await chat.send_message_async(update.message.text)
+            context.user_data['history'].append({'role': 'model', 'parts': [response.text]})
+            await update.message.reply_text(response.text)
+        except Exception as e:
+            logger.error(f"Error during general chat: {e}")
+            await update.message.reply_text("দুঃখিত, একটি সমস্যা হয়েছে। আবার চেষ্টা করুন।")
 
     async def error_handler(self, update: object, context: ContextTypes.DEFAULT_TYPE):
         logger.error(f"Exception while handling an update: {context.error}")
