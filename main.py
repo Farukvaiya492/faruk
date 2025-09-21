@@ -112,25 +112,64 @@ class TelegramGeminiBot:
             "copy_code": lambda u, c: query.answer("Code copied!")
         }
 
-        if callback_data in command_mapping:
-            # For commands requiring arguments, provide default behavior
-            if callback_data == "api":
-                # Simulate /api without arguments to trigger help message
-                context.args = []
-                await self.api_command(query, context)
-            elif callback_data == "setmodel":
-                # Simulate /setmodel without arguments to show available models
-                context.args = []
-                await self.setmodel_command(query, context)
-            elif callback_data == "info":
-                # Simulate /info for the current user
-                context.args = []
-                await self.info_command(query, context)
+        try:
+            if callback_data in command_mapping:
+                # For commands requiring arguments, provide default behavior
+                if callback_data == "api":
+                    # Simulate /api without arguments to trigger help message
+                    context.args = []
+                    await self.api_command(query, context)
+                elif callback_data == "setmodel":
+                    # Simulate /setmodel without arguments to show available models
+                    context.args = []
+                    await self.setmodel_command(query, context)
+                elif callback_data == "info":
+                    # Simulate /info for the current user
+                    context.args = []
+                    await self.info_command(query, context)
+                else:
+                    # Execute other commands directly
+                    await command_mapping[callback_data](query, context)
             else:
-                # Execute other commands directly
-                await command_mapping[callback_data](query, context)
-        else:
-            await query.message.reply_text("Unknown action. Please try another option from the menu!")
+                await query.message.reply_text(
+                    "Oops! This button seems to be lost in space. 🚀 Try another one from the menu!",
+                    reply_markup=await self.get_menu_keyboard(user_id)
+                )
+        except Exception as e:
+            logger.error(f"Error in button callback for {callback_data}: {str(e)}")
+            await query.message.reply_text(
+                f"Something went wrong with that action. 😔 Try again or use /menu to see all options!",
+                reply_markup=await self.get_menu_keyboard(user_id)
+            )
+
+    async def get_menu_keyboard(self, user_id):
+        """Generate the menu keyboard dynamically"""
+        keyboard = [
+            [
+                InlineKeyboardButton("🚀 Start", callback_data="start"),
+                InlineKeyboardButton("ℹ️ Help", callback_data="help")
+            ],
+            [
+                InlineKeyboardButton("📧 Check Email", callback_data="checkmail"),
+                InlineKeyboardButton("📊 Status", callback_data="status")
+            ],
+            [
+                InlineKeyboardButton("🗑️ Clear History", callback_data="clear"),
+                InlineKeyboardButton("👤 User Info", callback_data="info")
+            ],
+            [
+                InlineKeyboardButton("🔗 Join Group", url="https://t.me/VPSHUB_BD_CHAT")
+            ]
+        ]
+        if user_id == ADMIN_USER_ID:
+            keyboard.append([
+                InlineKeyboardButton("🔑 Set API", callback_data="api"),
+                InlineKeyboardButton("⚙️ Set Model", callback_data="setmodel")
+            ])
+            keyboard.append([
+                InlineKeyboardButton("👑 Set Admin", callback_data="setadmin")
+            ])
+        return InlineKeyboardMarkup(keyboard)
 
     async def get_private_chat_redirect(self):
         """Return redirect message for non-admin private chats"""
@@ -150,12 +189,11 @@ Hello, thanks for wanting to chat with me! I'm I Master Tools, your friendly com
             response, reply_markup = await self.get_private_chat_redirect()
             await update.message.reply_text(response, reply_markup=reply_markup)
         else:
-            keyboard = [[InlineKeyboardButton("Join VPSHUB_BD_CHAT", url="https://t.me/VPSHUB_BD_CHAT")]]
-            reply_markup = InlineKeyboardMarkup(keyboard)
+            reply_markup = await self.get_menu_keyboard(user_id)
             welcome_message = f"""
 Hello {username}, welcome to I Master Tools, your friendly companion!
 
-To chat with me, please join our official Telegram group or mention @I MasterTools in the group. Click the button below to join the group!
+To chat with me, please join our official Telegram group or mention @I MasterTools in the group. Click the button below to explore features or join the group!
 
 Available commands:
 - /help: Get help and usage information
@@ -165,8 +203,6 @@ Available commands:
 - /checkmail: Check temporary email inbox
 - /info: Show user profile information
 {'' if user_id != ADMIN_USER_ID else '- /api <key>: Set Gemini API key (admin only)\n- /setadmin: Set yourself as admin (first-time only)\n- /setmodel: Choose a different model (admin only)'}
-
-In groups, mention @I MasterTools or reply to my messages to get a response. I'm excited to chat with you!
             """
             await update.message.reply_text(welcome_message, reply_markup=reply_markup)
 
@@ -191,8 +227,7 @@ Welcome {user_mention}! We're thrilled to have you in our VPSHUB_BD_CHAT group! 
             response, reply_markup = await self.get_private_chat_redirect()
             await update.message.reply_text(response, reply_markup=reply_markup)
         else:
-            keyboard = [[InlineKeyboardButton("Join VPSHUB_BD_CHAT", url="https://t.me/VPSHUB_BD_CHAT")]]
-            reply_markup = InlineKeyboardMarkup(keyboard)
+            reply_markup = await self.get_menu_keyboard(user_id)
             help_message = f"""
 Hello {username}! I'm I Master Tools, your friendly companion designed to make conversations fun and engaging.
 
@@ -213,15 +248,6 @@ Available commands:
 - /checkmail: Check temporary email inbox
 - /info: Show user profile information
 {'' if user_id != ADMIN_USER_ID else '- /api <key>: Set Gemini API key (admin only)\n- /setadmin: Set yourself as admin (first-time only)\n- /setmodel: Choose a different model (admin only)'}
-
-My personality:
-- I'm a friendly companion who loves chatting and making friends
-- I'm an expert in coding and provide accurate, well-explained solutions
-- I adapt to your mood and conversation needs
-- I use natural, engaging language to feel like a real person
-- I enjoy roleplay and creative conversations
-
-Powered by Google Gemini
             """
             await update.message.reply_text(help_message, reply_markup=reply_markup)
 
@@ -235,34 +261,7 @@ Powered by Google Gemini
             response, reply_markup = await self.get_private_chat_redirect()
             await update.message.reply_text(response, reply_markup=reply_markup)
         else:
-            # Define the inline keyboard with direct feature buttons
-            keyboard = [
-                [
-                    InlineKeyboardButton("🚀 Start", callback_data="start"),
-                    InlineKeyboardButton("ℹ️ Help", callback_data="help")
-                ],
-                [
-                    InlineKeyboardButton("📧 Check Email", callback_data="checkmail"),
-                    InlineKeyboardButton("📊 Status", callback_data="status")
-                ],
-                [
-                    InlineKeyboardButton("🗑️ Clear History", callback_data="clear"),
-                    InlineKeyboardButton("👤 User Info", callback_data="info")
-                ],
-                [
-                    InlineKeyboardButton("🔗 Join Group", url="https://t.me/VPSHUB_BD_CHAT")
-                ]
-            ]
-            # Add admin-only buttons if the user is the admin
-            if user_id == ADMIN_USER_ID:
-                keyboard.append([
-                    InlineKeyboardButton("🔑 Set API", callback_data="api"),
-                    InlineKeyboardButton("⚙️ Set Model", callback_data="setmodel")
-                ])
-                keyboard.append([
-                    InlineKeyboardButton("👑 Set Admin", callback_data="setadmin")
-                ])
-            reply_markup = InlineKeyboardMarkup(keyboard)
+            reply_markup = await self.get_menu_keyboard(user_id)
             await update.message.reply_text(
                 f"🌟 Hello {username}, welcome to I Master Tools! 🌟\n"
                 "Tap a button to explore our awesome features:",
