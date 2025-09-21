@@ -5,7 +5,6 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, Callbac
 from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters, ContextTypes
 import asyncio
 import aiohttp
-import time
 from datetime import datetime
 import random
 import re
@@ -23,8 +22,7 @@ TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN', '8380869007:AAGu7e41JJVU8aX
 GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
 ADMIN_USER_ID = int(os.getenv('ADMIN_USER_ID', '7835226724'))
 PORT = int(os.getenv('PORT', 8000))
-INSTA_API_URL = "https://vkrdownloader.xyz/server/"
-INSTA_API_KEY = "vkrdownloader"
+INSTA_API_URL = "http://<your_server_ip>:5000/api/insta/dl"  # Replace <your_server_ip> with actual server IP
 
 # Global variables for dynamic API key and model management
 current_gemini_api_key = GEMINI_API_KEY
@@ -42,15 +40,15 @@ conversation_context = {}
 group_activity = {}
 
 async def fetch_insta_media(link: str) -> dict[str, any] | None:
-    """Fetch Instagram media using the vkrdownloader API"""
-    params = {"api_key": INSTA_API_KEY, "vkr": link}
+    """Fetch Instagram media using the FastAPI /api/insta/dl endpoint"""
+    params = {"url": link}
     try:
         async with aiohttp.ClientSession() as session:
             async with session.get(INSTA_API_URL, params=params, timeout=30) as resp:
                 if resp.status != 200:
                     return None
                 data = await resp.json()
-                if not data.get("data") or not data["data"].get("downloads"):
+                if not data.get("success") or not data.get("raw_response", {}).get("data", {}).get("downloads"):
                     return None
                 return data
     except Exception as e:
@@ -549,7 +547,7 @@ For security, the command message will be deleted after setting the key.
             await update.message.reply_text("Could not retrieve media. Please check the URL or try again later.")
             return
 
-        downloads = data["data"].get("downloads", [])
+        downloads = data["raw_response"]["data"].get("downloads", [])
         if not downloads:
             await update.message.reply_text("No downloadable media found for this URL.")
             return
