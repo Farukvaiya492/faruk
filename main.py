@@ -166,6 +166,45 @@ async def validate_bin(bin_number: str, api_key: str):
         logger.error(f"Error validating BIN: {e}")
         return f"❌ BIN যাচাই করতে সমস্যা হয়েছে: {str(e)}"
 
+async def search_yts_multiple(query: str, limit: int = 5):
+    """
+    YouTube সার্চ API (abhi-api) ব্যবহার করে একাধিক ভিডিও সার্চ করার ফাংশন
+    :param query: সার্চ টার্ম
+    :param limit: সর্বোচ্চ কতটি ভিডিও ফলাফল দেখাবে (ডিফল্ট 5)
+    :return: ফরম্যাটেড রেসপন্স স্ট্রিং
+    """
+    url = f"https://abhi-api.vercel.app/api/search/yts?text={query.replace(' ', '+')}"
+    
+    try:
+        response = requests.get(url)
+        response.raise_for_status()
+        data = response.json()
+        
+        if data.get("status") and data.get("result"):
+            results = data["result"]
+            if not isinstance(results, list):
+                results = [results]
+                
+            output_message = f"🔍 YouTube সার্চ ফলাফল '{query}' জন্য:\n\n"
+            for i, res in enumerate(results[:limit], 1):
+                output_message += f"🎥 ভিডিও {i}:\n"
+                output_message += f"📌 শিরোনাম: {res.get('title', 'N/A')}\n"
+                output_message += f"📺 টাইপ: {res.get('type', 'N/A')}\n"
+                output_message += f"👁️‍🗨️ ভিউ: {res.get('views', 'N/A')}\n"
+                output_message += f"📅 আপলোড: {res.get('uploaded', 'N/A')}\n"
+                output_message += f"⏱️ সময়কাল: {res.get('duration', 'N/A')}\n"
+                output_message += f"📝 বিবরণ: {res.get('description', 'N/A')[:100]}...\n"
+                output_message += f"📢 চ্যানেল: {res.get('channel', 'N/A')}\n"
+                output_message += f"🔗 লিঙ্ক: {res.get('url', 'N/A')}\n\n"
+            
+            output_message += f"ক্রিয়েটর: {data.get('creator', 'Unknown')}"
+            return output_message
+        else:
+            return f"❌ কোনো ফলাফল পাওয়া যায়নি '{query}' জন্য।"
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error searching YouTube: {e}")
+        return f"❌ YouTube সার্চ করতে সমস্যা হয়েছে: {str(e)}"
+
 class TelegramGeminiBot:
     def __init__(self):
         self.application = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
@@ -186,6 +225,7 @@ class TelegramGeminiBot:
         self.application.add_handler(CommandHandler("weather", self.weather_command))
         self.application.add_handler(CommandHandler("validatephone", self.validatephone_command))
         self.application.add_handler(CommandHandler("validatebin", self.validatebin_command))
+        self.application.add_handler(CommandHandler("yts", self.yts_command))
         self.application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_message))
         self.application.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, self.handle_new_member))
         self.application.add_handler(CallbackQueryHandler(self.button_callback, pattern='^copy_code$'))
@@ -232,6 +272,7 @@ Available commands:
 - /weather: Check weather forecast for Berlin
 - /validatephone <number> [country_code]: Validate a phone number
 - /validatebin <bin_number>: Validate a BIN number
+- /yts <query> [limit]: Search YouTube videos
 {'' if user_id != ADMIN_USER_ID else '- /api <key>: Set Gemini API key (admin only)\n- /setadmin: Set yourself as admin (first-time only)\n- /setmodel: Choose a different model (admin only)'}
 
 In groups, mention @I MasterTools or reply to my messages to get a response. I'm excited to chat with you!
@@ -283,6 +324,7 @@ Available commands:
 - /weather: Check weather forecast for Berlin
 - /validatephone <number> [country_code]: Validate a phone number
 - /validatebin <bin_number>: Validate a BIN number
+- /yts <query> [limit]: Search YouTube videos
 {'' if user_id != ADMIN_USER_ID else '- /api <key>: Set Gemini API key (admin only)\n- /setadmin: Set yourself as admin (first-time only)\n- /setmodel: Choose a different model (admin only)'}
 
 My personality:
@@ -630,6 +672,25 @@ For security, the command message will be deleted after setting the key.
 
         bin_number = context.args[0]
         response_message = await validate_bin(bin_number, BIN_API_KEY)
+        await update.message.reply_text(response_message)
+
+    async def yts_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle /yts command to search YouTube videos"""
+        user_id = update.effective_user.id
+        chat_type = update.effective_chat.type
+
+        if chat_type == 'private' and user_id != ADMIN_USER_ID:
+            response, reply_markup = await self.get_private_chat_redirect()
+            await update.message.reply_text(response, reply_markup=reply_markup)
+            return
+
+        if not context.args:
+            await update.message.reply_text("ব্যবহার: /yts <query> [limit]\nউদাহরণ: /yts heat waves 3")
+            return
+
+        query = ' '.join(context.args[:-1]) if len(context.args) > 1 and context.args[-1].isdigit() else ' '.join(context.args)
+        limit = int(context.args[-1]) if len(context.args) > 1 and context.args[-1].isdigit() else 5
+        response_message = await search_yts_multiple(query, limit)
         await update.message.reply_text(response_message)
 
     async def handle_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
