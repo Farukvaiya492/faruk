@@ -1,10 +1,11 @@
+
 import os
 import logging
 import google.generativeai as genai
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, CallbackQuery
 from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters, ContextTypes
 import asyncio
-from datetime import datetime
+from datetime import datetime, timedelta
 import random
 import re
 import requests
@@ -17,12 +18,12 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Configuration
-TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN', 'YOUR_BOT_TOKEN')
+TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN', '8380869007:AAGu7e41JJVU8aXG5wqXtCMUVKcCmmrp_gg')
 GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
 ADMIN_USER_ID = int(os.getenv('ADMIN_USER_ID', '7835226724'))
 PORT = int(os.getenv('PORT', 8000))
 
-# Global variables
+# Global variables for dynamic API key and model management
 current_gemini_api_key = GEMINI_API_KEY
 general_model = None
 coding_model = None
@@ -31,10 +32,12 @@ available_models = [
     'gemini-2.5-flash-lite', 'gemini-2.5-flash', 'gemini-2.5-pro',
     'gemini-1.5-flash-8b'
 ]
-current_model = 'gemini-1.5-flash'
+current_model = 'gemini-1.5-flash'  # Default model
+
+# Store conversation context and command usage for each user
 conversation_context = {}
 group_activity = {}
-user_command_usage = {}  # Track command usage per user
+user_command_usage = {}  # New dictionary to track command usage per user
 
 def initialize_gemini_models(api_key):
     """Initialize Gemini models with the provided API key"""
@@ -42,7 +45,7 @@ def initialize_gemini_models(api_key):
     try:
         genai.configure(api_key=api_key)
         general_model = genai.GenerativeModel(current_model)
-        coding_model = genai.GenerativeModel('gemini-1.5-pro')
+        coding_model = genai.GenerativeModel('gemini-1.5-pro')  # Dedicated for coding
         current_gemini_api_key = api_key
         logger.info("Gemini API configured successfully")
         return True, "Gemini API configured successfully!"
@@ -50,6 +53,7 @@ def initialize_gemini_models(api_key):
         logger.error(f"Error configuring Gemini API: {str(e)}")
         return False, f"Error configuring Gemini API: {str(e)}"
 
+# Initialize Gemini if API key is available
 if GEMINI_API_KEY:
     success, message = initialize_gemini_models(GEMINI_API_KEY)
     if success:
@@ -60,7 +64,7 @@ else:
     logger.warning("GEMINI_API_KEY not set. Use /api command to configure.")
 
 def check_command_limit(user_id, command):
-    """Check if user has exceeded daily command limit"""
+    """Check if user has exceeded daily command limit (2 uses per 24 hours)"""
     current_time = datetime.now().timestamp()
     if user_id not in user_command_usage:
         user_command_usage[user_id] = {}
@@ -72,12 +76,9 @@ def check_command_limit(user_id, command):
     if current_time - user_command_usage[user_id][command]['last_reset'] >= 86400:  # 24 hours in seconds
         user_command_usage[user_id][command] = {'count': 0, 'last_reset': current_time}
     
-    # Set limit based on command
-    max_limit = 1 if command == "like" else 2  # 1 for /like, 2 for others
-    
-    # Check if limit is exceeded
-    if user_command_usage[user_id][command]['count'] >= max_limit:
-        return False, f"😕 Sorry! You've exceeded the daily limit ({max_limit} time{'s' if max_limit > 1 else ''}) for this command. Try again after 24 hours! 🚀"
+    # Check if limit (2 uses) is exceeded
+    if user_command_usage[user_id][command]['count'] >= 2:
+        return False, "😕 ওহো! আপনি আজকের জন্য এই কমান্ডের লিমিট (২ বার) অতিক্রম করেছেন। ২৪ ঘন্টা পরে আবার চেষ্টা করুন! 🚀"
     
     # Increment usage count
     user_command_usage[user_id][command]['count'] += 1
@@ -111,7 +112,7 @@ class TelegramGeminiBot:
     async def button_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle copy code button callback"""
         query = update.callback_query
-        await query.answer("Code copied!")
+        await query.answer("Code copied!")  # Notify user
         # Telegram automatically handles code block copying
 
     async def get_private_chat_redirect(self):
@@ -146,7 +147,7 @@ Available commands:
 - /status: Check bot status
 - /checkmail: Check temporary email inbox
 - /info: Show user profile information
-- /like <uid> [region]: Check Free Fire player likes (1 time per day)
+- /like <uid> [region]: Check Free Fire player likes (2 times per day)
 - /level <uid> [region]: Check Free Fire player level (2 times per day)
 - /stats <uid> [region]: Check Free Fire player stats (2 times per day)
 {'' if user_id != ADMIN_USER_ID else '- /api <key>: Set Gemini API key (admin only)\n- /setadmin: Set yourself as admin (first-time only)\n- /setmodel: Choose a different model (admin only)'}
@@ -188,7 +189,7 @@ How I work:
 - I remember conversation context until you clear it
 - I'm an expert in coding (Python, JavaScript, CSS, HTML, etc.) and provide accurate, beginner-friendly solutions
 - I'm designed to be friendly, helpful, and human-like
-- Free Fire /like command is limited to 1 use per day per user; /level and /stats are limited to 2 uses per day
+- Free Fire commands (/like, /level, /stats) are limited to 2 uses per day per user
 
 Available commands:
 - /start: Show welcome message with group link
@@ -198,7 +199,7 @@ Available commands:
 - /status: Check bot status
 - /checkmail: Check temporary email inbox
 - /info: Show user profile information
-- /like <uid> [region]: Check Free Fire player likes (1 time per day)
+- /like <uid> [region]: Check Free Fire player likes (2 times per day)
 - /level <uid> [region]: Check Free Fire player level (2 times per day)
 - /stats <uid> [region]: Check Free Fire player stats (2 times per day)
 {'' if user_id != ADMIN_USER_ID else '- /api <key>: Set Gemini API key (admin only)\n- /setadmin: Set yourself as admin (first-time only)\n- /setmodel: Choose a different model (admin only)'}
@@ -426,6 +427,7 @@ For security, the command message will be deleted after setting the key.
             await update.message.reply_text(response, reply_markup=reply_markup)
             return
 
+        # User Info
         is_private = chat_type == "private"
         full_name = user.first_name or "No Name"
         if user.last_name:
@@ -440,6 +442,7 @@ For security, the command message will be deleted after setting the key.
         account_frozen = "No"
         last_seen = "Recently"
 
+        # Determine Group Role
         status = "Private Chat" if is_private else "Unknown"
         if not is_private:
             try:
@@ -449,6 +452,7 @@ For security, the command message will be deleted after setting the key.
                 logger.error(f"Error checking group role: {e}")
                 status = "Unknown"
 
+        # Message Body
         info_text = f"""
 🔍 *Showing User's Profile Info* 📋
 ━━━━━━━━━━━━━━━━
@@ -466,8 +470,11 @@ For security, the command message will be deleted after setting the key.
 ━━━━━━━━━━━━━━━━
 👁 *Thank You for Using Our Tool* ✅
 """
+
+        # Inline Button
         keyboard = [[InlineKeyboardButton("View Profile", url=f"tg://user?id={user_id}")]] if user.username else []
 
+        # Try Sending with Profile Photo
         try:
             photos = await bot.get_user_profile_photos(user_id, limit=1)
             if photos.total_count > 0:
@@ -508,7 +515,7 @@ For security, the command message will be deleted after setting the key.
             await update.message.reply_text(response, reply_markup=reply_markup)
             return
 
-        # Check daily command limit (1 time per day for /like)
+        # Check daily command limit
         allowed, limit_message = check_command_limit(user_id, "like")
         if not allowed:
             await update.message.reply_text(limit_message, parse_mode='Markdown')
@@ -527,25 +534,25 @@ For security, the command message will be deleted after setting the key.
 
             if data.get("fail") == 0:
                 reply_text = f"""
-🎮 *Free Fire Like Checker* 🔥
+🎮 *Free Fire লাইক চেকার* 🔥
 ━━━━━━━━━━━━━━━━
-*Nickname:* {data['nickname']}
-*UID:* {data['uid']}
-*Region:* 🇧🇦 {data['region']}
-*Likes:* {data['likes']}
+*নিকনেম:* {data['nickname']}
+*ইউআইডি:* {data['uid']}
+*রিজিয়ন:* 🇧🇦 {data['region']}
+*লাইক সংখ্যা:* {data['likes']}
 ━━━━━━━━━━━━━━━━
-This player has {data['likes']} likes! Want to check another UID? Just say `/like <uid> [region]`!
+ওয়াও! {data['likes']} লাইক! এই প্লেয়ার তো আগুন! 🌟 আরেকটি ইউআইডি চেক করতে চান? শুধু বলুন `/like <uid> [region]`!
 """
                 await update.message.reply_text(reply_text, parse_mode='Markdown')
             else:
                 await update.message.reply_text(
-                    "😕 Oops! No data found. Check the UID or region and try again! `/like <uid> [region]`",
+                    "😕 ওহো! কোনো ডেটা পাওয়া যায়নি। ইউআইডি বা রিজিয়ন চেক করে আবার চেষ্টা করুন! `/like <uid> [region]`",
                     parse_mode='Markdown'
                 )
         except Exception as e:
             logger.error(f"Error fetching Free Fire likes: {e}")
             await update.message.reply_text(
-                "😕 Trouble checking likes. Try again! `/like <uid> [region]`",
+                "😕 লাইক চেক করতে সমস্যা হচ্ছে। আবার চেষ্টা করুন! `/like <uid> [region]`",
                 parse_mode='Markdown'
             )
 
@@ -643,7 +650,7 @@ This player has {data['likes']} likes! Want to check another UID? Just say `/lik
                 await update.message.reply_text(reply_text, parse_mode='Markdown')
             else:
                 await update.message.reply_text(
-                    "😕 ওহো! কোনো ডেটা পাওয়া যায়নি। ই�ユআইডি বা রিজিয়ন চেক করে আবার চেষ্টা করুন! `/stats <uid> [region]`",
+                    "😕 ওহো! কোনো ডেটা পাওয়া যায়নি। ইউআইডি বা রিজিয়ন চেক করে আবার চেষ্টা করুন! `/stats <uid> [region]`",
                     parse_mode='Markdown'
                 )
         except Exception as e:
@@ -681,7 +688,10 @@ This player has {data['likes']} likes! Want to check another UID? Just say `/lik
                 conversation_context[chat_id] = conversation_context[chat_id][-20:]
             context_text = "\n".join(conversation_context[chat_id])
             
+            # Check if the message is a 2 or 3 letter lowercase word
             is_short_word = re.match(r'^[a-z]{2,3}$', user_message.strip().lower())
+            
+            # Detect if message is coding-related
             coding_keywords = ['code', 'python', 'javascript', 'java', 'c++', 'programming', 'script', 'debug', 'css', 'html']
             is_coding_query = any(keyword in user_message.lower() for keyword in coding_keywords)
             
@@ -695,6 +705,7 @@ This player has {data['likes']} likes! Want to check another UID? Just say `/lik
             group_activity[chat_id] = group_activity.get(chat_id, {'auto_mode': False, 'last_response': 0})
             group_activity[chat_id]['last_response'] = datetime.now().timestamp()
             
+            # If it's a coding query, add a "Copy Code" button
             if is_coding_query:
                 code_block_match = re.search(r'```(?:\w+)?\n([\s\S]*?)\n```', response)
                 if code_block_match:
