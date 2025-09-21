@@ -378,10 +378,12 @@ For security, the command message will be deleted after setting the key.
                 logger.error(f"Failed to switch model: {str(e)}")
 
     async def info_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle /info command to show user profile information by username or user ID"""
+        """Handle /info command to show user profile information"""
         user_id = update.effective_user.id
         chat_id = update.effective_chat.id
         chat_type = update.effective_chat.type
+        user = update.effective_user
+        chat = update.effective_chat
         bot = context.bot
 
         if chat_type == 'private' and user_id != ADMIN_USER_ID:
@@ -389,59 +391,14 @@ For security, the command message will be deleted after setting the key.
             await update.message.reply_text(response, reply_markup=reply_markup)
             return
 
-        # Determine target user
-        target_user = update.effective_user
-        target_user_id = user_id
-        target_username = None
-        input_identifier = None
-
-        if context.args:  # Check if a username or user ID is provided
-            input_identifier = context.args[0]
-            if input_identifier.startswith('@'):  # Username provided
-                target_username = input_identifier.lstrip('@')  # Remove '@'
-                if chat_type in ['group', 'supergroup']:
-                    try:
-                        async for member in bot.get_chat_members(chat_id=chat_id):
-                            if member.user.username and member.user.username.lower() == target_username.lower():
-                                target_user = member.user
-                                target_user_id = target_user.id
-                                break
-                        else:
-                            await update.message.reply_text(f"User @{target_username} not found in this chat or invalid username.")
-                            return
-                    except Exception as e:
-                        logger.error(f"Error resolving username @{target_username}: {e}")
-                        await update.message.reply_text(f"Could not find user @{target_username}. Make sure the username is valid.")
-                        return
-                else:
-                    await update.message.reply_text("Please use this command in a group to check other users' info or use without arguments to check your own info.")
-                    return
-            else:  # User ID provided
-                try:
-                    target_user_id = int(input_identifier)
-                    if chat_type in ['group', 'supergroup']:
-                        try:
-                            member = await bot.get_chat_member(chat_id=chat_id, user_id=target_user_id)
-                            target_user = member.user
-                        except Exception as e:
-                            logger.error(f"Error resolving user ID {target_user_id}: {e}")
-                            await update.message.reply_text(f"User with ID {target_user_id} not found in this chat or invalid ID.")
-                            return
-                    else:
-                        await update.message.reply_text("Please use this command in a group to check other users' info or use without arguments to check your own info.")
-                        return
-                except ValueError:
-                    await update.message.reply_text(f"Invalid input: '{input_identifier}'. Please provide a valid username (e.g., @username) or user ID (e.g., 123456789).")
-                    return
-
         # User Info
         is_private = chat_type == "private"
-        full_name = target_user.first_name or "No Name"
-        if target_user.last_name:
-            full_name += f" {target_user.last_name}"
-        username = f"@{target_user.username}" if target_user.username else "None"
-        premium = "Yes" if target_user.is_premium else "No"
-        permalink = f"[Click Here](tg://user?id={target_user_id})"
+        full_name = user.first_name or "No Name"
+        if user.last_name:
+            full_name += f" {user.last_name}"
+        username = f"@{user.username}" if user.username else "None"
+        premium = "Yes" if user.is_premium else "No"
+        permalink = f"[Click Here](tg://user?id={user_id})"
         chat_id_display = f"{chat_id}" if not is_private else "-"
         data_center = "Unknown"
         created_on = "Unknown"
@@ -453,10 +410,10 @@ For security, the command message will be deleted after setting the key.
         status = "Private Chat" if is_private else "Unknown"
         if not is_private:
             try:
-                member = await bot.get_chat_member(chat_id=chat_id, user_id=target_user_id)
+                member = await bot.get_chat_member(chat_id=chat_id, user_id=user_id)
                 status = "Admin" if member.status in ["administrator", "creator"] else "Member"
             except Exception as e:
-                logger.error(f"Error checking group role for user {target_user_id}: {e}")
+                logger.error(f"Error checking group role: {e}")
                 status = "Unknown"
 
         # Message Body
@@ -465,7 +422,7 @@ For security, the command message will be deleted after setting the key.
 ━━━━━━━━━━━━━━━━
 *Full Name:* {full_name}
 *Username:* {username}
-*User ID:* `{target_user_id}`
+*User ID:* `{user_id}`
 *Chat ID:* {chat_id_display}
 *Premium User:* {premium}
 *Data Center:* {data_center}
@@ -474,17 +431,16 @@ For security, the command message will be deleted after setting the key.
 *Account Frozen:* {account_frozen}
 *Users Last Seen:* {last_seen}
 *Permanent Link:* {permalink}
-*Role:* {status}
 ━━━━━━━━━━━━━━━━
 👁 *Thank You for Using Our Tool* ✅
 """
 
         # Inline Button
-        keyboard = [[InlineKeyboardButton("View Profile", url=f"tg://user?id={target_user_id}")]] if target_user.username else []
+        keyboard = [[InlineKeyboardButton("View Profile", url=f"tg://user?id={user_id}")]] if user.username else []
 
         # Try Sending with Profile Photo
         try:
-            photos = await bot.get_user_profile_photos(target_user_id, limit=1)
+            photos = await bot.get_user_profile_photos(user_id, limit=1)
             if photos.total_count > 0:
                 file_id = photos.photos[0][0].file_id
                 await bot.send_photo(
@@ -504,7 +460,7 @@ For security, the command message will be deleted after setting the key.
                     reply_markup=InlineKeyboardMarkup(keyboard) if keyboard else None
                 )
         except Exception as e:
-            logger.error(f"Error sending profile photo for user {target_user_id}: {e}")
+            logger.error(f"Error sending profile photo: {e}")
             await bot.send_message(
                 chat_id=chat_id,
                 text=info_text,
