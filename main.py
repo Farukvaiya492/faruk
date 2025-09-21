@@ -4,6 +4,8 @@ import google.generativeai as genai
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, CallbackQuery
 from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters, ContextTypes
 import asyncio
+import aiohttp
+import time
 from datetime import datetime
 import random
 import re
@@ -21,6 +23,8 @@ TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN', '8380869007:AAGu7e41JJVU8aX
 GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
 ADMIN_USER_ID = int(os.getenv('ADMIN_USER_ID', '7835226724'))
 PORT = int(os.getenv('PORT', 8000))
+INSTA_API_URL = "https://vkrdownloader.xyz/server/"
+INSTA_API_KEY = "vkrdownloader"
 
 # Global variables for dynamic API key and model management
 current_gemini_api_key = GEMINI_API_KEY
@@ -32,6 +36,26 @@ available_models = [
     'gemini-1.5-flash-8b'
 ]
 current_model = 'gemini-1.5-flash'  # Default model
+
+# Store conversation context for each chat
+conversation_context = {}
+group_activity = {}
+
+async def fetch_insta_media(link: str) -> dict[str, any] | None:
+    """Fetch Instagram media using the vkrdownloader API"""
+    params = {"api_key": INSTA_API_KEY, "vkr": link}
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(INSTA_API_URL, params=params, timeout=30) as resp:
+                if resp.status != 200:
+                    return None
+                data = await resp.json()
+                if not data.get("data") or not data["data"].get("downloads"):
+                    return None
+                return data
+    except Exception as e:
+        logger.error(f"Error fetching Instagram media: {e}")
+        return None
 
 def initialize_gemini_models(api_key):
     """Initialize Gemini models with the provided API key"""
@@ -57,10 +81,6 @@ if GEMINI_API_KEY:
 else:
     logger.warning("GEMINI_API_KEY not set. Use /api command to configure.")
 
-# Store conversation context for each chat
-conversation_context = {}
-group_activity = {}
-
 class TelegramGeminiBot:
     def __init__(self):
         self.application = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
@@ -78,6 +98,7 @@ class TelegramGeminiBot:
         self.application.add_handler(CommandHandler("menu", self.menu_command))
         self.application.add_handler(CommandHandler("setmodel", self.setmodel_command))
         self.application.add_handler(CommandHandler("info", self.info_command))
+        self.application.add_handler(CommandHandler("insta", self.insta_command))
         self.application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_message))
         self.application.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, self.handle_new_member))
         self.application.add_handler(CallbackQueryHandler(self.button_callback, pattern='^copy_code$'))
@@ -121,6 +142,7 @@ Available commands:
 - /status: Check bot status
 - /checkmail: Check temporary email inbox
 - /info: Show user profile information
+- /insta: Download Instagram media
 {'' if user_id != ADMIN_USER_ID else '- /api <key>: Set Gemini API key (admin only)\n- /setadmin: Set yourself as admin (first-time only)\n- /setmodel: Choose a different model (admin only)'}
 
 In groups, mention @I MasterTools or reply to my messages to get a response. I'm excited to chat with you!
@@ -159,6 +181,7 @@ How I work:
 - For questions in the group, I engage with a fun or surprising comment before answering
 - I remember conversation context until you clear it
 - I'm an expert in coding (Python, JavaScript, CSS, HTML, etc.) and provide accurate, beginner-friendly solutions
+- I can download Instagram media with /insta
 - I'm designed to be friendly, helpful, and human-like
 
 Available commands:
@@ -169,6 +192,7 @@ Available commands:
 - /status: Check bot status
 - /checkmail: Check temporary email inbox
 - /info: Show user profile information
+- /insta: Download Instagram media
 {'' if user_id != ADMIN_USER_ID else '- /api <key>: Set Gemini API key (admin only)\n- /setadmin: Set yourself as admin (first-time only)\n- /setmodel: Choose a different model (admin only)'}
 
 My personality:
@@ -179,6 +203,7 @@ My personality:
 - I enjoy roleplay and creative conversations
 
 Powered by Google Gemini
+Instagram Downloader by @ISmartCoder, @abirxdhackz
             """
             await update.message.reply_text(help_message, reply_markup=reply_markup)
 
@@ -197,6 +222,7 @@ Powered by Google Gemini
                 [InlineKeyboardButton("Bot Status", callback_data="status")],
                 [InlineKeyboardButton("Clear History", callback_data="clear")],
                 [InlineKeyboardButton("User Info", callback_data="info")],
+                [InlineKeyboardButton("Download Instagram", callback_data="insta")],
                 [InlineKeyboardButton("Join Group", url="https://t.me/VPSHUB_BD_CHAT")]
             ]
             if user_id == ADMIN_USER_ID:
@@ -513,6 +539,53 @@ For security, the command message will be deleted after setting the key.
                 reply_markup=InlineKeyboardMarkup(keyboard) if keyboard else None
             )
 
+    async def insta_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle /insta command to download Instagram media"""
+        user_id = update.effective_user.id
+        chat_type = update.effective_chat.type
+
+        if chat_type == 'private' and user_id != ADMIN_USER_ID:
+            response, reply_markup = await self.get_private_chat_redirect()
+            await update.message.reply_text(response, reply_markup=reply_markup)
+            return
+
+        if not context.args:
+            await update.message.reply_text(
+                "Please provide an Instagram URL.\n"
+                "Usage: /insta <instagram_url>\n"
+                "Example: /insta https://www.instagram.com/share/reel/BAFoZka3JY"
+            )
+            return
+
+        url = context.args[0]
+        if not url.startswith(('http://', 'https://')) or 'instagram.com' not in url:
+            await update.message.reply_text("Invalid Instagram URL. Please provide a valid Instagram link (e.g., https://www.instagram.com/share/reel/BAFoZka3JY).")
+            return
+
+        await context.bot.send_chat_action(chat_id=update.effective_chat.id, action="upload_document")
+        data = await fetch_insta_media(url)
+        if not data:
+            await update.message.reply_text("Could not retrieve media. Please check the URL or try again later.")
+            return
+
+        downloads = data["data"].get("downloads", [])
+        if not downloads:
+            await update.message.reply_text("No downloadable media found for this URL.")
+            return
+
+        # Prepare response with download links
+        response_text = "Instagram Media Download Links:\n\n"
+        keyboard = []
+        for idx, item in enumerate(downloads, 1):
+            media_url = item.get("url")
+            media_type = item.get("type", "Unknown")
+            response_text += f"{idx}. {media_type}: {media_url}\n"
+            keyboard.append([InlineKeyboardButton(f"Download {media_type} {idx}", url=media_url)])
+
+        response_text += "\nPowered by @ISmartCoder & @abirxdhackz"
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        await update.message.reply_text(response_text, reply_markup=reply_markup, disable_web_page_preview=True)
+
     async def handle_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle regular text messages"""
         try:
@@ -681,5 +754,5 @@ def main():
     bot = TelegramGeminiBot()
     bot.run()
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
