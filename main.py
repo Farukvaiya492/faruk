@@ -17,9 +17,9 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Configuration
-TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN', '8380869007:AAGu7e41JJVU8aXG5wqXtCMUVKcCmmrp_gg')
+TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN', 'YOUR_BOT_TOKEN_HERE')
 GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
-ADMIN_USER_ID = int(os.getenv('ADMIN_USER_ID', '7835226724'))
+ADMIN_USER_ID = int(os.getenv('ADMIN_USER_ID', 'YOUR_ADMIN_USER_ID_HERE'))
 PORT = int(os.getenv('PORT', 8000))
 
 # Global variables for dynamic API key and model management
@@ -36,7 +36,7 @@ current_model = 'gemini-1.5-flash'  # Default model
 # Store conversation context and command usage for each user
 conversation_context = {}
 group_activity = {}
-user_command_usage = {}  # New dictionary to track command usage per user
+user_command_usage = {}  # Track command usage per user
 
 def initialize_gemini_models(api_key):
     """Initialize Gemini models with the provided API key"""
@@ -77,7 +77,7 @@ def check_command_limit(user_id, command):
     
     # Check if limit (2 uses) is exceeded
     if user_command_usage[user_id][command]['count'] >= 2:
-        return False, "😕 ওহো! আপনি আজকের জন্য এই কমান্ডের লিমিট (২ বার) অতিক্রম করেছেন। ২৪ ঘন্টা পরে আবার চেষ্টা করুন! 🚀"
+        return False, "❌ You've exceeded the daily limit (2 uses) for this command. Try again after 24 hours! 🚀"
     
     # Increment usage count
     user_command_usage[user_id][command]['count'] += 1
@@ -135,25 +135,31 @@ Hello, thanks for wanting to chat with me! I'm I Master Tools, your friendly com
             keyboard = [[InlineKeyboardButton("Join VPSHUB_BD_CHAT", url="https://t.me/VPSHUB_BD_CHAT")]]
             reply_markup = InlineKeyboardMarkup(keyboard)
             welcome_message = f"""
-Hello {username}, welcome to I Master Tools, your friendly companion!
+🌟 **Welcome to I Master Tools, {username}!** 🌟
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+I'm your friendly companion, ready to assist with fun chats, coding help, and Free Fire stats!
 
-To chat with me, please join our official Telegram group or mention @I MasterTools in the group. Click the button below to join the group!
+**How to use me:**
+- Join our official group or mention @I MasterTools in the group
+- Use commands to explore features
+- Admins have special powers! 😎
 
-Available commands:
-- /help: Get help and usage information
-- /menu: Access the feature menu
-- /clear: Clear conversation history
+**Available Commands:**
+- /help: Get usage information
+- /menu: Access feature menu
+- /clear: Reset conversation history
 - /status: Check bot status
-- /checkmail: Check temporary email inbox
-- /info: Show user profile information
-- /like <uid> [region]: Check Free Fire player likes (2 times per day)
-- /level <uid> [region]: Check Free Fire player level (2 times per day)
-- /stats <uid> [region]: Check Free Fire player stats (2 times per day)
-{'' if user_id != ADMIN_USER_ID else '- /api <key>: Set Gemini API key (admin only)\n- /setadmin: Set yourself as admin (first-time only)\n- /setmodel: Choose a different model (admin only)'}
+- /checkmail: View temporary email inbox
+- /info: Show user profile info
+- /like <uid> [region]: Check Free Fire likes (2/day, unlimited for admin)
+- /level <uid> [region]: Check Free Fire level (2/day, unlimited for admin)
+- /stats <uid> [region]: Check Free Fire stats (2/day, unlimited for admin)
+{'' if user_id != ADMIN_USER_ID else '- /api <key>: Set Gemini API key (admin only)\n- /setadmin: Set yourself as admin (first-time only)\n- /setmodel: Switch AI model (admin only)'}
 
-In groups, mention @I MasterTools or reply to my messages to get a response. I'm excited to chat with you!
+Click below to join the group and start chatting!
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
             """
-            await update.message.reply_text(welcome_message, reply_markup=reply_markup)
+            await update.message.reply_text(welcome_message, reply_markup=reply_markup, parse_mode='Markdown')
 
     async def handle_new_member(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle new members joining the group"""
@@ -162,9 +168,12 @@ In groups, mention @I MasterTools or reply to my messages to get a response. I'm
             user_id = new_member.id
             user_mention = f"@{new_member.username}" if new_member.username else username
             welcome_message = f"""
-Welcome {user_mention}! We're thrilled to have you in our VPSHUB_BD_CHAT group! I'm I Master Tools, your friendly companion. Here, you'll find fun conversations, helpful answers, and more. Mention @I MasterTools or reply to my messages to start chatting. What do you want to talk about?
+🌟 **Welcome {user_mention}!** 🌟
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+You're now part of the VPSHUB_BD_CHAT group! I'm I Master Tools, your friendly companion. Mention @I MasterTools or reply to my messages to dive into fun conversations or get help. What's on your mind?
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
             """
-            await update.message.reply_text(welcome_message)
+            await update.message.reply_text(welcome_message, parse_mode='Markdown')
 
     async def help_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /help command"""
@@ -179,40 +188,40 @@ Welcome {user_mention}! We're thrilled to have you in our VPSHUB_BD_CHAT group! 
             keyboard = [[InlineKeyboardButton("Join VPSHUB_BD_CHAT", url="https://t.me/VPSHUB_BD_CHAT")]]
             reply_markup = InlineKeyboardMarkup(keyboard)
             help_message = f"""
-Hello {username}! I'm I Master Tools, your friendly companion designed to make conversations fun and engaging.
+🌟 **I Master Tools Help Menu** 🌟
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Hello {username}! I'm your friendly companion, designed to make chats fun and helpful.
 
-How I work:
-- In groups, mention @I MasterTools or reply to my messages to get a response
-- In private chats, only the admin can access all features; others are redirected to the group
-- For questions in the group, I engage with a fun or surprising comment before answering
-- I remember conversation context until you clear it
-- I'm an expert in coding (Python, JavaScript, CSS, HTML, etc.) and provide accurate, beginner-friendly solutions
-- I'm designed to be friendly, helpful, and human-like
-- Free Fire commands (/like, /level, /stats) are limited to 2 uses per day per user
+**How I Work:**
+- In groups, mention @I MasterTools or reply to my messages
+- In private chats, only admins access full features
+- I remember conversation context until cleared
+- Expert in coding (Python, JS, CSS, HTML, etc.)
+- Free Fire commands limited to 2/day (unlimited for admins)
 
-Available commands:
-- /start: Show welcome message with group link
-- /help: Display this help message
-- /menu: Access the feature menu
-- /clear: Clear your conversation history
+**Available Commands:**
+- /start: Welcome message with group link
+- /help: Show this help menu
+- /menu: Access feature menu
+- /clear: Clear conversation history
 - /status: Check bot status
-- /checkmail: Check temporary email inbox
-- /info: Show user profile information
-- /like <uid> [region]: Check Free Fire player likes (2 times per day)
-- /level <uid> [region]: Check Free Fire player level (2 times per day)
-- /stats <uid> [region]: Check Free Fire player stats (2 times per day)
-{'' if user_id != ADMIN_USER_ID else '- /api <key>: Set Gemini API key (admin only)\n- /setadmin: Set yourself as admin (first-time only)\n- /setmodel: Choose a different model (admin only)'}
+- /checkmail: View temporary email inbox
+- /info: Show user profile info
+- /like <uid> [region]: Check Free Fire likes
+- /level <uid> [region]: Check Free Fire level
+- /stats <uid> [region]: Check Free Fire stats
+{'' if user_id != ADMIN_USER_ID else '- /api <key>: Set Gemini API key\n- /setadmin: Set admin (first-time only)\n- /setmodel: Switch AI model'}
 
-My personality:
-- I'm a friendly companion who loves chatting and making friends
-- I'm an expert in coding and provide accurate, well-explained solutions
-- I adapt to your mood and conversation needs
-- I use natural, engaging language to feel like a real person
-- I enjoy roleplay and creative conversations
+**My Personality:**
+- Friendly, engaging, and human-like
+- Expert in coding with clear solutions
+- Adapts to your mood and needs
+- Powered by Google Gemini
 
-Powered by Google Gemini
+Join the group to start chatting!
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
             """
-            await update.message.reply_text(help_message, reply_markup=reply_markup)
+            await update.message.reply_text(help_message, reply_markup=reply_markup, parse_mode='Markdown')
 
     async def menu_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /menu command with inline keyboard"""
@@ -238,7 +247,7 @@ Powered by Google Gemini
                 keyboard.append([InlineKeyboardButton("Set API Key", callback_data="api")])
                 keyboard.append([InlineKeyboardButton("Change Model", callback_data="setmodel")])
             reply_markup = InlineKeyboardMarkup(keyboard)
-            await update.message.reply_text(f"Hello {username}, choose a feature from the menu below:", reply_markup=reply_markup)
+            await update.message.reply_text(f"🌟 **Hello {username}, choose a feature!** 🌟", reply_markup=reply_markup, parse_mode='Markdown')
 
     async def clear_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /clear command"""
@@ -252,7 +261,7 @@ Powered by Google Gemini
         else:
             if chat_id in conversation_context:
                 del conversation_context[chat_id]
-            await update.message.reply_text("Conversation history has been cleared. Let's start fresh!")
+            await update.message.reply_text("✅ Conversation history cleared! Ready to start fresh? 🚀", parse_mode='Markdown')
 
     async def checkmail_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /checkmail command to check temporary email inbox"""
@@ -275,14 +284,14 @@ Powered by Google Gemini
                 )
                 mail_list = response.json().get('mail_list', [])
                 if not mail_list:
-                    await update.message.reply_text(f"No emails found in the inbox for {email}. Want to try again later?")
+                    await update.message.reply_text(f"❌ No emails found in the inbox for {email}. Try again later? 🚀", parse_mode='Markdown')
                     return
                 subjects = [m['subject'] for m in mail_list]
-                response_text = f"Here are the emails in the inbox for {email}:\n\n" + "\n".join(subjects)
-                await update.message.reply_text(response_text)
+                response_text = f"📬 **Emails in {email} Inbox** 📬\n\n" + "\n".join(subjects)
+                await update.message.reply_text(response_text, parse_mode='Markdown')
             except Exception as e:
                 logger.error(f"Error checking email: {e}")
-                await update.message.reply_text("Something went wrong while checking the email. Shall we try again?")
+                await update.message.reply_text("❌ Error checking email. Shall we try again? 🚀", parse_mode='Markdown')
 
     async def status_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /status command"""
@@ -297,20 +306,20 @@ Powered by Google Gemini
             api_status = "Connected" if current_gemini_api_key and general_model else "Not configured"
             api_key_display = f"...{current_gemini_api_key[-8:]}" if current_gemini_api_key else "Not set"
             status_message = f"""
-Here's the I Master Tools status report:
-
-Bot Status: Online and ready
-Model: {current_model}
-API Status: {api_status}
-API Key: {api_key_display}
-Group Responses: Mention or reply only
-Current Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
-Active Conversations: {len(conversation_context)}
-Admin ID: {ADMIN_USER_ID if ADMIN_USER_ID != 0 else 'Not set'}
-
-All systems are ready for action. I'm thrilled to assist!
+🌟 **I Master Tools Status Report** 🌟
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+✅ *Bot Status:* Online and ready
+🤖 *Model:* {current_model}
+🔌 *API Status:* {api_status}
+🔑 *API Key:* {api_key_display}
+💬 *Group Responses:* Mention or reply only
+⏰ *Current Time:* {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+💬 *Active Conversations:* {len(conversation_context)}
+👑 *Admin ID:* {ADMIN_USER_ID if ADMIN_USER_ID != 0 else 'Not set'}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+All systems are go! Ready to assist! 🚀
             """
-            await update.message.reply_text(status_message)
+            await update.message.reply_text(status_message, parse_mode='Markdown')
 
     async def setadmin_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /setadmin command"""
@@ -325,13 +334,13 @@ All systems are ready for action. I'm thrilled to assist!
         else:
             if ADMIN_USER_ID == 0:
                 ADMIN_USER_ID = user_id
-                await update.message.reply_text(f"Congratulations {username}, you are now the bot admin! Your user ID: {user_id}")
+                await update.message.reply_text(f"🎉 Congrats {username}, you're now the bot admin! Your ID: {user_id}", parse_mode='Markdown')
                 logger.info(f"Admin set to user ID: {user_id}")
             else:
                 if user_id == ADMIN_USER_ID:
-                    await update.message.reply_text(f"You're already the admin! Your user ID: {user_id}")
+                    await update.message.reply_text(f"👑 You're already the admin! Your ID: {user_id}", parse_mode='Markdown')
                 else:
-                    await update.message.reply_text("Sorry, the admin is already set. Only the current admin can manage the bot.")
+                    await update.message.reply_text("❌ Sorry, the admin is already set. Only the current admin can manage the bot.", parse_mode='Markdown')
 
     async def api_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /api command to set Gemini API key"""
@@ -344,28 +353,31 @@ All systems are ready for action. I'm thrilled to assist!
             await update.message.reply_text(response, reply_markup=reply_markup)
         else:
             if ADMIN_USER_ID == 0:
-                await update.message.reply_text("No admin set. Please use /setadmin first.")
+                await update.message.reply_text("❌ No admin set. Please use /setadmin first.", parse_mode='Markdown')
                 return
             if user_id != ADMIN_USER_ID:
-                await update.message.reply_text("This command is for the bot admin only.")
+                await update.message.reply_text("❌ This command is for the bot admin only.", parse_mode='Markdown')
                 return
             if not context.args:
                 await update.message.reply_text("""
+🔑 **Set Gemini API Key** 🔑
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 Please provide an API key.
 
-Usage: `/api your_gemini_api_key_here`
+**Usage:** `/api your_gemini_api_key_here`
 
-To get a Gemini API key:
+**How to get a Gemini API key:**
 1. Visit https://makersuite.google.com/app/apikey
 2. Generate a new API key
-3. Use the command: /api YOUR_API_KEY
+3. Use: /api YOUR_API_KEY
 
-For security, the command message will be deleted after setting the key.
+*Note:* The command message will be deleted for security.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
                 """, parse_mode='Markdown')
                 return
             api_key = ' '.join(context.args)
             if len(api_key) < 20 or not api_key.startswith('AI'):
-                await update.message.reply_text("Invalid API key format. Gemini API keys typically start with 'AI' and are over 20 characters.")
+                await update.message.reply_text("❌ Invalid API key format. Gemini API keys start with 'AI' and are over 20 characters.", parse_mode='Markdown')
                 return
             success, message = initialize_gemini_models(api_key)
             try:
@@ -373,10 +385,10 @@ For security, the command message will be deleted after setting the key.
             except Exception as e:
                 logger.error(f"Error deleting API command message: {e}")
             if success:
-                await update.effective_chat.send_message(f"Gemini API key updated successfully! Key: ...{api_key[-8:]}")
+                await update.effective_chat.send_message(f"✅ Gemini API key updated! Key: ...{api_key[-8:]}", parse_mode='Markdown')
                 logger.info(f"Gemini API key updated by admin {user_id}")
             else:
-                await update.effective_chat.send_message(f"Failed to set API key: {message}")
+                await update.effective_chat.send_message(f"❌ Failed to set API key: {message}", parse_mode='Markdown')
                 logger.error(f"Failed to set API key: {message}")
 
     async def setmodel_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -390,26 +402,26 @@ For security, the command message will be deleted after setting the key.
             await update.message.reply_text(response, reply_markup=reply_markup)
         else:
             if ADMIN_USER_ID == 0:
-                await update.message.reply_text("No admin set. Please use /setadmin first.")
+                await update.message.reply_text("❌ No admin set. Please use /setadmin first.", parse_mode='Markdown')
                 return
             if user_id != ADMIN_USER_ID:
-                await update.message.reply_text("This command is for the bot admin only.")
+                await update.message.reply_text("❌ This command is for the bot admin only.", parse_mode='Markdown')
                 return
             if not context.args:
                 models_list = "\n".join([f"- {model}" for model in available_models])
-                await update.message.reply_text(f"Available models:\n{models_list}\n\nUsage: /setmodel <model_name>")
+                await update.message.reply_text(f"🌟 **Available Models** 🌟\n{models_list}\n\nUsage: /setmodel <model_name>", parse_mode='Markdown')
                 return
             model_name = context.args[0]
             if model_name not in available_models:
-                await update.message.reply_text(f"Invalid model. Choose from: {', '.join(available_models)}")
+                await update.message.reply_text(f"❌ Invalid model. Choose from: {', '.join(available_models)}", parse_mode='Markdown')
                 return
             try:
                 current_model = model_name
                 general_model = genai.GenerativeModel(model_name)
-                await update.message.reply_text(f"Model switched to {model_name} successfully!")
+                await update.message.reply_text(f"✅ Model switched to {model_name} successfully!", parse_mode='Markdown')
                 logger.info(f"Model switched to {model_name} by admin {user_id}")
             except Exception as e:
-                await update.message.reply_text(f"Failed to switch model: {str(e)}")
+                await update.message.reply_text(f"❌ Failed to switch model: {str(e)}", parse_mode='Markdown')
                 logger.error(f"Failed to switch model: {str(e)}")
 
     async def info_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -453,22 +465,22 @@ For security, the command message will be deleted after setting the key.
 
         # Message Body
         info_text = f"""
-🔍 *Showing User's Profile Info* 📋
-━━━━━━━━━━━━━━━━
-*Full Name:* {full_name}
-*Username:* {username}
-*User ID:* `{user_id}`
-*Chat ID:* {chat_id_display}
-*Premium User:* {premium}
-*Data Center:* {data_center}
-*Created On:* {created_on}
-*Account Age:* {account_age}
-*Account Frozen:* {account_frozen}
-*Users Last Seen:* {last_seen}
-*Permanent Link:* {permalink}
-━━━━━━━━━━━━━━━━
-👁 *Thank You for Using Our Tool* ✅
-"""
+🌟 **User Profile Info** 🌟
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+👤 *Full Name:* {full_name}
+🆔 *Username:* {username}
+🔢 *User ID:* `{user_id}`
+💬 *Chat ID:* {chat_id_display}
+⭐ *Premium:* {premium}
+🌍 *Data Center:* {data_center}
+📅 *Created On:* {created_on}
+⏳ *Account Age:* {account_age}
+🔒 *Account Frozen:* {account_frozen}
+👁 *Last Seen:* {last_seen}
+🔗 *Profile Link:* {permalink}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+✅ Thanks for using I Master Tools! 🚀
+            """
 
         # Inline Button
         keyboard = [[InlineKeyboardButton("View Profile", url=f"tg://user?id={user_id}")]] if user.username else []
@@ -505,7 +517,7 @@ For security, the command message will be deleted after setting the key.
             )
 
     async def like_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle /like command to fetch Free Fire player likes and check if likes have been sent"""
+        """Handle /like command to fetch Free Fire player likes"""
         user_id = update.effective_user.id
         chat_type = update.effective_chat.type
 
@@ -514,11 +526,12 @@ For security, the command message will be deleted after setting the key.
             await update.message.reply_text(response, reply_markup=reply_markup)
             return
 
-        # Check daily command limit
-        allowed, limit_message = check_command_limit(user_id, "like")
-        if not allowed:
-            await update.message.reply_text(limit_message, parse_mode='Markdown')
-            return
+        # Skip limit check for admin
+        if user_id != ADMIN_USER_ID:
+            allowed, limit_message = check_command_limit(user_id, "like")
+            if not allowed:
+                await update.message.reply_text(limit_message, parse_mode='Markdown')
+                return
 
         if not context.args:
             await update.message.reply_text("Usage: /like <uid> [region]\nExample: /like 3533918864 BD", parse_mode='Markdown')
@@ -528,44 +541,39 @@ For security, the command message will be deleted after setting the key.
         region = context.args[1] if len(context.args) > 1 else "BD"
 
         try:
-            # Fetch player data from Free Fire API
             response = requests.get(f"https://free-fire-visit-api.vercel.app/{region}/{uid}")
             data = response.json()
 
             if data.get("fail") == 0:
-                # Extract likes
                 likes = data.get('likes', 0)
                 nickname = data.get('nickname', 'Unknown')
                 level = data.get('level', 'Unknown')
-
-                # Check if likes have been sent
-                if likes > 0:
-                    like_status = f"✅ **লাইক পাঠানো হয়েছে!** ({likes} লাইক পেয়েছে)"
-                else:
-                    like_status = "❌ **কোনো লাইক পাঠানো হয়নি!** (লাইক: 0)"
+                like_status = "✅ Likes sent!" if likes > 0 else "❌ No likes sent!"
 
                 reply_text = f"""
-🎮 *Free Fire লাইক চেকার* 🔥
-━━━━━━━━━━━━━━━━
-*নিকনেম:* {nickname}
-*ইউআইডি:* {uid}
-*রিজিয়ন:* 🇧🇦 {region}
-*লেভেল:* {level}
-*লাইক সংখ্যা:* {likes}
-*লাইক স্ট্যাটাস:* {like_status}
-━━━━━━━━━━━━━━━━
-এই প্লেয়ারের লাইক চেক করা হয়েছে! আরেকটি ইউআইডি চেক করতে চান? শুধু বলুন `/like <uid> [region]`!
-"""
+🎮 **FREE FIRE LIKE CHECKER** 🔥
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+👤 *Player:* {nickname}
+🆔 *UID:* {uid}
+🌍 *Region:* {region}
+⭐ *Level:* {level}
+❤️ *Likes Received:* **{likes}**
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+✅ *Total Likes:* {likes}
+💬 *Status:* {like_status}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🔥 Check another player? Use `/like <uid> [region]`!
+                """
                 await update.message.reply_text(reply_text, parse_mode='Markdown')
             else:
                 await update.message.reply_text(
-                    "😕 ওহো! কোনো ডেটা পাওয়া যায়নি। ইউআইডি বা রিজিয়ন চেক করে আবার চেষ্টা করুন! `/like <uid> [region]`",
+                    "❌ No data found. Check UID or region and try again! `/like <uid> [region]`",
                     parse_mode='Markdown'
                 )
         except Exception as e:
             logger.error(f"Error fetching Free Fire likes: {e}")
             await update.message.reply_text(
-                "😕 লাইক চেক করতে সমস্যা হচ্ছে। আবার চেষ্টা করুন! `/like <uid> [region]`",
+                "❌ Error checking likes. Try again! `/like <uid> [region]`",
                 parse_mode='Markdown'
             )
 
@@ -579,11 +587,12 @@ For security, the command message will be deleted after setting the key.
             await update.message.reply_text(response, reply_markup=reply_markup)
             return
 
-        # Check daily command limit
-        allowed, limit_message = check_command_limit(user_id, "level")
-        if not allowed:
-            await update.message.reply_text(limit_message, parse_mode='Markdown')
-            return
+        # Skip limit check for admin
+        if user_id != ADMIN_USER_ID:
+            allowed, limit_message = check_command_limit(user_id, "level")
+            if not allowed:
+                await update.message.reply_text(limit_message, parse_mode='Markdown')
+                return
 
         if not context.args:
             await update.message.reply_text("Usage: /level <uid> [region]\nExample: /level 3533918864 BD", parse_mode='Markdown')
@@ -597,26 +606,32 @@ For security, the command message will be deleted after setting the key.
             data = response.json()
 
             if data.get("fail") == 0:
+                level = data.get('level', 'Unknown')
+                nickname = data.get('nickname', 'Unknown')
+
                 reply_text = f"""
-🎮 *Free Fire লেভেল চেকার* 🔥
-━━━━━━━━━━━━━━━━
-*নিকনেম:* {data['nickname']}
-*ইউআইডি:* {data['uid']}
-*রিজিয়ন:* 🇧🇦 {data['region']}
-*লেভেল:* {data['level']}
-━━━━━━━━━━━━━━━━
-লেভেল {data['level']}! এই প্লেয়ার তো প্রো! 😎 আরেকটি ইউআইডি চেক করতে চান? শুধু বলুন `/level <uid> [region]`!
-"""
+🎮 **FREE FIRE LEVEL CHECKER** 🔥
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+👤 *Player:* {nickname}
+🆔 *UID:* {uid}
+🌍 *Region:* {region}
+⭐ *Level:* **{level}**
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+✅ *Total Level:* {level}
+💬 *Status:* Player rocking at level {level}!
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🔥 Check another player? Use `/level <uid> [region]`!
+                """
                 await update.message.reply_text(reply_text, parse_mode='Markdown')
             else:
                 await update.message.reply_text(
-                    "😕 ওহো! কোনো ডেটা পাওয়া যায়নি। ইউআইডি বা রিজিয়ন চেক করে আবার চেষ্টা করুন! `/level <uid> [region]`",
+                    "❌ No data found. Check UID or region and try again! `/level <uid> [region]`",
                     parse_mode='Markdown'
                 )
         except Exception as e:
             logger.error(f"Error fetching Free Fire level: {e}")
             await update.message.reply_text(
-                "😕 লেভেল চেক করতে সমস্যা হচ্ছে। আবার চেষ্টা করুন! `/level <uid> [region]`",
+                "❌ Error checking level. Try again! `/level <uid> [region]`",
                 parse_mode='Markdown'
             )
 
@@ -630,11 +645,12 @@ For security, the command message will be deleted after setting the key.
             await update.message.reply_text(response, reply_markup=reply_markup)
             return
 
-        # Check daily command limit
-        allowed, limit_message = check_command_limit(user_id, "stats")
-        if not allowed:
-            await update.message.reply_text(limit_message, parse_mode='Markdown')
-            return
+        # Skip limit check for admin
+        if user_id != ADMIN_USER_ID:
+            allowed, limit_message = check_command_limit(user_id, "stats")
+            if not allowed:
+                await update.message.reply_text(limit_message, parse_mode='Markdown')
+                return
 
         if not context.args:
             await update.message.reply_text("Usage: /stats <uid> [region]\nExample: /stats 3533918864 BD", parse_mode='Markdown')
@@ -648,28 +664,37 @@ For security, the command message will be deleted after setting the key.
             data = response.json()
 
             if data.get("fail") == 0:
+                level = data.get('level', 'Unknown')
+                likes = data.get('likes', 0)
+                success = data.get('success', 0)
+                nickname = data.get('nickname', 'Unknown')
+                like_status = "✅ Likes sent!" if likes > 0 else "❌ No likes sent!"
+
                 reply_text = f"""
-🎮 *Free Fire প্লেয়ার স্ট্যাটস* 🔥
-━━━━━━━━━━━━━━━━
-*নিকনেম:* {data['nickname']}
-*ইউআইডি:* {data['uid']}
-*রিজিয়ন:* 🇧🇦 {data['region']}
-*লেভেল:* {data['level']}
-*লাইক সংখ্যা:* {data['likes']}
-*সাকসেস:* {data['success']}
-━━━━━━━━━━━━━━━━
-এই প্লেয়ার তো সুপারস্টার! 🌟 আরেকটি ইউআইডি চেক করতে চান? শুধু বলুন `/stats <uid> [region]`!
-"""
+🎮 **FREE FIRE PLAYER STATS** 🔥
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+👤 *Player:* {nickname}
+🆔 *UID:* {uid}
+🌍 *Region:* {region}
+⭐ *Level:* **{level}**
+❤️ *Likes:* **{likes}**
+✅ *Success:* **{success}**
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+✅ *Total Stats:* Level {level}, {likes} Likes, {success} Success
+💬 *Status:* {like_status}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🔥 Check another player? Use `/stats <uid> [region]`!
+                """
                 await update.message.reply_text(reply_text, parse_mode='Markdown')
             else:
                 await update.message.reply_text(
-                    "😕 ওহো! কোনো ডেটা পাওয়া যায়নি। ইউআইডি বা রিজিয়ন চেক করে আবার চেষ্টা করুন! `/stats <uid> [region]`",
+                    "❌ No data found. Check UID or region and try again! `/stats <uid> [region]`",
                     parse_mode='Markdown'
                 )
         except Exception as e:
             logger.error(f"Error fetching Free Fire stats: {e}")
             await update.message.reply_text(
-                "😕 স্ট্যাটস চেক করতে সমস্যা হচ্ছে। আবার চেষ্টা করুন! `/stats <uid> [region]`",
+                "❌ Error checking stats. Try again! `/stats <uid> [region]`",
                 parse_mode='Markdown'
             )
 
@@ -712,7 +737,7 @@ For security, the command message will be deleted after setting the key.
             if current_gemini_api_key and model_to_use:
                 response = await self.generate_gemini_response(context_text, chat_type, is_coding_query, is_short_word)
             else:
-                response = "Sorry, the model is not connected yet. The admin can set it using the /api command."
+                response = "❌ Model not connected. Admin can set it using /api command."
             
             conversation_context[chat_id].append(f"I Master Tools: {response}")
             group_activity[chat_id] = group_activity.get(chat_id, {'auto_mode': False, 'last_response': 0})
@@ -732,10 +757,10 @@ For security, the command message will be deleted after setting the key.
                 else:
                     await update.message.reply_text(response, parse_mode='Markdown')
             else:
-                await update.message.reply_text(response)
+                await update.message.reply_text(response, parse_mode='Markdown')
         except Exception as e:
             logger.error(f"Error handling message: {e}")
-            await update.message.reply_text("Something went wrong. Shall we try again?")
+            await update.message.reply_text("❌ Something went wrong. Shall we try again? 🚀", parse_mode='Markdown')
 
     async def generate_gemini_response(self, prompt, chat_type="private", is_coding_query=False, is_short_word=False):
         """Generate response using Gemini with personality"""
@@ -804,20 +829,20 @@ Respond as I Master Tools. Keep it natural, engaging, surprising, and match the 
             response = model_to_use.generate_content(system_prompt)
             if not response.text or "error" in response.text.lower():
                 if is_coding_query:
-                    return "Ran into an issue with the coding query. Try again, and I'll get you the right code!"
-                return "Got a bit tangled up. What do you want to talk about?"
+                    return "❌ Ran into an issue with the coding query. Try again, and I'll get you the right code! 🚀"
+                return "❌ Got a bit tangled up. What do you want to talk about? 🚀"
             return response.text
         except Exception as e:
             logger.error(f"Error generating Gemini response: {e}")
             if is_coding_query:
-                return "Ran into an issue with the coding query. Try again, and I'll get you the right code!"
-            return "Got a bit tangled up. What do you want to talk about?"
+                return "❌ Ran into an issue with the coding query. Try again, and I'll get you the right code! 🚀"
+            return "❌ Got a bit tangled up. What do you want to talk about? 🚀"
 
     async def error_handler(self, update: object, context: ContextTypes.DEFAULT_TYPE):
         """Handle errors"""
         logger.error(f"Exception while handling an update: {context.error}")
         if update and hasattr(update, 'effective_chat') and hasattr(update, 'message'):
-            await update.message.reply_text("Something went wrong. Shall we try again?")
+            await update.message.reply_text("❌ Something went wrong. Shall we try again? 🚀", parse_mode='Markdown')
 
     def run(self):
         """Start the bot"""
