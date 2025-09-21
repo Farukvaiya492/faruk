@@ -1,7 +1,7 @@
-Import os
+import os
 import logging
 import google.generativeai as genai
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, CallbackQuery
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters, ContextTypes
 import asyncio
 from datetime import datetime
@@ -22,7 +22,10 @@ GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
 ADMIN_USER_ID = int(os.getenv('ADMIN_USER_ID', '7835226724'))
 PORT = int(os.getenv('PORT', 8000))
 
-# Global variables for dynamic API key and model management
+# Weather API URL for Berlin
+WEATHER_API_URL = "https://api.open-meteo.com/v1/forecast?latitude=52.52&longitude=13.41&daily=weather_code,temperature_2m_max,temperature_2m_min,apparent_temperature_max,apparent_temperature_min,wind_speed_10m_max,sunrise,sunset,daylight_duration,sunshine_duration,uv_index_max,uv_index_clear_sky_max,rain_sum,showers_sum,snowfall_sum,precipitation_hours,precipitation_sum,precipitation_probability_max,wind_gusts_10m_max,wind_direction_10m_dominant,shortwave_radiation_sum,et0_fao_evapotranspiration&hourly=temperature_2m,relative_humidity_2m,dew_point_2m,apparent_temperature,precipitation_probability,precipitation,rain,showers,snowfall,snow_depth,vapour_pressure_deficit,et0_fao_evapotranspiration,visibility,evapotranspiration,cloud_cover_high,cloud_cover_mid,cloud_cover_low,cloud_cover,surface_pressure,pressure_msl,weather_code,wind_speed_10m,wind_speed_80m,wind_speed_120m,wind_speed_180m,wind_direction_10m,wind_direction_80m,wind_direction_120m,wind_direction_180m,wind_gusts_10m,temperature_80m,temperature_120m,temperature_180m,soil_temperature_0cm,soil_temperature_6cm,soil_temperature_18cm,soil_temperature_54cm,soil_moisture_0_to_1cm,soil_moisture_1_to_3cm,soil_moisture_3_to_9cm,soil_moisture_9_to_27cm,soil_moisture_27_to_81cm&current=temperature_2m,relative_humidity_2m,apparent_temperature,is_day,wind_speed_10m,wind_direction_10m,wind_gusts_10m,precipitation,rain,showers,snowfall,weather_code,cloud_cover,pressure_msl,surface_pressure&timezone=auto"
+
+# Global variables for Gemini API
 current_gemini_api_key = GEMINI_API_KEY
 general_model = None
 coding_model = None
@@ -39,7 +42,7 @@ def initialize_gemini_models(api_key):
     try:
         genai.configure(api_key=api_key)
         general_model = genai.GenerativeModel(current_model)
-        coding_model = genai.GenerativeModel('gemini-1.5-pro')  # Dedicated for coding
+        coding_model = genai.GenerativeModel('gemini-1.5-pro')
         current_gemini_api_key = api_key
         logger.info("Gemini API configured successfully")
         return True, "Gemini API configured successfully!"
@@ -57,9 +60,46 @@ if GEMINI_API_KEY:
 else:
     logger.warning("GEMINI_API_KEY not set. Use /api command to configure.")
 
-# Store conversation context for each chat
+# Store conversation context and group activity
 conversation_context = {}
 group_activity = {}
+
+def fetch_weather_data():
+    """Fetch weather data from Open-Meteo API."""
+    try:
+        response = requests.get(WEATHER_API_URL, timeout=10)
+        response.raise_for_status()
+        return response.json()
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error fetching weather data: {e}")
+        return None
+
+def format_weather_message(data):
+    """Format weather data into a readable message."""
+    if not data:
+        return "❌ ডেটা আনতে সমস্যা হয়েছে। আবার চেষ্টা করুন!"
+
+    # Current weather
+    current = data.get("current", {})
+    weather_message = "🌤 বর্তমান আবহাওয়া (Berlin):\n"
+    weather_message += f"🌡 তাপমাত্রা: {current.get('temperature_2m', 'N/A')}°C\n"
+    weather_message += f"🤔 অনুভূত তাপমাত্রা: {current.get('apparent_temperature', 'N/A')}°C\n"
+    weather_message += f"💨 বাতাসের গতি: {current.get('wind_speed_10m', 'N/A')} km/h\n"
+    weather_message += f"🌧 বৃষ্টিপাত: {current.get('precipitation', 'N/A')} mm\n"
+    weather_message += f"☁️ মেঘের পরিমাণ: {current.get('cloud_cover', 'N/A')}%\n"
+    weather_message += f"⏲ দিন/রাত: {'দিন' if current.get('is_day') == 1 else 'রাত'}\n"
+    weather_message += f"🌬️ বাতাসের দিক: {current.get('wind_direction_10m', 'N/A')}°\n"
+    weather_message += f"🌪️ বাতাসের ঝাপটা: {current.get('wind_gusts_10m', 'N/A')} km/h\n"
+
+    # Daily forecast
+    daily = data.get("daily", {})
+    if daily and daily.get("time"):
+        weather_message += "\n📅 আগামী দিনের পূর্বাভাস:\n"
+        for i, date in enumerate(daily["time"]):
+            formatted_date = datetime.strptime(date, "%Y-%m-%d").strftime("%d %b %Y")
+            weather_message += f"{formatted_date} → 🌡 সর্বনিম্ন {daily['temperature_2m_min'][i]}°C, সর্বোচ্চ {daily['temperature_2m_max'][i]}°C, 🌧 বৃষ্টি: {daily['rain_sum'][i]} mm\n"
+    
+    return weather_message
 
 class TelegramGeminiBot:
     def __init__(self):
@@ -78,16 +118,35 @@ class TelegramGeminiBot:
         self.application.add_handler(CommandHandler("menu", self.menu_command))
         self.application.add_handler(CommandHandler("setmodel", self.setmodel_command))
         self.application.add_handler(CommandHandler("info", self.info_command))
+        self.application.add_handler(CommandHandler("weather", self.weather_command))  # New weather command
         self.application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_message))
         self.application.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, self.handle_new_member))
-        self.application.add_handler(CallbackQueryHandler(self.button_callback, pattern='^copy_code$'))
+        self.application.add_handler(CallbackQueryHandler(self.button_callback))
         self.application.add_error_handler(self.error_handler)
 
     async def button_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle copy code button callback"""
+        """Handle button callbacks"""
         query = update.callback_query
-        await query.answer("Code copied!")  # Notify user
-        # Telegram automatically handles code block copying
+        data = query.data
+        await query.answer()
+
+        if data == "copy_code":
+            await query.answer("Code copied!")
+        elif data == "checkmail":
+            await self.checkmail_command(update, context)
+        elif data == "status":
+            await self.status_command(update, context)
+        elif data == "clear":
+            await self.clear_command(update, context)
+        elif data == "info":
+            await self.info_command(update, context)
+        elif data == "api" and update.effective_user.id == ADMIN_USER_ID:
+            await query.message.reply_text("Please use /api <key> to set the API key.")
+        elif data == "setmodel" and update.effective_user.id == ADMIN_USER_ID:
+            models_list = ", ".join(available_models)
+            await query.message.reply_text(f"Available models: {models_list}\nUse /setmodel <model_name>")
+        elif data == "weather":
+            await self.weather_command(update, context)
 
     async def get_private_chat_redirect(self):
         """Return redirect message for non-admin private chats"""
@@ -121,6 +180,7 @@ Available commands:
 - /status: Check bot status
 - /checkmail: Check temporary email inbox
 - /info: Show user profile information
+- /weather: Get Berlin weather forecast
 {'' if user_id != ADMIN_USER_ID else '- /api <key>: Set Gemini API key (admin only)\n- /setadmin: Set yourself as admin (first-time only)\n- /setmodel: Choose a different model (admin only)'}
 
 In groups, mention @I MasterTools or reply to my messages to get a response. I'm excited to chat with you!
@@ -131,7 +191,6 @@ In groups, mention @I MasterTools or reply to my messages to get a response. I'm
         """Handle new members joining the group"""
         for new_member in update.message.new_chat_members:
             username = new_member.first_name or "User"
-            user_id = new_member.id
             user_mention = f"@{new_member.username}" if new_member.username else username
             welcome_message = f"""
 Welcome {user_mention}! We're thrilled to have you in our VPSHUB_BD_CHAT group! I'm I Master Tools, your friendly companion. Here, you'll find fun conversations, helpful answers, and more. Mention @I MasterTools or reply to my messages to start chatting. What do you want to talk about?
@@ -159,6 +218,7 @@ How I work:
 - For questions in the group, I engage with a fun or surprising comment before answering
 - I remember conversation context until you clear it
 - I'm an expert in coding (Python, JavaScript, CSS, HTML, etc.) and provide accurate, beginner-friendly solutions
+- I can fetch weather forecasts for Berlin with /weather
 - I'm designed to be friendly, helpful, and human-like
 
 Available commands:
@@ -169,6 +229,7 @@ Available commands:
 - /status: Check bot status
 - /checkmail: Check temporary email inbox
 - /info: Show user profile information
+- /weather: Get Berlin weather forecast
 {'' if user_id != ADMIN_USER_ID else '- /api <key>: Set Gemini API key (admin only)\n- /setadmin: Set yourself as admin (first-time only)\n- /setmodel: Choose a different model (admin only)'}
 
 My personality:
@@ -197,6 +258,7 @@ Powered by Google Gemini
                 [InlineKeyboardButton("Bot Status", callback_data="status")],
                 [InlineKeyboardButton("Clear History", callback_data="clear")],
                 [InlineKeyboardButton("User Info", callback_data="info")],
+                [InlineKeyboardButton("Weather Forecast", callback_data="weather")],  # Added weather button
                 [InlineKeyboardButton("Join Group", url="https://t.me/VPSHUB_BD_CHAT")]
             ]
             if user_id == ADMIN_USER_ID:
@@ -378,10 +440,12 @@ For security, the command message will be deleted after setting the key.
                 logger.error(f"Failed to switch model: {str(e)}")
 
     async def info_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle /info command to show user profile information by username or user ID"""
+        """Handle /info command to show user profile information"""
         user_id = update.effective_user.id
         chat_id = update.effective_chat.id
         chat_type = update.effective_chat.type
+        user = update.effective_user
+        chat = update.effective_chat
         bot = context.bot
 
         if chat_type == 'private' and user_id != ADMIN_USER_ID:
@@ -389,59 +453,13 @@ For security, the command message will be deleted after setting the key.
             await update.message.reply_text(response, reply_markup=reply_markup)
             return
 
-        # Determine target user
-        target_user = update.effective_user
-        target_user_id = user_id
-        target_username = None
-        input_identifier = None
-
-        if context.args:  # Check if a username or user ID is provided
-            input_identifier = context.args[0]
-            if input_identifier.startswith('@'):  # Username provided
-                target_username = input_identifier.lstrip('@')  # Remove '@'
-                if chat_type in ['group', 'supergroup']:
-                    try:
-                        async for member in bot.get_chat_members(chat_id=chat_id):
-                            if member.user.username and member.user.username.lower() == target_username.lower():
-                                target_user = member.user
-                                target_user_id = target_user.id
-                                break
-                        else:
-                            await update.message.reply_text(f"User @{target_username} not found in this chat or invalid username.")
-                            return
-                    except Exception as e:
-                        logger.error(f"Error resolving username @{target_username}: {e}")
-                        await update.message.reply_text(f"Could not find user @{target_username}. Make sure the username is valid.")
-                        return
-                else:
-                    await update.message.reply_text("Please use this command in a group to check other users' info or use without arguments to check your own info.")
-                    return
-            else:  # User ID provided
-                try:
-                    target_user_id = int(input_identifier)
-                    if chat_type in ['group', 'supergroup']:
-                        try:
-                            member = await bot.get_chat_member(chat_id=chat_id, user_id=target_user_id)
-                            target_user = member.user
-                        except Exception as e:
-                            logger.error(f"Error resolving user ID {target_user_id}: {e}")
-                            await update.message.reply_text(f"User with ID {target_user_id} not found in this chat or invalid ID.")
-                            return
-                    else:
-                        await update.message.reply_text("Please use this command in a group to check other users' info or use without arguments to check your own info.")
-                        return
-                except ValueError:
-                    await update.message.reply_text(f"Invalid input: '{input_identifier}'. Please provide a valid username (e.g., @username) or user ID (e.g., 123456789).")
-                    return
-
-        # User Info
         is_private = chat_type == "private"
-        full_name = target_user.first_name or "No Name"
-        if target_user.last_name:
-            full_name += f" {target_user.last_name}"
-        username = f"@{target_user.username}" if target_user.username else "None"
-        premium = "Yes" if target_user.is_premium else "No"
-        permalink = f"[Click Here](tg://user?id={target_user_id})"
+        full_name = user.first_name or "No Name"
+        if user.last_name:
+            full_name += f" {user.last_name}"
+        username = f"@{user.username}" if user.username else "None"
+        premium = "Yes" if user.is_premium else "No"
+        permalink = f"[Click Here](tg://user?id={user_id})"
         chat_id_display = f"{chat_id}" if not is_private else "-"
         data_center = "Unknown"
         created_on = "Unknown"
@@ -449,23 +467,21 @@ For security, the command message will be deleted after setting the key.
         account_frozen = "No"
         last_seen = "Recently"
 
-        # Determine Group Role
         status = "Private Chat" if is_private else "Unknown"
         if not is_private:
             try:
-                member = await bot.get_chat_member(chat_id=chat_id, user_id=target_user_id)
+                member = await bot.get_chat_member(chat_id=chat_id, user_id=user_id)
                 status = "Admin" if member.status in ["administrator", "creator"] else "Member"
             except Exception as e:
-                logger.error(f"Error checking group role for user {target_user_id}: {e}")
+                logger.error(f"Error checking group role: {e}")
                 status = "Unknown"
 
-        # Message Body
         info_text = f"""
 🔍 *Showing User's Profile Info* 📋
 ━━━━━━━━━━━━━━━━
 *Full Name:* {full_name}
 *Username:* {username}
-*User ID:* `{target_user_id}`
+*User ID:* `{user_id}`
 *Chat ID:* {chat_id_display}
 *Premium User:* {premium}
 *Data Center:* {data_center}
@@ -474,17 +490,12 @@ For security, the command message will be deleted after setting the key.
 *Account Frozen:* {account_frozen}
 *Users Last Seen:* {last_seen}
 *Permanent Link:* {permalink}
-*Role:* {status}
 ━━━━━━━━━━━━━━━━
 👁 *Thank You for Using Our Tool* ✅
 """
-
-        # Inline Button
-        keyboard = [[InlineKeyboardButton("View Profile", url=f"tg://user?id={target_user_id}")]] if target_user.username else []
-
-        # Try Sending with Profile Photo
+        keyboard = [[InlineKeyboardButton("View Profile", url=f"tg://user?id={user_id}")]] if user.username else []
         try:
-            photos = await bot.get_user_profile_photos(target_user_id, limit=1)
+            photos = await bot.get_user_profile_photos(user_id, limit=1)
             if photos.total_count > 0:
                 file_id = photos.photos[0][0].file_id
                 await bot.send_photo(
@@ -504,7 +515,7 @@ For security, the command message will be deleted after setting the key.
                     reply_markup=InlineKeyboardMarkup(keyboard) if keyboard else None
                 )
         except Exception as e:
-            logger.error(f"Error sending profile photo for user {target_user_id}: {e}")
+            logger.error(f"Error sending profile photo: {e}")
             await bot.send_message(
                 chat_id=chat_id,
                 text=info_text,
@@ -512,6 +523,20 @@ For security, the command message will be deleted after setting the key.
                 reply_to_message_id=update.message.message_id,
                 reply_markup=InlineKeyboardMarkup(keyboard) if keyboard else None
             )
+
+    async def weather_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle /weather command to show Berlin weather forecast"""
+        user_id = update.effective_user.id
+        chat_type = update.effective_chat.type
+
+        if chat_type == 'private' and user_id != ADMIN_USER_ID:
+            response, reply_markup = await self.get_private_chat_redirect()
+            await update.message.reply_text(response, reply_markup=reply_markup)
+        else:
+            await context.bot.send_chat_action(chat_id=update.effective_chat.id, action="typing")
+            data = fetch_weather_data()
+            weather_message = format_weather_message(data)
+            await update.message.reply_text(weather_message)
 
     async def handle_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle regular text messages"""
@@ -541,10 +566,7 @@ For security, the command message will be deleted after setting the key.
                 conversation_context[chat_id] = conversation_context[chat_id][-20:]
             context_text = "\n".join(conversation_context[chat_id])
             
-            # Check if the message is a 2 or 3 letter lowercase word
             is_short_word = re.match(r'^[a-z]{2,3}$', user_message.strip().lower())
-            
-            # Detect if message is coding-related
             coding_keywords = ['code', 'python', 'javascript', 'java', 'c++', 'programming', 'script', 'debug', 'css', 'html']
             is_coding_query = any(keyword in user_message.lower() for keyword in coding_keywords)
             
@@ -558,7 +580,6 @@ For security, the command message will be deleted after setting the key.
             group_activity[chat_id] = group_activity.get(chat_id, {'auto_mode': False, 'last_response': 0})
             group_activity[chat_id]['last_response'] = datetime.now().timestamp()
             
-            # If it's a coding query, add a "Copy Code" button
             if is_coding_query:
                 code_block_match = re.search(r'```(?:\w+)?\n([\s\S]*?)\n```', response)
                 if code_block_match:
