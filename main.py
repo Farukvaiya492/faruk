@@ -146,7 +146,7 @@ Available commands:
 - /status: Check bot status
 - /checkmail: Check temporary email inbox
 - /info: Show user profile information
-- /like <uid> [region]: Add and check Free Fire player likes (1 time per day)
+- /like <uid> [region]: Check Free Fire player likes (1 time per day)
 - /level <uid> [region]: Check Free Fire player level (2 times per day)
 - /stats <uid> [region]: Check Free Fire player stats (2 times per day)
 {'' if user_id != ADMIN_USER_ID else '- /api <key>: Set Gemini API key (admin only)\n- /setadmin: Set yourself as admin (first-time only)\n- /setmodel: Choose a different model (admin only)'}
@@ -198,7 +198,7 @@ Available commands:
 - /status: Check bot status
 - /checkmail: Check temporary email inbox
 - /info: Show user profile information
-- /like <uid> [region]: Add and check Free Fire player likes (1 time per day)
+- /like <uid> [region]: Check Free Fire player likes (1 time per day)
 - /level <uid> [region]: Check Free Fire player level (2 times per day)
 - /stats <uid> [region]: Check Free Fire player stats (2 times per day)
 {'' if user_id != ADMIN_USER_ID else '- /api <key>: Set Gemini API key (admin only)\n- /setadmin: Set yourself as admin (first-time only)\n- /setmodel: Choose a different model (admin only)'}
@@ -499,7 +499,7 @@ For security, the command message will be deleted after setting the key.
             )
 
     async def like_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle /like command to add and fetch Free Fire player likes"""
+        """Handle /like command to fetch Free Fire player likes"""
         user_id = update.effective_user.id
         chat_type = update.effective_chat.type
 
@@ -522,20 +522,11 @@ For security, the command message will be deleted after setting the key.
         region = context.args[1] if len(context.args) > 1 else "BD"
 
         try:
-            # Hypothetical POST request to add like (replace with actual API endpoint)
-            post_response = requests.post(
-                f"https://api.freefire.garena.com/{region}/{uid}/like",  # Replace with actual endpoint
-                json={"increment": 1},
-                headers={"Authorization": "Bearer YOUR_API_TOKEN"}  # Replace with actual token
-            )
+            response = requests.get(f"https://free-fire-visit-api.vercel.app/{region}/{uid}")
+            data = response.json()
 
-            if post_response.status_code == 200:
-                # Fetch updated data
-                response = requests.get(f"https://free-fire-visit-api.vercel.app/{region}/{uid}")
-                data = response.json()
-
-                if data.get("fail") == 0:
-                    reply_text = f"""
+            if data.get("fail") == 0:
+                reply_text = f"""
 🎮 *Free Fire Like Checker* 🔥
 ━━━━━━━━━━━━━━━━
 *Nickname:* {data['nickname']}
@@ -543,23 +534,18 @@ For security, the command message will be deleted after setting the key.
 *Region:* 🇧🇦 {data['region']}
 *Likes:* {data['likes']}
 ━━━━━━━━━━━━━━━━
-Like added! 🎉 This player now has {data['likes']} likes! Want to check another UID? Just say `/like <uid> [region]`!
+This player has {data['likes']} likes! Want to check another UID? Just say `/like <uid> [region]`!
 """
-                    await update.message.reply_text(reply_text, parse_mode='Markdown')
-                else:
-                    await update.message.reply_text(
-                        "😕 Oops! No data found. Check the UID or region and try again! `/like <uid> [region]`",
-                        parse_mode='Markdown'
-                    )
+                await update.message.reply_text(reply_text, parse_mode='Markdown')
             else:
                 await update.message.reply_text(
-                    "😕 Failed to add like. API error! Try again! `/like <uid> [region]`",
+                    "😕 Oops! No data found. Check the UID or region and try again! `/like <uid> [region]`",
                     parse_mode='Markdown'
                 )
         except Exception as e:
-            logger.error(f"Error adding/fetching Free Fire likes: {e}")
+            logger.error(f"Error fetching Free Fire likes: {e}")
             await update.message.reply_text(
-                "😕 Trouble adding or checking likes. Try again! `/like <uid> [region]`",
+                "😕 Trouble checking likes. Try again! `/like <uid> [region]`",
                 parse_mode='Markdown'
             )
 
