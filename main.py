@@ -1,4 +1,3 @@
-
 import os
 import logging
 import google.generativeai as genai
@@ -506,7 +505,7 @@ For security, the command message will be deleted after setting the key.
             )
 
     async def like_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle /like command to fetch Free Fire player likes"""
+        """Handle /like command to fetch Free Fire player likes and check if likes have been sent"""
         user_id = update.effective_user.id
         chat_type = update.effective_chat.type
 
@@ -529,19 +528,33 @@ For security, the command message will be deleted after setting the key.
         region = context.args[1] if len(context.args) > 1 else "BD"
 
         try:
+            # Fetch player data from Free Fire API
             response = requests.get(f"https://free-fire-visit-api.vercel.app/{region}/{uid}")
             data = response.json()
 
             if data.get("fail") == 0:
+                # Extract likes
+                likes = data.get('likes', 0)
+                nickname = data.get('nickname', 'Unknown')
+                level = data.get('level', 'Unknown')
+
+                # Check if likes have been sent
+                if likes > 0:
+                    like_status = f"✅ **লাইক পাঠানো হয়েছে!** ({likes} লাইক পেয়েছে)"
+                else:
+                    like_status = "❌ **কোনো লাইক পাঠানো হয়নি!** (লাইক: 0)"
+
                 reply_text = f"""
 🎮 *Free Fire লাইক চেকার* 🔥
 ━━━━━━━━━━━━━━━━
-*নিকনেম:* {data['nickname']}
-*ইউআইডি:* {data['uid']}
-*রিজিয়ন:* 🇧🇦 {data['region']}
-*লাইক সংখ্যা:* {data['likes']}
+*নিকনেম:* {nickname}
+*ইউআইডি:* {uid}
+*রিজিয়ন:* 🇧🇦 {region}
+*লেভেল:* {level}
+*লাইক সংখ্যা:* {likes}
+*লাইক স্ট্যাটাস:* {like_status}
 ━━━━━━━━━━━━━━━━
-ওয়াও! {data['likes']} লাইক! এই প্লেয়ার তো আগুন! 🌟 আরেকটি ইউআইডি চেক করতে চান? শুধু বলুন `/like <uid> [region]`!
+এই প্লেয়ারের লাইক চেক করা হয়েছে! আরেকটি ইউআইডি চেক করতে চান? শুধু বলুন `/like <uid> [region]`!
 """
                 await update.message.reply_text(reply_text, parse_mode='Markdown')
             else:
