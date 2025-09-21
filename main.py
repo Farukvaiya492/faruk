@@ -22,7 +22,7 @@ TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN', '8380869007:AAGu7e41JJVU8aX
 GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
 ADMIN_USER_ID = int(os.getenv('ADMIN_USER_ID', '7835226724'))
 PORT = int(os.getenv('PORT', 8000))
-INSTA_API_URL = "http://<your_server_ip>:5000/api/insta/dl"  # Replace <your_server_ip> with actual server IP
+INSTA_API_URL = os.getenv('INSTA_API_URL', 'http://127.0.0.1:5000/api/insta/dl')  # Default to localhost for testing
 
 # Global variables for dynamic API key and model management
 current_gemini_api_key = GEMINI_API_KEY
@@ -45,14 +45,25 @@ async def fetch_insta_media(link: str) -> dict[str, any] | None:
     try:
         async with aiohttp.ClientSession() as session:
             async with session.get(INSTA_API_URL, params=params, timeout=30) as resp:
+                if resp.status == 429:
+                    logger.error("Rate limit exceeded for FastAPI")
+                    return {"error": "rate_limit"}
                 if resp.status != 200:
+                    logger.error(f"API returned status {resp.status}")
                     return None
                 data = await resp.json()
                 if not data.get("success") or not data.get("raw_response", {}).get("data", {}).get("downloads"):
+                    logger.error("Invalid API response structure")
                     return None
                 return data
+    except aiohttp.ClientError as e:
+        logger.error(f"Client error while fetching Instagram media: {e}")
+        return None
+    except asyncio.TimeoutError:
+        logger.error("Request to FastAPI timed out")
+        return None
     except Exception as e:
-        logger.error(f"Error fetching Instagram media: {e}")
+        logger.error(f"Unexpected error fetching Instagram media: {e}")
         return None
 
 def initialize_gemini_models(api_key):
@@ -96,7 +107,7 @@ class TelegramGeminiBot:
         self.application.add_handler(CommandHandler("menu", self.menu_command))
         self.application.add_handler(CommandHandler("setmodel", self.setmodel_command))
         self.application.add_handler(CommandHandler("info", self.info_command))
-        self.application.add_handler(CommandHandler("insta", self.insta_command))  # Added /insta command
+        self.application.add_handler(CommandHandler("insta", self.insta_command))
         self.application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_message))
         self.application.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, self.handle_new_member))
         self.application.add_handler(CallbackQueryHandler(self.button_callback, pattern='^copy_code$'))
@@ -106,7 +117,6 @@ class TelegramGeminiBot:
         """Handle copy code button callback"""
         query = update.callback_query
         await query.answer("Code copied!")  # Notify user
-        # Telegram automatically handles code block copying
 
     async def get_private_chat_redirect(self):
         """Return redirect message for non-admin private chats"""
@@ -544,15 +554,17 @@ For security, the command message will be deleted after setting the key.
         await context.bot.send_chat_action(chat_id=update.effective_chat.id, action="upload_document")
         data = await fetch_insta_media(url)
         if not data:
-            await update.message.reply_text("Could not retrieve media. Please check the URL or try again later.")
+            await update.message.reply_text("Could not retrieve media. The post might be private, the URL is invalid, or the server is unavailable. Please check and try again later.")
+            return
+        if data.get("error") == "rate_limit":
+            await update.message.reply_text("Rate limit exceeded. Please try again after a few minutes.")
             return
 
         downloads = data["raw_response"]["data"].get("downloads", [])
         if not downloads:
-            await update.message.reply_text("No downloadable media found for this URL.")
+            await update.message.reply_text("No downloadable media found for this URL. It might be a private post or unsupported content.")
             return
 
-        # Prepare response with download links
         response_text = "Instagram Media Download Links:\n\n"
         keyboard = []
         for idx, item in enumerate(downloads, 1):
