@@ -84,12 +84,22 @@ class TelegramGeminiBot:
         self.application.add_error_handler(self.error_handler)
 
     async def button_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle button callbacks for all menu features"""
+        """Handle button callbacks for main menu and sub-menus"""
         query = update.callback_query
         callback_data = query.data
         await query.answer()  # Acknowledge the button press
 
-        # Map callback data to command handlers
+        user_id = query.from_user.id
+        chat_type = query.message.chat.type
+        username = query.from_user.first_name or "User"
+
+        # Handle non-admin private chat redirect
+        if chat_type == 'private' and user_id != ADMIN_USER_ID:
+            response, reply_markup = await self.get_private_chat_redirect()
+            await query.message.reply_text(response, reply_markup=reply_markup)
+            return
+
+        # Command mapping for direct feature execution
         command_mapping = {
             "start": self.start_command,
             "help": self.help_command,
@@ -100,11 +110,60 @@ class TelegramGeminiBot:
             "api": self.api_command,
             "setmodel": self.setmodel_command,
             "setadmin": self.setadmin_command,
-            "copy_code": lambda u, c: query.answer("Code copied!")  # Existing copy_code handler
+            "copy_code": lambda u, c: query.answer("Code copied!")
         }
 
-        if callback_data in command_mapping:
-            # For commands requiring arguments (e.g., /api, /setmodel, /info), prompt for input
+        # Sub-menu definitions
+        sub_menus = {
+            "general": [
+                [InlineKeyboardButton("🚀 Start", callback_data="start")],
+                [InlineKeyboardButton("ℹ️ Help", callback_data="help")],
+                [InlineKeyboardButton("🔙 Back to Main Menu", callback_data="main_menu")]
+            ],
+            "tools": [
+                [InlineKeyboardButton("📧 Check Email", callback_data="checkmail")],
+                [InlineKeyboardButton("📊 Bot Status", callback_data="status")],
+                [InlineKeyboardButton("🗑️ Clear History", callback_data="clear")],
+                [InlineKeyboardButton("👤 User Info", callback_data="info")],
+                [InlineKeyboardButton("🔙 Back to Main Menu", callback_data="main_menu")]
+            ],
+            "admin": [
+                [InlineKeyboardButton("🔑 Set API Key", callback_data="api")],
+                [InlineKeyboardButton("⚙️ Change Model", callback_data="setmodel")],
+                [InlineKeyboardButton("👑 Set Admin", callback_data="setadmin")],
+                [InlineKeyboardButton("🔙 Back to Main Menu", callback_data="main_menu")]
+            ]
+        }
+
+        # Handle main menu request
+        if callback_data == "main_menu":
+            keyboard = [
+                [InlineKeyboardButton("🌟 General Features", callback_data="general")],
+                [InlineKeyboardButton("🛠️ Tools", callback_data="tools")],
+                [InlineKeyboardButton("🔗 Join Group", url="https://t.me/VPSHUB_BD_CHAT")]
+            ]
+            if user_id == ADMIN_USER_ID:
+                keyboard.insert(2, [InlineKeyboardButton("🔐 Admin Settings", callback_data="admin")])
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            await query.message.edit_text(
+                f"🌟 Welcome, {username}! Explore I Master Tools' features below! 🌟\n"
+                "Choose a category to dive in:",
+                reply_markup=reply_markup
+            )
+        # Handle sub-menu requests
+        elif callback_data in sub_menus:
+            reply_markup = InlineKeyboardMarkup(sub_menus[callback_data])
+            menu_titles = {
+                "general": "🌟 General Features",
+                "tools": "🛠️ Tools & Utilities",
+                "admin": "🔐 Admin Settings"
+            }
+            await query.message.edit_text(
+                f"{menu_titles[callback_data]}\nSelect an option:",
+                reply_markup=reply_markup
+            )
+        # Handle command execution
+        elif callback_data in command_mapping:
             if callback_data == "api":
                 await query.message.reply_text(
                     "Please provide the Gemini API key using: /api <your_api_key>",
@@ -120,7 +179,6 @@ class TelegramGeminiBot:
                     "To view user info, use: /info or /info <@username> or /info <user_id>"
                 )
             else:
-                # Execute the command handler, passing the update and context
                 await command_mapping[callback_data](query, context)
         else:
             await query.message.reply_text("Unknown action. Please try another option from the menu!")
@@ -219,7 +277,7 @@ Powered by Google Gemini
             await update.message.reply_text(help_message, reply_markup=reply_markup)
 
     async def menu_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle /menu command with an enhanced inline keyboard for all features"""
+        """Handle /menu command with dynamic category-based menu"""
         user_id = update.effective_user.id
         username = update.effective_user.first_name or "User"
         chat_type = update.effective_chat.type
@@ -228,33 +286,17 @@ Powered by Google Gemini
             response, reply_markup = await self.get_private_chat_redirect()
             await update.message.reply_text(response, reply_markup=reply_markup)
         else:
-            # Define the inline keyboard with all features
             keyboard = [
-                [
-                    InlineKeyboardButton("Start", callback_data="start"),
-                    InlineKeyboardButton("Help", callback_data="help"),
-                    InlineKeyboardButton("User Info", callback_data="info")
-                ],
-                [
-                    InlineKeyboardButton("Check Email", callback_data="checkmail"),
-                    InlineKeyboardButton("Bot Status", callback_data="status"),
-                    InlineKeyboardButton("Clear History", callback_data="clear")
-                ],
-                [
-                    InlineKeyboardButton("Join Group", url="https://t.me/VPSHUB_BD_CHAT")
-                ]
+                [InlineKeyboardButton("🌟 General Features", callback_data="general")],
+                [InlineKeyboardButton("🛠️ Tools", callback_data="tools")],
+                [InlineKeyboardButton("🔗 Join Group", url="https://t.me/VPSHUB_BD_CHAT")]
             ]
-            # Add admin-only buttons if the user is the admin
             if user_id == ADMIN_USER_ID:
-                keyboard.append([
-                    InlineKeyboardButton("Set API Key", callback_data="api"),
-                    InlineKeyboardButton("Change Model", callback_data="setmodel"),
-                    InlineKeyboardButton("Set Admin", callback_data="setadmin")
-                ])
+                keyboard.insert(2, [InlineKeyboardButton("🔐 Admin Settings", callback_data="admin")])
             reply_markup = InlineKeyboardMarkup(keyboard)
             await update.message.reply_text(
-                f"🌟 Hello {username}, explore I Master Tools' features below! 🌟\n"
-                "Choose an option to get started:",
+                f"🌟 Welcome, {username}! Explore I Master Tools' features below! 🌟\n"
+                "Choose a category to dive in:",
                 reply_markup=reply_markup
             )
 
@@ -352,7 +394,7 @@ All systems are ready for action. I'm thrilled to assist!
                     await update.message.reply_text("Sorry, the admin is already set. Only the current admin can manage the bot.")
 
     async def api_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle /api command to set Gemini API key"""
+        """Handle /api command to set the Gemini API key"""
         global current_gemini_api_key, general_model, coding_model
         user_id = update.effective_user.id
         chat_type = update.effective_chat.type
@@ -651,7 +693,7 @@ Conversation Style:
 - Ask follow-up questions to keep the conversation engaging
 - Share relatable thoughts and feelings
 - Use humor when appropriate
-- Be supportive in emotional moments
+- Be supportive in personally moments
 - Show excitement for good news
 - Express concern for problems
 - Never discuss inappropriate or offensive topics
