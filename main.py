@@ -6,7 +6,7 @@ from telegram import Update, ReplyKeyboardMarkup, ReplyKeyboardRemove
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes, ConversationHandler
 
 # বটের টোকেন (আপনার বটের টোকেন দিয়ে প্রতিস্থাপন করুন)
-BOT_TOKEN = "8380869007:AAGu7e41JJVU8aXG5wqXtCMUVKcCmmrp_gg"
+BOT_TOKEN = "YOUR_BOT_TOKEN_HERE"
 
 # কনভারসেশন স্টেটস
 UID, REGION, AMOUNT, CONFIRM = range(4)
@@ -157,21 +157,30 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 def send_like_request(uid, region, amount=100):
     """
-    Free Fire Visit API-তে রিকোয়েস্ট পাঠান
+    লাইক API-তে Chrome user agent দিয়ে রিকোয়েস্ট পাঠান
     """
-    url = f"https://free-fire-visit-api.vercel.app/{region}/{uid}"
-
+    chrome_user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    
+    url = f"https://likes.ffgarena.cloud/api/v2/likes?uid={uid}&amount_of_likes={amount}&auth=trial-7d&region={region}"
+    
     headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept': 'application/json',
+        'User-Agent': chrome_user_agent,
+        'Accept': 'application/json, text/plain, */*',
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'Origin': 'https://ffgarena.cloud',
+        'Referer': 'https://ffgarena.cloud/',
+        'Connection': 'keep-alive',
+        'Sec-Fetch-Dest': 'empty',
+        'Sec-Fetch-Mode': 'cors',
+        'Sec-Fetch-Site': 'same-site'
     }
-
+    
     try:
-        # API রিকোয়েস্ট পাঠানো
         response = requests.get(url, headers=headers, timeout=10)
         
         if response.status_code == 200:
-            return response.json()  # যদি JSON রেসপন্স থাকে
+            return response.json()
         else:
             return {"error": f"রিকোয়েস্ট ব্যর্থ হয়েছে, স্ট্যাটাস কোড: {response.status_code}"}
     
