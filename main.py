@@ -263,17 +263,39 @@ async def get_free_fire_data(uid: str, server_name: str, key: str):
     except requests.exceptions.RequestException as e:
         return {"error": str(e)}
 
-async def display_user_info(data):
+async def get_daily_limit_data(key: str):
     """
-    API রেসপন্স থেকে ইউজারের তথ্য প্রদর্শন করার ফাংশন
+    Free Fire API থেকে দৈনিক লিমিট সম্পর্কিত তথ্য সংগ্রহ করার ফাংশন
+    :param key: API key
+    :return: দৈনিক লিমিটের তথ্য
+    """
+    url = f"https://free-like-api-aditya-ffm.vercel.app/remain?key={key}"
+
+    try:
+        response = requests.get(url)
+        response.raise_for_status()
+        data = response.json()
+        
+        if response.status_code == 200:
+            return data
+        else:
+            return {"error": "Unable to fetch data"}
+    except requests.exceptions.RequestException as e:
+        return {"error": str(e)}
+
+async def display_user_info(data, daily_limit_data):
+    """
+    API রেসপন্স থেকে ইউজারের তথ্য এবং দৈনিক লিমিট প্রদর্শন করার ফাংশন
     :param data: API থেকে পাওয়া ডেটা
+    :param daily_limit_data: দৈনিক লিমিটের তথ্য
     :return: ফরম্যাটেড রেসপন্স স্ট্রিং
     """
+    response = "✅ Free Fire ডেটা পাওয়া গেছে:\n"
+    
     if "error" in data:
-        return f"❌ Free Fire ডেটা পাওয়া যায়নি: {data['error']}"
+        response += f"❌ প্লেয়ার তথ্য পাওয়া যায়নি: {data['error']}\n"
     else:
-        return f"""
-✅ Free Fire ডেটা পাওয়া গেছে:
+        response += f"""
 🎮 প্লেয়ার নিকনেম: {data.get('PlayerNickname', 'N/A')}
 🏆 প্লেয়ার লেভেল: {data.get('PlayerLevel', 'N/A')}
 🌍 প্লেয়ার রিজিওন: {data.get('PlayerRegion', 'N/A')}
@@ -286,6 +308,21 @@ async def display_user_info(data):
 🆔 UID: {data.get('UID', 'N/A')}
 📊 স্ট্যাটাস: {data.get('status', 'N/A')}
 """
+
+    response += "\n📊 দৈনিক লিমিট তথ্য:\n"
+    if "error" in daily_limit_data:
+        response += f"❌ লিমিট তথ্য পাওয়া যায়নি: {daily_limit_data['error']}"
+    else:
+        response += f"""
+🔄 অবশিষ্ট দৈনিক লিমিট: {daily_limit_data.get('remaining', 'N/A')}
+📈 দৈনিক লিমিট: {daily_limit_data.get('daily_limit', 'N/A')}
+✅ ব্যবহৃত: {daily_limit_data.get('used', 'N/A')}
+📢 লিমিট চ্যানেল: {daily_limit_data.get('channel', 'N/A')}
+👥 লিমিট গ্রুপ: {daily_limit_data.get('group', 'N/A')}
+👤 লিমিট মালিক: {daily_limit_data.get('owner', 'N/A')}
+"""
+    
+    return response
 
 class TelegramGeminiBot:
     def __init__(self):
@@ -409,7 +446,7 @@ Available commands:
 - /info: Show user profile information
 - /weather: Check weather forecast for Berlin
 - /validatephone <number> [country_code]: Validate a phone number
-- /validatebin <bin_number>: Validate a BIN number
+- /validatebin <bin_number): Validate a BIN number
 - /yts <query> [limit]: Search YouTube videos
 - /ipinfo <ip_address>: Get IP address information
 - /freefire <uid> <server_name>: Get Free Fire player data
@@ -800,7 +837,7 @@ For security, the command message will be deleted after setting the key.
         await update.message.reply_text(response_message)
 
     async def freefire_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle /freefire command to get Free Fire player data"""
+        """Handle /freefire command to get Free Fire player data and daily limit info"""
         user_id = update.effective_user.id
         chat_type = update.effective_chat.type
 
@@ -815,8 +852,9 @@ For security, the command message will be deleted after setting the key.
 
         uid = context.args[0]
         server_name = context.args[1]
-        data = await get_free_fire_data(uid, server_name, FREE_FIRE_API_KEY)
-        response_message = await display_user_info(data)
+        free_fire_data = await get_free_fire_data(uid, server_name, FREE_FIRE_API_KEY)
+        daily_limit_data = await get_daily_limit_data(FREE_FIRE_API_KEY)
+        response_message = await display_user_info(free_fire_data, daily_limit_data)
         await update.message.reply_text(response_message)
 
     async def handle_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
