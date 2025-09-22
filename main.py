@@ -4,7 +4,7 @@ import google.generativeai as genai
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, CallbackQuery
 from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters, ContextTypes
 import asyncio
-from datetime import datetime
+from datetime import datetime, timedelta
 import random
 import re
 import requests
@@ -38,6 +38,9 @@ PHONE_API_KEY = "num_live_Nf2vjeM19tHdi42qQ2LaVVMg2IGk1ReU2BYBKnvm"
 BIN_API_KEY = "kEXNklIYqLiLU657swFB1VXE0e4NF21G"
 IP_API_KEY = "YOUR_API_KEY"  # Replace with your actual IPQuery API key
 FREE_FIRE_API_KEY = "@adityaapis"  # Free Fire API key
+
+# Track user command usage for /freefire (user_id: last_usage_timestamp)
+freefire_usage = {}
 
 def initialize_gemini_models(api_key):
     """Initialize Gemini models with the provided API key"""
@@ -77,33 +80,33 @@ async def fetch_weather():
             data = response.json()
             current = data.get("current", {})
             weather_message = f"""
-🌤 বর্তমান আবহাওয়া (Berlin):
-🌡 তাপমাত্রা: {current.get('temperature_2m', 'N/A')}°C
-🤔 অনুভূত তাপমাত্রা: {current.get('apparent_temperature', 'N/A')}°C
-💨 বাতাসের গতি: {current.get('wind_speed_10m', 'N/A')} km/h
-🌧 বৃষ্টিপাত: {current.get('precipitation', 'N/A')} mm
-☁️ মেঘের পরিমাণ: {current.get('cloud_cover', 'N/A')}%
-⏲ দিন/রাত: {'দিন' if current.get('is_day') == 1 else 'রাত'}
+🌤 Current Weather (Berlin):
+🌡 Temperature: {current.get('temperature_2m', 'N/A')}°C
+🤔 Feels Like: {current.get('apparent_temperature', 'N/A')}°C
+💨 Wind Speed: {current.get('wind_speed_10m', 'N/A')} km/h
+🌧 Precipitation: {current.get('precipitation', 'N/A')} mm
+☁️ Cloud Cover: {current.get('cloud_cover', 'N/A')}%
+⏲ Day/Night: {'Day' if current.get('is_day') == 1 else 'Night'}
 """
             daily = data.get("daily", {})
             if daily:
-                weather_message += "\n📅 আগামী দিনের পূর্বাভাস:\n"
+                weather_message += "\n📅 Daily Forecast:\n"
                 for i in range(len(daily["time"])):
-                    weather_message += f"{daily['time'][i]} → 🌡 সর্বনিম্ন {daily['temperature_2m_min'][i]}°C, সর্বোচ্চ {daily['temperature_2m_max'][i]}°C\n"
+                    weather_message += f"{daily['time'][i]} → 🌡 Min {daily['temperature_2m_min'][i]}°C, Max {daily['temperature_2m_max'][i]}°C\n"
             return weather_message
         else:
-            return f"❌ ডেটা আনা যায়নি: {response.status_code}"
+            return f"❌ Failed to fetch data: {response.status_code}"
     except Exception as e:
         logger.error(f"Error fetching weather: {e}")
         return "Something went wrong while fetching the weather. Shall we try again?"
 
 async def validate_phone_number(phone_number: str, api_key: str, country_code: str = None):
     """
-    ফোন নম্বর ভ্যালিডেট করার ফাংশন
-    :param phone_number: যাচাই করতে চাওয়া ফোন নম্বর (string)
-    :param api_key: আপনার API কী
-    :param country_code: দেশ কোড (যেমন BD, US) — অপশনাল
-    :return: ফরম্যাটেড রেসপন্স স্ট্রিং
+    Validate a phone number
+    :param phone_number: Phone number to validate (string)
+    :param api_key: Your API key
+    :param country_code: Country code (e.g., BD, US) — optional
+    :return: Formatted response string
     """
     base_url = "https://api.numlookupapi.com/v1/validate"
     params = {
@@ -119,27 +122,27 @@ async def validate_phone_number(phone_number: str, api_key: str, country_code: s
             valid = data.get('valid', False)
             if valid:
                 return f"""
-✅ ফোন নম্বর যাচাই সম্পন্ন:
-📞 নম্বর: {data.get('number', 'N/A')}
-🌍 দেশ: {data.get('country_name', 'N/A')} ({data.get('country_code', 'N/A')})
-📍 লোকেশন: {data.get('location', 'N/A')}
-📡 ক্যারিয়ার: {data.get('carrier', 'N/A')}
-📱 লাইন টাইপ: {data.get('line_type', 'N/A')}
+✅ Phone Number Validation Complete:
+📞 Number: {data.get('number', 'N/A')}
+🌍 Country: {data.get('country_name', 'N/A')} ({data.get('country_code', 'N/A')})
+📍 Location: {data.get('location', 'N/A')}
+📡 Carrier: {data.get('carrier', 'N/A')}
+📱 Line Type: {data.get('line_type', 'N/A')}
 """
             else:
-                return "❌ ফোন নম্বরটি বৈধ নয়।"
+                return "❌ The phone number is not valid."
         else:
-            return f"❌ ডেটা আনা যায়নি: স্ট্যাটাস কোড {response.status_code}\nএরর: {response.text}"
+            return f"❌ Failed to fetch data: Status code {response.status_code}\nError: {response.text}"
     except Exception as e:
         logger.error(f"Error validating phone number: {e}")
-        return "ফোন নম্বর যাচাই করতে সমস্যা হয়েছে। আবার চেষ্টা করবেন?"
+        return "There was an issue validating the phone number. Shall we try again?"
 
 async def validate_bin(bin_number: str, api_key: str):
     """
-    BIN বা IIN যাচাই করার ফাংশন
-    :param bin_number: কার্ড নম্বরের প্রথম 6-11 ডিজিট
-    :param api_key: আপনার API কী
-    :return: ফরম্যাটেড রেসপন্স স্ট্রিং
+    Validate a BIN or IIN
+    :param bin_number: First 6-11 digits of the card number
+    :param api_key: Your API key
+    :return: Formatted response string
     """
     base_url = "https://api.iinapi.com/iin"
     params = {
@@ -154,26 +157,26 @@ async def validate_bin(bin_number: str, api_key: str):
         if data.get("valid", False):
             result = data.get("result", {})
             return f"""
-✅ BIN যাচাই সম্পন্ন:
+✅ BIN Validation Complete:
 💳 BIN: {result.get('Bin', 'N/A')}
-🏦 কার্ড ব্র্যান্ড: {result.get('CardBrand', 'N/A')}
-🏛️ ইস্যুকারী প্রতিষ্ঠান: {result.get('IssuingInstitution', 'N/A')}
-📋 কার্ড টাইপ: {result.get('CardType', 'N/A')}
-🏷️ কার্ড ক্যাটাগরি: {result.get('CardCategory', 'N/A')}
-🌍 ইস্যুকারী দেশ: {result.get('IssuingCountry', 'N/A')} ({result.get('IssuingCountryCode', 'N/A')})
+🏦 Card Brand: {result.get('CardBrand', 'N/A')}
+🏛️ Issuing Institution: {result.get('IssuingInstitution', 'N/A')}
+📋 Card Type: {result.get('CardType', 'N/A')}
+🏷️ Card Category: {result.get('CardCategory', 'N/A')}
+🌍 Issuing Country: {result.get('IssuingCountry', 'N/A')} ({result.get('IssuingCountryCode', 'N/A')})
 """
         else:
-            return "❌ BINটি বৈধ নয়।"
+            return "❌ The BIN is not valid."
     except requests.exceptions.RequestException as e:
         logger.error(f"Error validating BIN: {e}")
-        return f"❌ BIN যাচাই করতে সমস্যা হয়েছে: {str(e)}"
+        return f"❌ There was an issue validating the BIN: {str(e)}"
 
 async def search_yts_multiple(query: str, limit: int = 5):
     """
-    YouTube সার্চ API (abhi-api) ব্যবহার করে একাধিক ভিডিও সার্চ করার ফাংশন
-    :param query: সার্চ টার্ম
-    :param limit: সর্বোচ্চ কতটি ভিডিও ফলাফল দেখাবে (ডিফল্ট 5)
-    :return: ফরম্যাটেড রেসপন্স স্ট্রিং
+    Search YouTube videos using abhi-api
+    :param query: Search term
+    :param limit: Maximum number of video results to display (default 5)
+    :return: Formatted response string
     """
     url = f"https://abhi-api.vercel.app/api/search/yts?text={query.replace(' ', '+')}"
     
@@ -187,32 +190,32 @@ async def search_yts_multiple(query: str, limit: int = 5):
             if not isinstance(results, list):
                 results = [results]
                 
-            output_message = f"🔍 YouTube সার্চ ফলাফল '{query}' জন্য:\n\n"
+            output_message = f"🔍 YouTube Search Results for '{query}':\n\n"
             for i, res in enumerate(results[:limit], 1):
-                output_message += f"🎥 ভিডিও {i}:\n"
-                output_message += f"📌 শিরোনাম: {res.get('title', 'N/A')}\n"
-                output_message += f"📺 টাইপ: {res.get('type', 'N/A')}\n"
-                output_message += f"👁️‍🗨️ ভিউ: {res.get('views', 'N/A')}\n"
-                output_message += f"📅 আপলোড: {res.get('uploaded', 'N/A')}\n"
-                output_message += f"⏱️ সময়কাল: {res.get('duration', 'N/A')}\n"
-                output_message += f"📝 বিবরণ: {res.get('description', 'N/A')[:100]}...\n"
-                output_message += f"📢 চ্যানেল: {res.get('channel', 'N/A')}\n"
-                output_message += f"🔗 লিঙ্ক: {res.get('url', 'N/A')}\n\n"
+                output_message += f"🎥 Video {i}:\n"
+                output_message += f"📌 Title: {res.get('title', 'N/A')}\n"
+                output_message += f"📺 Type: {res.get('type', 'N/A')}\n"
+                output_message += f"👁️‍🗨️ Views: {res.get('views', 'N/A')}\n"
+                output_message += f"📅 Uploaded: {res.get('uploaded', 'N/A')}\n"
+                output_message += f"⏱️ Duration: {res.get('duration', 'N/A')}\n"
+                output_message += f"📝 Description: {res.get('description', 'N/A')[:100]}...\n"
+                output_message += f"📢 Channel: {res.get('channel', 'N/A')}\n"
+                output_message += f"🔗 Link: {res.get('url', 'N/A')}\n\n"
             
-            output_message += f"ক্রিয়েটর: {data.get('creator', 'Unknown')}"
+            output_message += f"Creator: {data.get('creator', 'Unknown')}"
             return output_message
         else:
-            return f"❌ কোনো ফলাফল পাওয়া যায়নি '{query}' জন্য।"
+            return f"❌ No results found for '{query}'."
     except requests.exceptions.RequestException as e:
         logger.error(f"Error searching YouTube: {e}")
-        return f"❌ YouTube সার্চ করতে সমস্যা হয়েছে: {str(e)}"
+        return f"❌ There was an issue searching YouTube: {str(e)}"
 
 async def get_ip_info(ip_address: str, api_key: str):
     """
-    IP Geolocation API ব্যবহার করে IP ঠিকানার তথ্য পাওয়ার ফাংশন।
-    :param ip_address: IP ঠিকানা
-    :param api_key: API কী
-    :return: ফরম্যাটেড রেসপন্স স্ট্রিং
+    Fetch IP address information using IP Geolocation API
+    :param ip_address: IP address
+    :param api_key: API key
+    :return: Formatted response string
     """
     url = f"https://api.ipquery.io/{ip_address}?key={api_key}&format=json"
 
@@ -223,37 +226,38 @@ async def get_ip_info(ip_address: str, api_key: str):
         
         if response.status_code == 200 and "error" not in data:
             return f"""
-✅ IP তথ্য যাচাই সম্পন্ন:
+✅ IP Information Retrieved:
 🌐 IP: {data.get('query', 'N/A')}
-🌍 দেশ: {data.get('country', 'N/A')} ({data.get('countryCode', 'N/A')})
-🏙️ শহর: {data.get('city', 'N/A')}
-📍 অঞ্চল: {data.get('regionName', 'N/A')}
-📌 অক্ষাংশ: {data.get('lat', 'N/A')}
-📌 দ্রাঘিমাংশ: {data.get('lon', 'N/A')}
+🌍 Country: {data.get('country', 'N/A')} ({data.get('countryCode', 'N/A')})
+🏙️ City: {data.get('city', 'N/A')}
+📍 Region: {data.get('regionName', 'N/A')}
+📌 Latitude: {data.get('lat', 'N/A')}
+📌 Longitude: {data.get('lon', 'N/A')}
 📡 ISP: {data.get('isp', 'N/A')}
-🏢 প্রতিষ্ঠান: {data.get('org', 'N/A')}
+🏢 Organization: {data.get('org', 'N/A')}
 🔢 ASN: {data.get('as', 'N/A')}
-⏰ সময় অঞ্চল: {data.get('timezone', 'N/A')}
+⏰ Timezone: {data.get('timezone', 'N/A')}
 """
         else:
-            return "❌ IP তথ্য পাওয়া যায়নি।"
+            return "❌ IP information could not be retrieved."
     except requests.exceptions.RequestException as e:
         logger.error(f"Error fetching IP info: {e}")
-        return f"❌ IP তথ্য পেতে সমস্যা হয়েছে: {str(e)}"
+        return f"❌ There was an issue fetching IP info: {str(e)}"
 
 async def get_free_fire_data(uid: str, server_name: str, key: str):
     """
-    Free Fire API থেকে ইউজারের তথ্য সংগ্রহ করার ফাংশন
-    :param uid: ইউজারের ইউনিক আইডি
-    :param server_name: সার্ভারের নাম (যেমন 'IND' বা 'US')
+    Fetch user information from the Free Fire API
+    :param uid: User's unique ID
+    :param server_name: Server name (e.g., 'IND' or 'US')
     :param key: API key
-    :return: ইউজারের বিস্তারিত তথ্য
+    :return: User's detailed information
     """
     url = f"https://free-like-api-aditya-ffm.vercel.app/like?uid={uid}&server_name={server_name}&key={key}"
 
     try:
+        # Make API call
         response = requests.get(url)
-        response.raise_for_status()
+        response.raise_for_status()  # Check if response is successful
         data = response.json()
         
         if response.status_code == 200:
@@ -265,15 +269,16 @@ async def get_free_fire_data(uid: str, server_name: str, key: str):
 
 async def get_daily_limit_data(key: str):
     """
-    Free Fire API থেকে দৈনিক লিমিট সম্পর্কিত তথ্য সংগ্রহ করার ফাংশন
+    Fetch daily limit information from the Free Fire API
     :param key: API key
-    :return: দৈনিক লিমিটের তথ্য
+    :return: Daily limit information
     """
     url = f"https://free-like-api-aditya-ffm.vercel.app/remain?key={key}"
 
     try:
+        # Make API call
         response = requests.get(url)
-        response.raise_for_status()
+        response.raise_for_status()  # Check if response is successful
         data = response.json()
         
         if response.status_code == 200:
@@ -285,38 +290,35 @@ async def get_daily_limit_data(key: str):
 
 async def display_user_info(data, daily_limit_data):
     """
-    API রেসপন্স থেকে ইউজারের তথ্য বক্স আকারে প্রদর্শন করার ফাংশন
-    :param data: API থেকে পাওয়া ডেটা
-    :param daily_limit_data: দৈনিক লিমিটের তথ্য
-    :return: ফরম্যাটেড রেসপন্স স্ট্রিং
+    Display user information from API response in a box-like format
+    :param data: Data received from the API
+    :param daily_limit_data: Daily limit information
+    :return: Formatted response string
     """
-    response = "✅ Free Fire ডেটা পাওয়া গেছে:\n"
+    response = "✅ Free Fire Data Retrieved:\n"
     
     if "error" in data:
-        response += f"❌ প্লেয়ার তথ্য পাওয়া যায়নি: {data['error']}\n"
+        response += f"❌ Failed to fetch player info: {data['error']}\n"
     else:
+        # Calculate likes added
         likes_before = data.get('LikesbeforeCommand', 0)
         likes_after = data.get('LikesafterCommand', 0)
         likes_difference = likes_after - likes_before if isinstance(likes_before, (int, float)) and isinstance(likes_after, (int, float)) else "N/A"
 
         response += """
-=============================== Free Fire Information ===============================
-🎮 প্লেয়ার নিকনেম       : {PlayerNickname}
-🏆 প্লেয়ার লেভেল        : {PlayerLevel}
-🌍 প্লেয়ার রিজিওন       : {PlayerRegion}
-🔥 কমান্ডের আগে লাইক   : {LikesbeforeCommand}
-👍 কমান্ডের পরে লাইক    : {LikesafterCommand}
-📈 লাইক পরিবর্তন        : {likes_difference} likes changed
-🎁 API দ্বারা দেওয়া লাইক : {LikesGivenByAPI}
+============================== Free Fire Information ==============================
+🎮 Player Nickname       : {PlayerNickname}
+🏆 Player Level          : {PlayerLevel}
+🌍 Player Region         : {PlayerRegion}
+📈 Likes Added           : {likes_difference} likes added
+🎁 Likes Given by API    : {LikesGivenByAPI}
 🆔 UID                   : {UID}
-📊 স্ট্যাটাস            : {status}
+📊 Status                : {status}
 ===================================================================================
 """.format(
             PlayerNickname=data.get('PlayerNickname', 'N/A'),
             PlayerLevel=data.get('PlayerLevel', 'N/A'),
             PlayerRegion=data.get('PlayerRegion', 'N/A'),
-            LikesbeforeCommand=likes_before,
-            LikesafterCommand=likes_after,
             likes_difference=likes_difference,
             LikesGivenByAPI=data.get('LikesGivenByAPI', 'N/A'),
             UID=data.get('UID', 'N/A'),
@@ -324,22 +326,27 @@ async def display_user_info(data, daily_limit_data):
         )
 
     if "error" in daily_limit_data:
-        response += f"\n❌ লিমিট তথ্য পাওয়া যায়নি: {daily_limit_data['error']}"
+        response += f"\n❌ Failed to fetch limit info: {daily_limit_data['error']}"
     else:
         remaining_limit = daily_limit_data.get('remaining', -1)
         daily_limit = daily_limit_data.get('daily_limit', -1)
-        if remaining_limit != -1 and daily_limit != -1:
-            response += """
-============================ Daily Limit Information ==============================
-🔄 অবশিষ্ট দৈনিক লিমিট : {remaining}
-📈 দৈনিক লিমিট         : {daily_limit}
-✅ ব্যবহৃত লাইক         : {used} likes used
+        used = daily_limit_data.get('used', 'N/A')
+        
+        response += "\n========================== Daily Limit Information =============================="
+        if remaining_limit == -1 or daily_limit == -1:
+            response += f"""
+🔄 Remaining Daily Limit : Unlimited
+📈 Daily Limit           : Unlimited
+✅ Used Likes            : {used} likes used
 ===================================================================================
-""".format(
-                remaining=remaining_limit,
-                daily_limit=daily_limit,
-                used=daily_limit_data.get('used', 'N/A')
-            )
+"""
+        else:
+            response += f"""
+🔄 Remaining Daily Limit : {remaining_limit}
+📈 Daily Limit           : {daily_limit}
+✅ Used Likes            : {used} likes used
+===================================================================================
+"""
     
     return response
 
@@ -792,7 +799,7 @@ For security, the command message will be deleted after setting the key.
             return
 
         if not context.args:
-            await update.message.reply_text("ব্যবহার: /validatephone <phone_number> [country_code]\nউদাহরণ: /validatephone 01613950781 BD")
+            await update.message.reply_text("Usage: /validatephone <phone_number> [country_code]\nExample: /validatephone 01613950781 BD")
             return
 
         phone_number = context.args[0]
@@ -811,7 +818,7 @@ For security, the command message will be deleted after setting the key.
             return
 
         if not context.args:
-            await update.message.reply_text("ব্যবহার: /validatebin <bin_number>\nউদাহরণ: /validatebin 324000")
+            await update.message.reply_text("Usage: /validatebin <bin_number>\nExample: /validatebin 324000")
             return
 
         bin_number = context.args[0]
@@ -829,7 +836,7 @@ For security, the command message will be deleted after setting the key.
             return
 
         if not context.args:
-            await update.message.reply_text("ব্যবহার: /yts <query> [limit]\nউদাহরণ: /yts heat waves 3")
+            await update.message.reply_text("Usage: /yts <query> [limit]\nExample: /yts heat waves 3")
             return
 
         query = ' '.join(context.args[:-1]) if len(context.args) > 1 and context.args[-1].isdigit() else ' '.join(context.args)
@@ -848,7 +855,7 @@ For security, the command message will be deleted after setting the key.
             return
 
         if not context.args:
-            await update.message.reply_text("ব্যবহার: /ipinfo <ip_address>\nউদাহরণ: /ipinfo 159.65.8.217")
+            await update.message.reply_text("Usage: /ipinfo <ip_address>\nExample: /ipinfo 159.65.8.217")
             return
 
         ip_address = context.args[0]
@@ -865,8 +872,22 @@ For security, the command message will be deleted after setting the key.
             await update.message.reply_text(response, reply_markup=reply_markup)
             return
 
+        # Check 24-hour limit for non-admin users
+        if user_id != ADMIN_USER_ID:
+            last_usage = freefire_usage.get(user_id)
+            current_time = datetime.now()
+            if last_usage and (current_time - last_usage).total_seconds() < 24 * 3600:
+                time_left = timedelta(seconds=24 * 3600 - (current_time - last_usage).total_seconds())
+                hours, remainder = divmod(time_left.seconds, 3600)
+                minutes = remainder // 60
+                await update.message.reply_text(
+                    f"You can only use /freefire once every 24 hours. Please wait {hours}h {minutes}m."
+                )
+                return
+            freefire_usage[user_id] = current_time
+
         if len(context.args) < 2:
-            await update.message.reply_text("ব্যবহার: /freefire <uid> <server_name>\nউদাহরণ: /freefire 7669969208 IND")
+            await update.message.reply_text("Usage: /freefire <uid> <server_name>\nExample: /freefire 7669969208 IND")
             return
 
         uid = context.args[0]
@@ -875,6 +896,10 @@ For security, the command message will be deleted after setting the key.
         daily_limit_data = await get_daily_limit_data(FREE_FIRE_API_KEY)
         response_message = await display_user_info(free_fire_data, daily_limit_data)
         await update.message.reply_text(response_message)
+
+        # Update usage timestamp for non-admin users
+        if user_id != ADMIN_USER_ID:
+            freefire_usage[user_id] = datetime.now()
 
     async def handle_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle regular text messages"""
