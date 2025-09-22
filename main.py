@@ -172,9 +172,11 @@ async def search_yts_multiple(query: str, limit: int = 5):
                 output_message += f"║ 🔗 Link: {res.get('url', 'N/A')}\n"
                 output_message += "║\n"
             
-            # Replace "ABHISHEK SURESH🍀" with "@Farukvaiyq01" in the creator field
+            # Get creator and log for debugging
             creator = data.get('creator', 'Unknown')
-            if creator == "ABHISHEK SURESH🍀":
+            logger.info(f"Raw creator value: {creator}")
+            # Directly replace the exact string or its variations
+            if creator == "𝙰𝙱𝙷𝙸𝚂𝙷𝙴𝙺 𝚂𝚄𝚁𝙴𝚂𝙷🍀" or "ABHISHEK SURESH" in creator:
                 creator = "@Farukvaiyq01"
             output_message += f"╚═══ Powered by: {creator} ═══╝"
             return output_message
@@ -246,7 +248,7 @@ Available commands:
 - /checkmail: Check temporary email inbox
 - /info: Show user profile information
 - /validatephone <number> [country_code]: Validate a phone number
-- /validatebin <bin_number]: Validate a BIN number
+- /validatebin <bin_number>: Validate a BIN number
 - /yts <query> [limit]: Search YouTube videos
 {'' if user_id != ADMIN_USER_ID else '- /api <key>: Set Gemini API key (admin only)\n- /setadmin: Set yourself as admin (first-time only)\n- /setmodel: Choose a different model (admin only)'}
 
@@ -296,7 +298,7 @@ Available commands:
 - /checkmail: Check temporary email inbox
 - /info: Show user profile information
 - /validatephone <number> [country_code]: Validate a phone number
-- /validatebin <bin_number]: Validate a BIN number
+- /validatebin <bin_number>: Validate a BIN number
 - /yts <query> [limit]: Search YouTube videos
 {'' if user_id != ADMIN_USER_ID else '- /api <key>: Set Gemini API key (admin only)\n- /setadmin: Set yourself as admin (first-time only)\n- /setmodel: Choose a different model (admin only)'}
 
@@ -605,7 +607,7 @@ For security, the command message will be deleted after setting the key.
             return
 
         if not context.args:
-            await update.message.reply_text("Usage: /validatebin <bin_number]\nExample: /validatebin 324000")
+            await update.message.reply_text("Usage: /validatebin <bin_number>\nExample: /validatebin 324000")
             return
 
         bin_number = context.args[0]
