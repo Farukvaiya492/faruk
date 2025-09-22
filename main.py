@@ -141,7 +141,7 @@ async def search_yts_multiple(query: str, limit: int = 5):
     Search YouTube videos using abhi-api
     :param query: Search term
     :param limit: Maximum number of video results to display (default 5)
-    :return: Formatted response string
+    :return: Formatted response string with box design
     """
     url = f"https://abhi-api.vercel.app/api/search/yts?text={query.replace(' ', '+')}"
     
@@ -155,25 +155,34 @@ async def search_yts_multiple(query: str, limit: int = 5):
             if not isinstance(results, list):
                 results = [results]
                 
-            output_message = f"🔍 YouTube Search Results for '{query}':\n\n"
-            for i, res in enumerate(results[:limit], 1):
-                output_message += f"🎥 Video {i}:\n"
-                output_message += f"📌 Title: {res.get('title', 'N/A')}\n"
-                output_message += f"📺 Type: {res.get('type', 'N/A')}\n"
-                output_message += f"👁️‍🗨️ Views: {res.get('views', 'N/A')}\n"
-                output_message += f"📅 Uploaded: {res.get('uploaded', 'N/A')}\n"
-                output_message += f"⏱️ Duration: {res.get('duration', 'N/A')}\n"
-                output_message += f"📝 Description: {res.get('description', 'N/A')[:100]}...\n"
-                output_message += f"📢 Channel: {res.get('channel', 'N/A')}\n"
-                output_message += f"🔗 Link: {res.get('url', 'N/A')}\n\n"
+            # Box design using Unicode characters
+            output_message = "╔════════════════════════════════════╗\n"
+            output_message += f"║ 🔍 YouTube Search Results for '{query}' ║\n"
+            output_message += "╠════════════════════════════════════╣\n"
             
-            output_message += f"Creator: {data.get('creator', 'Unknown')}"
+            for i, res in enumerate(results[:limit], 1):
+                output_message += f"║ 🎥 Video {i}:\n"
+                output_message += f"║ 📌 Title: {res.get('title', 'N/A')}\n"
+                output_message += f"║ 📺 Type: {res.get('type', 'N/A')}\n"
+                output_message += f"║ 👁️‍🗨️ Views: {res.get('views', 'N/A')}\n"
+                output_message += f"║ 📅 Uploaded: {res.get('uploaded', 'N/A')}\n"
+                output_message += f"║ ⏱️ Duration: {res.get('duration', 'N/A')}\n"
+                output_message += f"║ 📝 Description: {res.get('description', 'N/A')[:100]}...\n"
+                output_message += f"║ 📢 Channel: {res.get('channel', 'N/A')}\n"
+                output_message += f"║ 🔗 Link: {res.get('url', 'N/A')}\n"
+                output_message += "║\n"
+            
+            # Replace "ABHISHEK SURESH🍀" with "@Farukvaiyq01" in the creator field
+            creator = data.get('creator', 'Unknown')
+            if creator == "ABHISHEK SURESH🍀":
+                creator = "@Farukvaiyq01"
+            output_message += f"╚═══ Powered by: {creator} ═══╝"
             return output_message
         else:
-            return f"❌ No results found for '{query}'."
+            return "Sorry, I couldn’t find any results for your search. Try a different query!"
     except requests.exceptions.RequestException as e:
         logger.error(f"Error searching YouTube: {e}")
-        return f"❌ There was an issue searching YouTube: {str(e)}"
+        return "Something went wrong with the search. Please try again with a different term!"
 
 class TelegramGeminiBot:
     def __init__(self):
@@ -189,7 +198,6 @@ class TelegramGeminiBot:
         self.application.add_handler(CommandHandler("api", self.api_command))
         self.application.add_handler(CommandHandler("setadmin", self.setadmin_command))
         self.application.add_handler(CommandHandler("checkmail", self.checkmail_command))
-        self.application.add_handler(CommandHandler("menu", self.menu_command))
         self.application.add_handler(CommandHandler("setmodel", self.setmodel_command))
         self.application.add_handler(CommandHandler("info", self.info_command))
         self.application.add_handler(CommandHandler("validatephone", self.validatephone_command))
@@ -233,13 +241,12 @@ To chat with me, please join our official Telegram group or mention @I MasterToo
 
 Available commands:
 - /help: Get help and usage information
-- /menu: Access the feature menu
 - /clear: Clear conversation history
 - /status: Check bot status
 - /checkmail: Check temporary email inbox
 - /info: Show user profile information
 - /validatephone <number> [country_code]: Validate a phone number
-- /validatebin <bin_number>: Validate a BIN number
+- /validatebin <bin_number]: Validate a BIN number
 - /yts <query> [limit]: Search YouTube videos
 {'' if user_id != ADMIN_USER_ID else '- /api <key>: Set Gemini API key (admin only)\n- /setadmin: Set yourself as admin (first-time only)\n- /setmodel: Choose a different model (admin only)'}
 
@@ -284,13 +291,12 @@ How I work:
 Available commands:
 - /start: Show welcome message with group link
 - /help: Display this help message
-- /menu: Access the feature menu
 - /clear: Clear your conversation history
 - /status: Check bot status
 - /checkmail: Check temporary email inbox
 - /info: Show user profile information
 - /validatephone <number> [country_code]: Validate a phone number
-- /validatebin <bin_number>: Validate a BIN number
+- /validatebin <bin_number]: Validate a BIN number
 - /yts <query> [limit]: Search YouTube videos
 {'' if user_id != ADMIN_USER_ID else '- /api <key>: Set Gemini API key (admin only)\n- /setadmin: Set yourself as admin (first-time only)\n- /setmodel: Choose a different model (admin only)'}
 
@@ -304,29 +310,6 @@ My personality:
 Powered by Google Gemini
             """
             await update.message.reply_text(help_message, reply_markup=reply_markup)
-
-    async def menu_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle /menu command with inline keyboard"""
-        user_id = update.effective_user.id
-        username = update.effective_user.first_name or "User"
-        chat_type = update.effective_chat.type
-
-        if chat_type == 'private' and user_id != ADMIN_USER_ID:
-            response, reply_markup = await self.get_private_chat_redirect()
-            await update.message.reply_text(response, reply_markup=reply_markup)
-        else:
-            keyboard = [
-                [InlineKeyboardButton("Check Email", callback_data="checkmail")],
-                [InlineKeyboardButton("Bot Status", callback_data="status")],
-                [InlineKeyboardButton("Clear History", callback_data="clear")],
-                [InlineKeyboardButton("User Info", callback_data="info")],
-                [InlineKeyboardButton("Join Group", url="https://t.me/VPSHUB_BD_CHAT")]
-            ]
-            if user_id == ADMIN_USER_ID:
-                keyboard.append([InlineKeyboardButton("Set API Key", callback_data="api")])
-                keyboard.append([InlineKeyboardButton("Change Model", callback_data="setmodel")])
-            reply_markup = InlineKeyboardMarkup(keyboard)
-            await update.message.reply_text(f"Hello {username}, choose a feature from the menu below:", reply_markup=reply_markup)
 
     async def clear_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /clear command"""
@@ -622,7 +605,7 @@ For security, the command message will be deleted after setting the key.
             return
 
         if not context.args:
-            await update.message.reply_text("Usage: /validatebin <bin_number>\nExample: /validatebin 324000")
+            await update.message.reply_text("Usage: /validatebin <bin_number]\nExample: /validatebin 324000")
             return
 
         bin_number = context.args[0]
