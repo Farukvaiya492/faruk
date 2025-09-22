@@ -4,7 +4,7 @@ import google.generativeai as genai
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, CallbackQuery
 from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters, ContextTypes
 import asyncio
-from datetime import datetime, timedelta
+from datetime import datetime
 import random
 import re
 import requests
@@ -36,11 +36,6 @@ current_model = 'gemini-1.5-flash'  # Default model
 # API keys for external services
 PHONE_API_KEY = "num_live_Nf2vjeM19tHdi42qQ2LaVVMg2IGk1ReU2BYBKnvm"
 BIN_API_KEY = "kEXNklIYqLiLU657swFB1VXE0e4NF21G"
-IP_API_KEY = "YOUR_API_KEY"  # Replace with your actual IPQuery API key
-FREE_FIRE_API_KEY = "@adityaapis"  # Free Fire API key
-
-# Track user command usage for /freefire (user_id: last_usage_timestamp)
-freefire_usage = {}
 
 def initialize_gemini_models(api_key):
     """Initialize Gemini models with the provided API key"""
@@ -69,36 +64,6 @@ else:
 # Store conversation context for each chat
 conversation_context = {}
 group_activity = {}
-
-async def fetch_weather():
-    """Fetch weather data from Open-Meteo API and return formatted message"""
-    url = "https://api.open-meteo.com/v1/forecast?latitude=52.52&longitude=13.41&daily=weather_code%2Ctemperature_2m_max%2Ctemperature_2m_min%2Capparent_temperature_max%2Capparent_temperature_min%2Cwind_speed_10m_max%2Csunrise%2Csunset%2Cdaylight_duration%2Csunshine_duration%2Cuv_index_max%2Cuv_index_clear_sky_max%2Crain_sum%2Cshowers_sum%2Csnowfall_sum%2Cprecipitation_hours%2Cprecipitation_sum%2Cprecipitation_probability_max%2Cwind_gusts_10m_max%2Cwind_direction_10m_dominant%2Cshortwave_radiation_sum%2Cet0_fao_evapotranspiration&hourly=temperature_2m%2Crelative_humidity_2m%2Cdew_point_2m%2Capparent_temperature%2Cprecipitation_probability%2Cprecipitation%2Crain%2Cshowers%2Csnowfall%2Csnow_depth%2Cvapour_pressure_deficit%2Cet0_fao_evapotranspiration%2Cvisibility%2Cevapotranspiration%2Ccloud_cover_high%2Ccloud_cover_mid%2Ccloud_cover_low%2Ccloud_cover%2Csurface_pressure%2Cpressure_msl%2Cweather_code%2Cwind_speed_10m%2Cwind_speed_80m%2Cwind_speed_120m%2Cwind_speed_180m%2Cwind_direction_10m%2Cwind_direction_80m%2Cwind_direction_120m%2Cwind_direction_180m%2Cwind_gusts_10m%2Ctemperature_80m%2Ctemperature_120m%2Ctemperature_180m%2Csoil_temperature_0cm%2Csoil_temperature_6cm%2Csoil_temperature_18cm%2Csoil_temperature_54cm%2Csoil_moisture_0_to_1cm%2Csoil_moisture_1_to_3cm%2Csoil_moisture_3_to_9cm%2Csoil_moisture_9_to_27cm%2Csoil_moisture_27_to_81cm&current=temperature_2m%2Crelative_humidity_2m%2Capparent_temperature%2Cis_day%2Cwind_speed_10m%2Cwind_direction_10m%2Cwind_gusts_10m%2Cprecipitation%2Crain%2Cshowers%2Csnowfall%2Cweather_code%2Ccloud_cover%2Cpressure_msl%2Csurface_pressure&timezone=auto"
-    
-    try:
-        response = requests.get(url)
-        if response.status_code == 200:
-            data = response.json()
-            current = data.get("current", {})
-            weather_message = f"""
-🌤 Current Weather (Berlin):
-🌡 Temperature: {current.get('temperature_2m', 'N/A')}°C
-🤔 Feels Like: {current.get('apparent_temperature', 'N/A')}°C
-💨 Wind Speed: {current.get('wind_speed_10m', 'N/A')} km/h
-🌧 Precipitation: {current.get('precipitation', 'N/A')} mm
-☁️ Cloud Cover: {current.get('cloud_cover', 'N/A')}%
-⏲ Day/Night: {'Day' if current.get('is_day') == 1 else 'Night'}
-"""
-            daily = data.get("daily", {})
-            if daily:
-                weather_message += "\n📅 Daily Forecast:\n"
-                for i in range(len(daily["time"])):
-                    weather_message += f"{daily['time'][i]} → 🌡 Min {daily['temperature_2m_min'][i]}°C, Max {daily['temperature_2m_max'][i]}°C\n"
-            return weather_message
-        else:
-            return f"❌ Failed to fetch data: {response.status_code}"
-    except Exception as e:
-        logger.error(f"Error fetching weather: {e}")
-        return "Something went wrong while fetching the weather. Shall we try again?"
 
 async def validate_phone_number(phone_number: str, api_key: str, country_code: str = None):
     """
@@ -210,146 +175,6 @@ async def search_yts_multiple(query: str, limit: int = 5):
         logger.error(f"Error searching YouTube: {e}")
         return f"❌ There was an issue searching YouTube: {str(e)}"
 
-async def get_ip_info(ip_address: str, api_key: str):
-    """
-    Fetch IP address information using IP Geolocation API
-    :param ip_address: IP address
-    :param api_key: API key
-    :return: Formatted response string
-    """
-    url = f"https://api.ipquery.io/{ip_address}?key={api_key}&format=json"
-
-    try:
-        response = requests.get(url)
-        response.raise_for_status()
-        data = response.json()
-        
-        if response.status_code == 200 and "error" not in data:
-            return f"""
-✅ IP Information Retrieved:
-🌐 IP: {data.get('query', 'N/A')}
-🌍 Country: {data.get('country', 'N/A')} ({data.get('countryCode', 'N/A')})
-🏙️ City: {data.get('city', 'N/A')}
-📍 Region: {data.get('regionName', 'N/A')}
-📌 Latitude: {data.get('lat', 'N/A')}
-📌 Longitude: {data.get('lon', 'N/A')}
-📡 ISP: {data.get('isp', 'N/A')}
-🏢 Organization: {data.get('org', 'N/A')}
-🔢 ASN: {data.get('as', 'N/A')}
-⏰ Timezone: {data.get('timezone', 'N/A')}
-"""
-        else:
-            return "❌ IP information could not be retrieved."
-    except requests.exceptions.RequestException as e:
-        logger.error(f"Error fetching IP info: {e}")
-        return f"❌ There was an issue fetching IP info: {str(e)}"
-
-async def get_free_fire_data(uid: str, server_name: str, key: str):
-    """
-    Fetch user information from the Free Fire API
-    :param uid: User's unique ID
-    :param server_name: Server name (e.g., 'IND' or 'US')
-    :param key: API key
-    :return: User's detailed information
-    """
-    url = f"https://free-like-api-aditya-ffm.vercel.app/like?uid={uid}&server_name={server_name}&key={key}"
-
-    try:
-        # Make API call
-        response = requests.get(url)
-        response.raise_for_status()  # Check if response is successful
-        data = response.json()
-        
-        if response.status_code == 200:
-            return data
-        else:
-            return {"error": "Unable to fetch data"}
-    except requests.exceptions.RequestException as e:
-        return {"error": str(e)}
-
-async def get_daily_limit_data(key: str):
-    """
-    Fetch daily limit information from the Free Fire API
-    :param key: API key
-    :return: Daily limit information
-    """
-    url = f"https://free-like-api-aditya-ffm.vercel.app/remain?key={key}"
-
-    try:
-        # Make API call
-        response = requests.get(url)
-        response.raise_for_status()  # Check if response is successful
-        data = response.json()
-        
-        if response.status_code == 200:
-            return data
-        else:
-            return {"error": "Unable to fetch data"}
-    except requests.exceptions.RequestException as e:
-        return {"error": str(e)}
-
-async def display_user_info(data, daily_limit_data):
-    """
-    Display user information from API response in a box-like format
-    :param data: Data received from the API
-    :param daily_limit_data: Daily limit information
-    :return: Formatted response string
-    """
-    response = "✅ Free Fire Data Retrieved:\n"
-    
-    if "error" in data:
-        response += f"❌ Failed to fetch player info: {data['error']}\n"
-    else:
-        # Calculate likes added
-        likes_before = data.get('LikesbeforeCommand', 0)
-        likes_after = data.get('LikesafterCommand', 0)
-        likes_difference = likes_after - likes_before if isinstance(likes_before, (int, float)) and isinstance(likes_after, (int, float)) else "N/A"
-
-        response += """
-============================== Free Fire Information ==============================
-🎮 Player Nickname       : {PlayerNickname}
-🏆 Player Level          : {PlayerLevel}
-🌍 Player Region         : {PlayerRegion}
-📈 Likes Added           : {likes_difference} likes added
-🎁 Likes Given by API    : {LikesGivenByAPI}
-🆔 UID                   : {UID}
-📊 Status                : {status}
-===================================================================================
-""".format(
-            PlayerNickname=data.get('PlayerNickname', 'N/A'),
-            PlayerLevel=data.get('PlayerLevel', 'N/A'),
-            PlayerRegion=data.get('PlayerRegion', 'N/A'),
-            likes_difference=likes_difference,
-            LikesGivenByAPI=data.get('LikesGivenByAPI', 'N/A'),
-            UID=data.get('UID', 'N/A'),
-            status=data.get('status', 'N/A')
-        )
-
-    if "error" in daily_limit_data:
-        response += f"\n❌ Failed to fetch limit info: {daily_limit_data['error']}"
-    else:
-        remaining_limit = daily_limit_data.get('remaining', -1)
-        daily_limit = daily_limit_data.get('daily_limit', -1)
-        used = daily_limit_data.get('used', 'N/A')
-        
-        response += "\n========================== Daily Limit Information =============================="
-        if remaining_limit == -1 or daily_limit == -1:
-            response += f"""
-🔄 Remaining Daily Limit : Unlimited
-📈 Daily Limit           : Unlimited
-✅ Used Likes            : {used} likes used
-===================================================================================
-"""
-        else:
-            response += f"""
-🔄 Remaining Daily Limit : {remaining_limit}
-📈 Daily Limit           : {daily_limit}
-✅ Used Likes            : {used} likes used
-===================================================================================
-"""
-    
-    return response
-
 class TelegramGeminiBot:
     def __init__(self):
         self.application = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
@@ -367,12 +192,9 @@ class TelegramGeminiBot:
         self.application.add_handler(CommandHandler("menu", self.menu_command))
         self.application.add_handler(CommandHandler("setmodel", self.setmodel_command))
         self.application.add_handler(CommandHandler("info", self.info_command))
-        self.application.add_handler(CommandHandler("weather", self.weather_command))
         self.application.add_handler(CommandHandler("validatephone", self.validatephone_command))
         self.application.add_handler(CommandHandler("validatebin", self.validatebin_command))
         self.application.add_handler(CommandHandler("yts", self.yts_command))
-        self.application.add_handler(CommandHandler("ipinfo", self.ipinfo_command))
-        self.application.add_handler(CommandHandler("freefire", self.freefire_command))
         self.application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_message))
         self.application.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, self.handle_new_member))
         self.application.add_handler(CallbackQueryHandler(self.button_callback, pattern='^copy_code$'))
@@ -416,12 +238,9 @@ Available commands:
 - /status: Check bot status
 - /checkmail: Check temporary email inbox
 - /info: Show user profile information
-- /weather: Check weather forecast for Berlin
 - /validatephone <number> [country_code]: Validate a phone number
 - /validatebin <bin_number>: Validate a BIN number
 - /yts <query> [limit]: Search YouTube videos
-- /ipinfo <ip_address>: Get IP address information
-- /freefire <uid> <server_name>: Get Free Fire player data
 {'' if user_id != ADMIN_USER_ID else '- /api <key>: Set Gemini API key (admin only)\n- /setadmin: Set yourself as admin (first-time only)\n- /setmodel: Choose a different model (admin only)'}
 
 In groups, mention @I MasterTools or reply to my messages to get a response. I'm excited to chat with you!
@@ -470,12 +289,9 @@ Available commands:
 - /status: Check bot status
 - /checkmail: Check temporary email inbox
 - /info: Show user profile information
-- /weather: Check weather forecast for Berlin
 - /validatephone <number> [country_code]: Validate a phone number
 - /validatebin <bin_number>: Validate a BIN number
 - /yts <query> [limit]: Search YouTube videos
-- /ipinfo <ip_address>: Get IP address information
-- /freefire <uid> <server_name>: Get Free Fire player data
 {'' if user_id != ADMIN_USER_ID else '- /api <key>: Set Gemini API key (admin only)\n- /setadmin: Set yourself as admin (first-time only)\n- /setmodel: Choose a different model (admin only)'}
 
 My personality:
@@ -776,18 +592,6 @@ For security, the command message will be deleted after setting the key.
                 reply_markup=InlineKeyboardMarkup(keyboard) if keyboard else None
             )
 
-    async def weather_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle /weather command to show weather forecast for Berlin"""
-        user_id = update.effective_user.id
-        chat_type = update.effective_chat.type
-
-        if chat_type == 'private' and user_id != ADMIN_USER_ID:
-            response, reply_markup = await self.get_private_chat_redirect()
-            await update.message.reply_text(response, reply_markup=reply_markup)
-        else:
-            weather_message = await fetch_weather()
-            await update.message.reply_text(weather_message)
-
     async def validatephone_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /validatephone command to validate a phone number"""
         user_id = update.effective_user.id
@@ -843,63 +647,6 @@ For security, the command message will be deleted after setting the key.
         limit = int(context.args[-1]) if len(context.args) > 1 and context.args[-1].isdigit() else 5
         response_message = await search_yts_multiple(query, limit)
         await update.message.reply_text(response_message)
-
-    async def ipinfo_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle /ipinfo command to get IP address information"""
-        user_id = update.effective_user.id
-        chat_type = update.effective_chat.type
-
-        if chat_type == 'private' and user_id != ADMIN_USER_ID:
-            response, reply_markup = await self.get_private_chat_redirect()
-            await update.message.reply_text(response, reply_markup=reply_markup)
-            return
-
-        if not context.args:
-            await update.message.reply_text("Usage: /ipinfo <ip_address>\nExample: /ipinfo 159.65.8.217")
-            return
-
-        ip_address = context.args[0]
-        response_message = await get_ip_info(ip_address, IP_API_KEY)
-        await update.message.reply_text(response_message)
-
-    async def freefire_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle /freefire command to get Free Fire player data and daily limit info"""
-        user_id = update.effective_user.id
-        chat_type = update.effective_chat.type
-
-        if chat_type == 'private' and user_id != ADMIN_USER_ID:
-            response, reply_markup = await self.get_private_chat_redirect()
-            await update.message.reply_text(response, reply_markup=reply_markup)
-            return
-
-        # Check 24-hour limit for non-admin users
-        if user_id != ADMIN_USER_ID:
-            last_usage = freefire_usage.get(user_id)
-            current_time = datetime.now()
-            if last_usage and (current_time - last_usage).total_seconds() < 24 * 3600:
-                time_left = timedelta(seconds=24 * 3600 - (current_time - last_usage).total_seconds())
-                hours, remainder = divmod(time_left.seconds, 3600)
-                minutes = remainder // 60
-                await update.message.reply_text(
-                    f"You can only use /freefire once every 24 hours. Please wait {hours}h {minutes}m."
-                )
-                return
-            freefire_usage[user_id] = current_time
-
-        if len(context.args) < 2:
-            await update.message.reply_text("Usage: /freefire <uid> <server_name>\nExample: /freefire 7669969208 IND")
-            return
-
-        uid = context.args[0]
-        server_name = context.args[1]
-        free_fire_data = await get_free_fire_data(uid, server_name, FREE_FIRE_API_KEY)
-        daily_limit_data = await get_daily_limit_data(FREE_FIRE_API_KEY)
-        response_message = await display_user_info(free_fire_data, daily_limit_data)
-        await update.message.reply_text(response_message)
-
-        # Update usage timestamp for non-admin users
-        if user_id != ADMIN_USER_ID:
-            freefire_usage[user_id] = datetime.now()
 
     async def handle_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle regular text messages"""
