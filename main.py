@@ -1,4 +1,3 @@
-
 import os
 import logging
 import google.generativeai as genai
@@ -38,6 +37,7 @@ current_model = 'gemini-1.5-flash'  # Default model
 PHONE_API_KEY = "num_live_Nf2vjeM19tHdi42qQ2LaVVMg2IGk1ReU2BYBKnvm"
 BIN_API_KEY = "kEXNklIYqLiLU657swFB1VXE0e4NF21G"
 IP_API_KEY = "YOUR_API_KEY"  # Replace with your actual IPQuery API key
+FREE_FIRE_API_KEY = "@adityaapis"  # Free Fire API key
 
 def initialize_gemini_models(api_key):
     """Initialize Gemini models with the provided API key"""
@@ -241,6 +241,38 @@ async def get_ip_info(ip_address: str, api_key: str):
         logger.error(f"Error fetching IP info: {e}")
         return f"❌ IP তথ্য পেতে সমস্যা হয়েছে: {str(e)}"
 
+async def get_free_fire_data(uid: str, server_name: str, key: str):
+    """
+    Free Fire API ব্যবহার করে প্লেয়ার ডেটা পাওয়ার ফাংশন।
+    :param uid: Free Fire প্লেয়ারের UID
+    :param server_name: সার্ভার নাম (যেমন IND)
+    :param key: API কী
+    :return: ফরম্যাটেড রেসপন্স স্ট্রিং
+    """
+    url = f"https://free-like-api-aditya-ffm.vercel.app/like?uid={uid}&server_name={server_name}&key={key}"
+
+    try:
+        response = requests.get(url)
+        response.raise_for_status()
+        data = response.json()
+        
+        if response.status_code == 200 and "error" not in data:
+            return f"""
+✅ Free Fire ডেটা পাওয়া গেছে:
+🎮 UID: {data.get('uid', 'N/A')}
+📛 নাম: {data.get('nickname', 'N/A')}
+🌍 সার্ভার: {data.get('server_name', 'N/A')}
+🏆 লেভেল: {data.get('level', 'N/A')}
+🔥 লাইক: {data.get('like', 'N/A')}
+👥 ক্ল্যান: {data.get('clan', 'N/A')}
+📊 র‍্যাঙ্ক: {data.get('rank', 'N/A')}
+"""
+        else:
+            return f"❌ Free Fire ডেটা পাওয়া যায়নি: {data.get('error', 'Unknown error')}"
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error fetching Free Fire data: {e}")
+        return f"❌ Free Fire ডেটা পেতে সমস্যা হয়েছে: {str(e)}"
+
 class TelegramGeminiBot:
     def __init__(self):
         self.application = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
@@ -263,6 +295,7 @@ class TelegramGeminiBot:
         self.application.add_handler(CommandHandler("validatebin", self.validatebin_command))
         self.application.add_handler(CommandHandler("yts", self.yts_command))
         self.application.add_handler(CommandHandler("ipinfo", self.ipinfo_command))
+        self.application.add_handler(CommandHandler("freefire", self.freefire_command))
         self.application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_message))
         self.application.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, self.handle_new_member))
         self.application.add_handler(CallbackQueryHandler(self.button_callback, pattern='^copy_code$'))
@@ -311,6 +344,7 @@ Available commands:
 - /validatebin <bin_number>: Validate a BIN number
 - /yts <query> [limit]: Search YouTube videos
 - /ipinfo <ip_address>: Get IP address information
+- /freefire <uid> <server_name>: Get Free Fire player data
 {'' if user_id != ADMIN_USER_ID else '- /api <key>: Set Gemini API key (admin only)\n- /setadmin: Set yourself as admin (first-time only)\n- /setmodel: Choose a different model (admin only)'}
 
 In groups, mention @I MasterTools or reply to my messages to get a response. I'm excited to chat with you!
@@ -364,6 +398,7 @@ Available commands:
 - /validatebin <bin_number>: Validate a BIN number
 - /yts <query> [limit]: Search YouTube videos
 - /ipinfo <ip_address>: Get IP address information
+- /freefire <uid> <server_name>: Get Free Fire player data
 {'' if user_id != ADMIN_USER_ID else '- /api <key>: Set Gemini API key (admin only)\n- /setadmin: Set yourself as admin (first-time only)\n- /setmodel: Choose a different model (admin only)'}
 
 My personality:
@@ -748,6 +783,25 @@ For security, the command message will be deleted after setting the key.
 
         ip_address = context.args[0]
         response_message = await get_ip_info(ip_address, IP_API_KEY)
+        await update.message.reply_text(response_message)
+
+    async def freefire_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle /freefire command to get Free Fire player data"""
+        user_id = update.effective_user.id
+        chat_type = update.effective_chat.type
+
+        if chat_type == 'private' and user_id != ADMIN_USER_ID:
+            response, reply_markup = await self.get_private_chat_redirect()
+            await update.message.reply_text(response, reply_markup=reply_markup)
+            return
+
+        if len(context.args) < 2:
+            await update.message.reply_text("ব্যবহার: /freefire <uid> <server_name>\nউদাহরণ: /freefire 7669969208 IND")
+            return
+
+        uid = context.args[0]
+        server_name = context.args[1]
+        response_message = await get_free_fire_data(uid, server_name, FREE_FIRE_API_KEY)
         await update.message.reply_text(response_message)
 
     async def handle_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
