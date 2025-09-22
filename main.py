@@ -210,11 +210,42 @@ async def get_ip_info(ip_address: str):
         output_message += f"┃ 📌 Location: {data.get('loc', 'N/A')}\n"
         output_message += f"┃ 🏢 Organization: {data.get('org', 'N/A')}\n"
         output_message += "┃\n"
-        output_message += "┗━━━ 𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸 ━━━┛"
+        output_message += "┗━━━ 𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂�_k ━━━┛"
         return output_message
     except requests.exceptions.RequestException as e:
         logger.error(f"Error fetching IP info: {e}")
         return "Invalid IP address or error fetching data. Please try a different IP!"
+
+async def get_ip_info2(ip_address: str):
+    """
+    Fetch IP information using ip2location.io (new command as per user request)
+    :param ip_address: IP address to look up
+    :return: Formatted response string
+    """
+    url = f"https://api.ip2location.io/?ip={ip_address}"
+    
+    try:
+        response = requests.get(url)
+        if response.status_code == 200:
+            data = response.json()
+            output_message = "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓\n"
+            output_message += f"┃ 🌐 IP Location Information for '{ip_address}' ┃\n"
+            output_message += "┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫\n"
+            output_message += f"┃ 📍 IP: {data.get('ip', 'N/A')}\n"
+            output_message += f"┃ 🇺🇳 Country: {data.get('country_name', 'N/A')}\n"
+            output_message += f"┃ 🌍 Region: {data.get('region_name', 'N/A')}\n"
+            output_message += f"┃ 🏙️ City: {data.get('city', 'N/A')}\n"
+            output_message += f"┃ 📌 Latitude: {data.get('latitude', 'N/A')}\n"
+            output_message += f"┃ 📌 Longitude: {data.get('longitude', 'N/A')}\n"
+            output_message += f"┃ 🏢 ISP: {data.get('isp', 'N/A')}\n"
+            output_message += "┃\n"
+            output_message += "┗━━━ 𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸 ━━━┛"
+            return output_message
+        else:
+            return "Failed to fetch data"
+    except Exception as e:
+        logger.error(f"Error fetching IP info from ip2location.io: {e}")
+        return f"Error fetching data: {str(e)}"
 
 async def get_country_info(country_name: str):
     """
@@ -284,6 +315,7 @@ class TelegramGeminiBot:
         self.application.add_handler(CommandHandler("validatebin", self.validatebin_command))
         self.application.add_handler(CommandHandler("yts", self.yts_command))
         self.application.add_handler(CommandHandler("ipinfo", self.ipinfo_command))
+        self.application.add_handler(CommandHandler("ipinfo2", self.ipinfo2_command))  # New command
         self.application.add_handler(CommandHandler("countryinfo", self.countryinfo_command))
         self.application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_message))
         self.application.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, self.handle_new_member))
@@ -331,6 +363,7 @@ Available commands:
 - /validatebin <bin_number]: Validate a BIN number
 - /yts <query> [limit]: Search YouTube videos
 - /ipinfo <ip_address>: Fetch IP address information
+- /ipinfo2 <ip_address>: Fetch IP address information (IP2Location)
 - /countryinfo <country_name>: Fetch country information (use English names, e.g., 'Bangladesh')
 {'' if user_id != ADMIN_USER_ID else '- /api <key>: Set Gemini API key (admin only)\n- /setadmin: Set yourself as admin (first-time only)\n- /setmodel: Choose a different model (admin only)'}
 
@@ -383,6 +416,7 @@ Available commands:
 - /validatebin <bin_number]: Validate a BIN number
 - /yts <query> [limit]: Search YouTube videos
 - /ipinfo <ip_address>: Fetch IP address information
+- /ipinfo2 <ip_address>: Fetch IP address information (IP2Location)
 - /countryinfo <country_name>: Fetch country information (use English names, e.g., 'Bangladesh')
 {'' if user_id != ADMIN_USER_ID else '- /api <key>: Set Gemini API key (admin only)\n- /setadmin: Set yourself as admin (first-time only)\n- /setmodel: Choose a different model (admin only)'}
 
@@ -733,6 +767,24 @@ For security, the command message will be deleted after setting the key.
 
         ip_address = context.args[0]
         response_message = await get_ip_info(ip_address)
+        await update.message.reply_text(response_message)
+
+    async def ipinfo2_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle /ipinfo2 command to fetch IP address information using ip2location.io"""
+        user_id = update.effective_user.id
+        chat_type = update.effective_chat.type
+
+        if chat_type == 'private' and user_id != ADMIN_USER_ID:
+            response, reply_markup = await self.get_private_chat_redirect()
+            await update.message.reply_text(response, reply_markup=reply_markup)
+            return
+
+        if not context.args:
+            await update.message.reply_text("Usage: /ipinfo2 <ip_address>\nExample: /ipinfo2 8.8.8.8")
+            return
+
+        ip_address = context.args[0]
+        response_message = await get_ip_info2(ip_address)
         await update.message.reply_text(response_message)
 
     async def countryinfo_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
