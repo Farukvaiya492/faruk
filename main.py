@@ -285,7 +285,7 @@ async def get_daily_limit_data(key: str):
 
 async def display_user_info(data, daily_limit_data):
     """
-    API রেসপন্স থেকে ইউজারের তথ্য এবং দৈনিক লিমিট প্রদর্শন করার ফাংশন
+    API রেসপন্স থেকে ইউজারের তথ্য বক্স আকারে প্রদর্শন করার ফাংশন
     :param data: API থেকে পাওয়া ডেটা
     :param daily_limit_data: দৈনিক লিমিটের তথ্য
     :return: ফরম্যাটেড রেসপন্স স্ট্রিং
@@ -295,32 +295,51 @@ async def display_user_info(data, daily_limit_data):
     if "error" in data:
         response += f"❌ প্লেয়ার তথ্য পাওয়া যায়নি: {data['error']}\n"
     else:
-        response += f"""
-🎮 প্লেয়ার নিকনেম: {data.get('PlayerNickname', 'N/A')}
-🏆 প্লেয়ার লেভেল: {data.get('PlayerLevel', 'N/A')}
-🌍 প্লেয়ার রিজিওন: {data.get('PlayerRegion', 'N/A')}
-🔥 কমান্ডের আগে লাইক: {data.get('LikesbeforeCommand', 'N/A')}
-👍 কমান্ডের পরে লাইক: {data.get('LikesafterCommand', 'N/A')}
-🎁 API দ্বারা দেওয়া লাইক: {data.get('LikesGivenByAPI', 'N/A')}
-👤 মালিক: {data.get('owner', 'N/A')}
-📢 চ্যানেল: {data.get('channel', 'N/A')}
-👥 গ্রুপ: {data.get('group', 'N/A')}
-🆔 UID: {data.get('UID', 'N/A')}
-📊 স্ট্যাটাস: {data.get('status', 'N/A')}
-"""
+        likes_before = data.get('LikesbeforeCommand', 0)
+        likes_after = data.get('LikesafterCommand', 0)
+        likes_difference = likes_after - likes_before if isinstance(likes_before, (int, float)) and isinstance(likes_after, (int, float)) else "N/A"
 
-    response += "\n📊 দৈনিক লিমিট তথ্য:\n"
+        response += """
+=============================== Free Fire Information ===============================
+🎮 প্লেয়ার নিকনেম       : {PlayerNickname}
+🏆 প্লেয়ার লেভেল        : {PlayerLevel}
+🌍 প্লেয়ার রিজিওন       : {PlayerRegion}
+🔥 কমান্ডের আগে লাইক   : {LikesbeforeCommand}
+👍 কমান্ডের পরে লাইক    : {LikesafterCommand}
+📈 লাইক পরিবর্তন        : {likes_difference} likes changed
+🎁 API দ্বারা দেওয়া লাইক : {LikesGivenByAPI}
+🆔 UID                   : {UID}
+📊 স্ট্যাটাস            : {status}
+===================================================================================
+""".format(
+            PlayerNickname=data.get('PlayerNickname', 'N/A'),
+            PlayerLevel=data.get('PlayerLevel', 'N/A'),
+            PlayerRegion=data.get('PlayerRegion', 'N/A'),
+            LikesbeforeCommand=likes_before,
+            LikesafterCommand=likes_after,
+            likes_difference=likes_difference,
+            LikesGivenByAPI=data.get('LikesGivenByAPI', 'N/A'),
+            UID=data.get('UID', 'N/A'),
+            status=data.get('status', 'N/A')
+        )
+
     if "error" in daily_limit_data:
-        response += f"❌ লিমিট তথ্য পাওয়া যায়নি: {daily_limit_data['error']}"
+        response += f"\n❌ লিমিট তথ্য পাওয়া যায়নি: {daily_limit_data['error']}"
     else:
-        response += f"""
-🔄 অবশিষ্ট দৈনিক লিমিট: {daily_limit_data.get('remaining', 'N/A')}
-📈 দৈনিক লিমিট: {daily_limit_data.get('daily_limit', 'N/A')}
-✅ ব্যবহৃত: {daily_limit_data.get('used', 'N/A')}
-📢 লিমিট চ্যানেল: {daily_limit_data.get('channel', 'N/A')}
-👥 লিমিট গ্রুপ: {daily_limit_data.get('group', 'N/A')}
-👤 লিমিট মালিক: {daily_limit_data.get('owner', 'N/A')}
-"""
+        remaining_limit = daily_limit_data.get('remaining', -1)
+        daily_limit = daily_limit_data.get('daily_limit', -1)
+        if remaining_limit != -1 and daily_limit != -1:
+            response += """
+============================ Daily Limit Information ==============================
+🔄 অবশিষ্ট দৈনিক লিমিট : {remaining}
+📈 দৈনিক লিমিট         : {daily_limit}
+✅ ব্যবহৃত লাইক         : {used} likes used
+===================================================================================
+""".format(
+                remaining=remaining_limit,
+                daily_limit=daily_limit,
+                used=daily_limit_data.get('used', 'N/A')
+            )
     
     return response
 
@@ -446,7 +465,7 @@ Available commands:
 - /info: Show user profile information
 - /weather: Check weather forecast for Berlin
 - /validatephone <number> [country_code]: Validate a phone number
-- /validatebin <bin_number): Validate a BIN number
+- /validatebin <bin_number>: Validate a BIN number
 - /yts <query> [limit]: Search YouTube videos
 - /ipinfo <ip_address>: Get IP address information
 - /freefire <uid> <server_name>: Get Free Fire player data
