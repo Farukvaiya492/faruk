@@ -185,6 +185,85 @@ async def search_yts_multiple(query: str, limit: int = 5):
         logger.error(f"Error searching YouTube: {e}")
         return "Something went wrong with the search. Please try again with a different term!"
 
+async def get_ip_info(ip_address: str):
+    """
+    Fetch IP information using ipinfo.io
+    :param ip_address: IP address to look up
+    :return: Formatted response string with box design
+    """
+    url = f"https://ipinfo.io/{ip_address}/json"
+    
+    try:
+        response = requests.get(url)
+        response.raise_for_status()
+        data = response.json()
+        
+        # Box design matching /yts
+        output_message = "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓\n"
+        output_message += f"┃ 🌐 IP Information for '{ip_address}' ┃\n"
+        output_message += "┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫\n"
+        output_message += f"┃ 📍 IP: {data.get('ip', 'N/A')}\n"
+        output_message += f"┃ 🖥️ Hostname: {data.get('hostname', 'N/A')}\n"
+        output_message += f"┃ 🏙️ City: {data.get('city', 'N/A')}\n"
+        output_message += f"┃ 🌍 Region: {data.get('region', 'N/A')}\n"
+        output_message += f"┃ 🇺🇳 Country: {data.get('country', 'N/A')}\n"
+        output_message += f"┃ 📌 Location: {data.get('loc', 'N/A')}\n"
+        output_message += f"┃ 🏢 Organization: {data.get('org', 'N/A')}\n"
+        output_message += "┃\n"
+        output_message += "┗━━━ 𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸 ━━━┛"
+        return output_message
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error fetching IP info: {e}")
+        return "Invalid IP address or error fetching data. Please try a different IP!"
+
+async def get_country_info(country_name: str):
+    """
+    Fetch country information using restcountries.com
+    :param country_name: Name of the country to look up
+    :return: Formatted response string with box design
+    """
+    url = f"https://restcountries.com/v3.1/name/{country_name}"
+    
+    try:
+        response = requests.get(url)
+        response.raise_for_status()
+        country_data = response.json()
+        
+        if country_data:
+            country = country_data[0]
+            # Handle currency dynamically
+            currency_info = "N/A"
+            if 'currencies' in country and country['currencies']:
+                first_currency = next(iter(country['currencies']))
+                currency_name = country['currencies'][first_currency].get('name', 'N/A')
+                currency_symbol = country['currencies'][first_currency].get('symbol', '')
+                currency_info = f"{currency_name} ({currency_symbol})"
+            
+            # Handle capital as a list or string
+            capital = country.get('capital', ['N/A'])[0] if isinstance(country.get('capital'), list) else country.get('capital', 'N/A')
+            
+            # Format output with box design
+            output_message = "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓\n"
+            output_message += f"┃ 🌍 Country Information for '{country_name.title()}' ┃\n"
+            output_message += "┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫\n"
+            output_message += f"┃ 🏳️ Name: {country.get('name', {}).get('common', 'N/A')}\n"
+            output_message += f"┃ 🏛️ Capital: {capital}\n"
+            output_message += f"┃ 👨‍👩‍👧‍👦 Population: {country.get('population', 'N/A')}\n"
+            output_message += f"┃ 📏 Area: {country.get('area', 'N/A')} km²\n"
+            output_message += f"┃ 🗣️ Languages: {', '.join(country.get('languages', {}).values()) if country.get('languages') else 'N/A'}\n"
+            output_message += f"┃ 🚩 Flag: {country.get('flag', 'N/A')}\n"
+            output_message += f"┃ 💰 Currency: {currency_info}\n"
+            output_message += f"┃ 🌐 Region: {country.get('region', 'N/A')}\n"
+            output_message += f"┃ 🗺️ Subregion: {country.get('subregion', 'N/A')}\n"
+            output_message += "┃\n"
+            output_message += "┗━━━ 𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸 ━━━┛"
+            return output_message
+        else:
+            return "No information found for this country. Please try a different country name!"
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error fetching country info: {e}")
+        return f"Error fetching country data: {str(e)}. Please try a different country name!"
+
 class TelegramGeminiBot:
     def __init__(self):
         self.application = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
@@ -204,6 +283,8 @@ class TelegramGeminiBot:
         self.application.add_handler(CommandHandler("validatephone", self.validatephone_command))
         self.application.add_handler(CommandHandler("validatebin", self.validatebin_command))
         self.application.add_handler(CommandHandler("yts", self.yts_command))
+        self.application.add_handler(CommandHandler("ipinfo", self.ipinfo_command))
+        self.application.add_handler(CommandHandler("countryinfo", self.countryinfo_command))
         self.application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_message))
         self.application.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, self.handle_new_member))
         self.application.add_handler(CallbackQueryHandler(self.button_callback, pattern='^copy_code$'))
@@ -247,8 +328,10 @@ Available commands:
 - /checkmail: Check temporary email inbox
 - /info: Show user profile information
 - /validatephone <number> [country_code]: Validate a phone number
-- /validatebin <bin_number>: Validate a BIN number
+- /validatebin <bin_number]: Validate a BIN number
 - /yts <query> [limit]: Search YouTube videos
+- /ipinfo <ip_address>: Fetch IP address information
+- /countryinfo <country_name>: Fetch country information
 {'' if user_id != ADMIN_USER_ID else '- /api <key>: Set Gemini API key (admin only)\n- /setadmin: Set yourself as admin (first-time only)\n- /setmodel: Choose a different model (admin only)'}
 
 In groups, mention @I MasterTools or reply to my messages to get a response. I'm excited to chat with you!
@@ -297,8 +380,10 @@ Available commands:
 - /checkmail: Check temporary email inbox
 - /info: Show user profile information
 - /validatephone <number> [country_code]: Validate a phone number
-- /validatebin <bin_number>: Validate a BIN number
+- /validatebin <bin_number]: Validate a BIN number
 - /yts <query> [limit]: Search YouTube videos
+- /ipinfo <ip_address>: Fetch IP address information
+- /countryinfo <country_name>: Fetch country information
 {'' if user_id != ADMIN_USER_ID else '- /api <key>: Set Gemini API key (admin only)\n- /setadmin: Set yourself as admin (first-time only)\n- /setmodel: Choose a different model (admin only)'}
 
 My personality:
@@ -606,7 +691,7 @@ For security, the command message will be deleted after setting the key.
             return
 
         if not context.args:
-            await update.message.reply_text("Usage: /validatebin <bin_number>\nExample: /validatebin 324000")
+            await update.message.reply_text("Usage: /validatebin <bin_number]\nExample: /validatebin 324000")
             return
 
         bin_number = context.args[0]
@@ -630,6 +715,42 @@ For security, the command message will be deleted after setting the key.
         query = ' '.join(context.args[:-1]) if len(context.args) > 1 and context.args[-1].isdigit() else ' '.join(context.args)
         limit = int(context.args[-1]) if len(context.args) > 1 and context.args[-1].isdigit() else 5
         response_message = await search_yts_multiple(query, limit)
+        await update.message.reply_text(response_message)
+
+    async def ipinfo_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle /ipinfo command to fetch IP address information"""
+        user_id = update.effective_user.id
+        chat_type = update.effective_chat.type
+
+        if chat_type == 'private' and user_id != ADMIN_USER_ID:
+            response, reply_markup = await self.get_private_chat_redirect()
+            await update.message.reply_text(response, reply_markup=reply_markup)
+            return
+
+        if not context.args:
+            await update.message.reply_text("Usage: /ipinfo <ip_address>\nExample: /ipinfo 203.0.113.123")
+            return
+
+        ip_address = context.args[0]
+        response_message = await get_ip_info(ip_address)
+        await update.message.reply_text(response_message)
+
+    async def countryinfo_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle /countryinfo command to fetch country information"""
+        user_id = update.effective_user.id
+        chat_type = update.effective_chat.type
+
+        if chat_type == 'private' and user_id != ADMIN_USER_ID:
+            response, reply_markup = await self.get_private_chat_redirect()
+            await update.message.reply_text(response, reply_markup=reply_markup)
+            return
+
+        if not context.args:
+            await update.message.reply_text("Usage: /countryinfo <country_name>\nExample: /countryinfo bangladesh")
+            return
+
+        country_name = ' '.join(context.args)
+        response_message = await get_country_info(country_name)
         await update.message.reply_text(response_message)
 
     async def handle_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
