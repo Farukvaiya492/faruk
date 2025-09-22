@@ -243,11 +243,11 @@ async def get_ip_info(ip_address: str, api_key: str):
 
 async def get_free_fire_data(uid: str, server_name: str, key: str):
     """
-    Free Fire API ব্যবহার করে প্লেয়ার ডেটা পাওয়ার ফাংশন।
-    :param uid: Free Fire প্লেয়ারের UID
-    :param server_name: সার্ভার নাম (যেমন IND)
-    :param key: API কী
-    :return: ফরম্যাটেড রেসপন্স স্ট্রিং
+    Free Fire API থেকে ইউজারের তথ্য সংগ্রহ করার ফাংশন
+    :param uid: ইউজারের ইউনিক আইডি
+    :param server_name: সার্ভারের নাম (যেমন 'IND' বা 'US')
+    :param key: API key
+    :return: ইউজারের বিস্তারিত তথ্য
     """
     url = f"https://free-like-api-aditya-ffm.vercel.app/like?uid={uid}&server_name={server_name}&key={key}"
 
@@ -256,22 +256,36 @@ async def get_free_fire_data(uid: str, server_name: str, key: str):
         response.raise_for_status()
         data = response.json()
         
-        if response.status_code == 200 and "error" not in data:
-            return f"""
-✅ Free Fire ডেটা পাওয়া গেছে:
-🎮 UID: {data.get('uid', 'N/A')}
-📛 নাম: {data.get('nickname', 'N/A')}
-🌍 সার্ভার: {data.get('server_name', 'N/A')}
-🏆 লেভেল: {data.get('level', 'N/A')}
-🔥 লাইক: {data.get('like', 'N/A')}
-👥 ক্ল্যান: {data.get('clan', 'N/A')}
-📊 র‍্যাঙ্ক: {data.get('rank', 'N/A')}
-"""
+        if response.status_code == 200:
+            return data
         else:
-            return f"❌ Free Fire ডেটা পাওয়া যায়নি: {data.get('error', 'Unknown error')}"
+            return {"error": "Unable to fetch data"}
     except requests.exceptions.RequestException as e:
-        logger.error(f"Error fetching Free Fire data: {e}")
-        return f"❌ Free Fire ডেটা পেতে সমস্যা হয়েছে: {str(e)}"
+        return {"error": str(e)}
+
+async def display_user_info(data):
+    """
+    API রেসপন্স থেকে ইউজারের তথ্য প্রদর্শন করার ফাংশন
+    :param data: API থেকে পাওয়া ডেটা
+    :return: ফরম্যাটেড রেসপন্স স্ট্রিং
+    """
+    if "error" in data:
+        return f"❌ Free Fire ডেটা পাওয়া যায়নি: {data['error']}"
+    else:
+        return f"""
+✅ Free Fire ডেটা পাওয়া গেছে:
+🎮 প্লেয়ার নিকনেম: {data.get('PlayerNickname', 'N/A')}
+🏆 প্লেয়ার লেভেল: {data.get('PlayerLevel', 'N/A')}
+🌍 প্লেয়ার রিজিওন: {data.get('PlayerRegion', 'N/A')}
+🔥 কমান্ডের আগে লাইক: {data.get('LikesbeforeCommand', 'N/A')}
+👍 কমান্ডের পরে লাইক: {data.get('LikesafterCommand', 'N/A')}
+🎁 API দ্বারা দেওয়া লাইক: {data.get('LikesGivenByAPI', 'N/A')}
+👤 মালিক: {data.get('owner', 'N/A')}
+📢 চ্যানেল: {data.get('channel', 'N/A')}
+👥 গ্রুপ: {data.get('group', 'N/A')}
+🆔 UID: {data.get('UID', 'N/A')}
+📊 স্ট্যাটাস: {data.get('status', 'N/A')}
+"""
 
 class TelegramGeminiBot:
     def __init__(self):
@@ -801,7 +815,8 @@ For security, the command message will be deleted after setting the key.
 
         uid = context.args[0]
         server_name = context.args[1]
-        response_message = await get_free_fire_data(uid, server_name, FREE_FIRE_API_KEY)
+        data = await get_free_fire_data(uid, server_name, FREE_FIRE_API_KEY)
+        response_message = await display_user_info(data)
         await update.message.reply_text(response_message)
 
     async def handle_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
