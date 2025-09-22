@@ -1,3 +1,4 @@
+
 import os
 import logging
 import google.generativeai as genai
@@ -36,6 +37,7 @@ current_model = 'gemini-1.5-flash'  # Default model
 # API keys for external services
 PHONE_API_KEY = "num_live_Nf2vjeM19tHdi42qQ2LaVVMg2IGk1ReU2BYBKnvm"
 BIN_API_KEY = "kEXNklIYqLiLU657swFB1VXE0e4NF21G"
+IP_API_KEY = "YOUR_API_KEY"  # Replace with your actual IPQuery API key
 
 def initialize_gemini_models(api_key):
     """Initialize Gemini models with the provided API key"""
@@ -205,6 +207,40 @@ async def search_yts_multiple(query: str, limit: int = 5):
         logger.error(f"Error searching YouTube: {e}")
         return f"❌ YouTube সার্চ করতে সমস্যা হয়েছে: {str(e)}"
 
+async def get_ip_info(ip_address: str, api_key: str):
+    """
+    IP Geolocation API ব্যবহার করে IP ঠিকানার তথ্য পাওয়ার ফাংশন।
+    :param ip_address: IP ঠিকানা
+    :param api_key: API কী
+    :return: ফরম্যাটেড রেসপন্স স্ট্রিং
+    """
+    url = f"https://api.ipquery.io/{ip_address}?key={api_key}&format=json"
+
+    try:
+        response = requests.get(url)
+        response.raise_for_status()
+        data = response.json()
+        
+        if response.status_code == 200 and "error" not in data:
+            return f"""
+✅ IP তথ্য যাচাই সম্পন্ন:
+🌐 IP: {data.get('query', 'N/A')}
+🌍 দেশ: {data.get('country', 'N/A')} ({data.get('countryCode', 'N/A')})
+🏙️ শহর: {data.get('city', 'N/A')}
+📍 অঞ্চল: {data.get('regionName', 'N/A')}
+📌 অক্ষাংশ: {data.get('lat', 'N/A')}
+📌 দ্রাঘিমাংশ: {data.get('lon', 'N/A')}
+📡 ISP: {data.get('isp', 'N/A')}
+🏢 প্রতিষ্ঠান: {data.get('org', 'N/A')}
+🔢 ASN: {data.get('as', 'N/A')}
+⏰ সময় অঞ্চল: {data.get('timezone', 'N/A')}
+"""
+        else:
+            return "❌ IP তথ্য পাওয়া যায়নি।"
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error fetching IP info: {e}")
+        return f"❌ IP তথ্য পেতে সমস্যা হয়েছে: {str(e)}"
+
 class TelegramGeminiBot:
     def __init__(self):
         self.application = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
@@ -226,6 +262,7 @@ class TelegramGeminiBot:
         self.application.add_handler(CommandHandler("validatephone", self.validatephone_command))
         self.application.add_handler(CommandHandler("validatebin", self.validatebin_command))
         self.application.add_handler(CommandHandler("yts", self.yts_command))
+        self.application.add_handler(CommandHandler("ipinfo", self.ipinfo_command))
         self.application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_message))
         self.application.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, self.handle_new_member))
         self.application.add_handler(CallbackQueryHandler(self.button_callback, pattern='^copy_code$'))
@@ -273,6 +310,7 @@ Available commands:
 - /validatephone <number> [country_code]: Validate a phone number
 - /validatebin <bin_number>: Validate a BIN number
 - /yts <query> [limit]: Search YouTube videos
+- /ipinfo <ip_address>: Get IP address information
 {'' if user_id != ADMIN_USER_ID else '- /api <key>: Set Gemini API key (admin only)\n- /setadmin: Set yourself as admin (first-time only)\n- /setmodel: Choose a different model (admin only)'}
 
 In groups, mention @I MasterTools or reply to my messages to get a response. I'm excited to chat with you!
@@ -325,6 +363,7 @@ Available commands:
 - /validatephone <number> [country_code]: Validate a phone number
 - /validatebin <bin_number>: Validate a BIN number
 - /yts <query> [limit]: Search YouTube videos
+- /ipinfo <ip_address>: Get IP address information
 {'' if user_id != ADMIN_USER_ID else '- /api <key>: Set Gemini API key (admin only)\n- /setadmin: Set yourself as admin (first-time only)\n- /setmodel: Choose a different model (admin only)'}
 
 My personality:
@@ -691,6 +730,24 @@ For security, the command message will be deleted after setting the key.
         query = ' '.join(context.args[:-1]) if len(context.args) > 1 and context.args[-1].isdigit() else ' '.join(context.args)
         limit = int(context.args[-1]) if len(context.args) > 1 and context.args[-1].isdigit() else 5
         response_message = await search_yts_multiple(query, limit)
+        await update.message.reply_text(response_message)
+
+    async def ipinfo_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle /ipinfo command to get IP address information"""
+        user_id = update.effective_user.id
+        chat_type = update.effective_chat.type
+
+        if chat_type == 'private' and user_id != ADMIN_USER_ID:
+            response, reply_markup = await self.get_private_chat_redirect()
+            await update.message.reply_text(response, reply_markup=reply_markup)
+            return
+
+        if not context.args:
+            await update.message.reply_text("ব্যবহার: /ipinfo <ip_address>\nউদাহরণ: /ipinfo 159.65.8.217")
+            return
+
+        ip_address = context.args[0]
+        response_message = await get_ip_info(ip_address, IP_API_KEY)
         await update.message.reply_text(response_message)
 
     async def handle_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
