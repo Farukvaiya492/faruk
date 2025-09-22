@@ -331,7 +331,7 @@ Available commands:
 - /validatebin <bin_number]: Validate a BIN number
 - /yts <query> [limit]: Search YouTube videos
 - /ipinfo <ip_address>: Fetch IP address information
-- /countryinfo <country_name>: Fetch country information
+- /countryinfo <country_name>: Fetch country information (use English names, e.g., 'Bangladesh')
 {'' if user_id != ADMIN_USER_ID else '- /api <key>: Set Gemini API key (admin only)\n- /setadmin: Set yourself as admin (first-time only)\n- /setmodel: Choose a different model (admin only)'}
 
 In groups, mention @I MasterTools or reply to my messages to get a response. I'm excited to chat with you!
@@ -383,7 +383,7 @@ Available commands:
 - /validatebin <bin_number]: Validate a BIN number
 - /yts <query> [limit]: Search YouTube videos
 - /ipinfo <ip_address>: Fetch IP address information
-- /countryinfo <country_name>: Fetch country information
+- /countryinfo <country_name>: Fetch country information (use English names, e.g., 'Bangladesh')
 {'' if user_id != ADMIN_USER_ID else '- /api <key>: Set Gemini API key (admin only)\n- /setadmin: Set yourself as admin (first-time only)\n- /setmodel: Choose a different model (admin only)'}
 
 My personality:
@@ -750,6 +750,11 @@ For security, the command message will be deleted after setting the key.
             return
 
         country_name = ' '.join(context.args)
+        # Check for non-ASCII characters
+        if not re.match(r'^[\x00-\x7F]*$', country_name):
+            await update.message.reply_text("Please enter the country name in English. For example, use 'Bangladesh' instead of 'বাংলাদেশ'.")
+            return
+
         response_message = await get_country_info(country_name)
         await update.message.reply_text(response_message)
 
