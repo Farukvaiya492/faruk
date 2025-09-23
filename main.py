@@ -1,6 +1,7 @@
 import os
 import logging
 import google.generativeai as genai
+import openai
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, CallbackQuery
 from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters, ContextTypes
 import asyncio
@@ -19,6 +20,7 @@ logger = logging.getLogger(__name__)
 # Configuration
 TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN', '8380869007:AAGu7e41JJVU8aXG5wqXtCMUVKcCmmrp_gg')
 GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
+OPENAI_API_KEY = "336ead4383e84197bddc6790f6fed449"  # OpenAI API key
 ADMIN_USER_ID = int(os.getenv('ADMIN_USER_ID', '7835226724'))
 PORT = int(os.getenv('PORT', 8000))
 WEATHER_API_KEY = "c1794a3c9faa01e4b5142313d4191ef8"  # Weatherstack API key
@@ -37,6 +39,9 @@ current_model = 'gemini-1.5-flash'  # Default model
 # API keys for external services
 PHONE_API_KEY = "num_live_Nf2vjeM19tHdi42qQ2LaVVMg2IGk1ReU2BYBKnvm"
 BIN_API_KEY = "kEXNklIYqLiLU657swFB1VXE0e4NF21G"
+
+# Initialize OpenAI client
+openai.api_key = OPENAI_API_KEY
 
 def initialize_gemini_models(api_key):
     """Initialize Gemini models with the provided API key"""
@@ -301,6 +306,49 @@ async def get_weather_info(location: str):
         logger.error(f"Error fetching weather info: {e}")
         return f"Error fetching weather data: {str(e)}. Please try a different location!"
 
+async def get_sunset_description_and_image():
+    """
+    Generate a sunset description using GPT-4 and an image using DALL·E
+    :return: Tuple of (description, image_url) or (error_message, None) on failure
+    """
+    try:
+        # Generate sunset description using GPT-4
+        response_chat = openai.ChatCompletion.create(
+            model="gpt-4",
+            messages=[
+                {
+                    "role": "system",
+                    "content": "You are an AI assistant who knows everything. Provide a vivid, concise description of a beautiful sunset scene, suitable for generating an image with DALL·E."
+                },
+                {
+                    "role": "user",
+                    "content": "Describe a beautiful sunset scene."
+                },
+            ],
+        )
+        description = response_chat['choices'][0]['message']['content']
+
+        # Generate image based on the description using DALL·E
+        response_image = openai.Image.create(
+            prompt=description,
+            n=1,
+            size="1024x1024"
+        )
+        image_url = response_image['data'][0]['url']
+        
+        # Format description in box style
+        output_message = "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓\n"
+        output_message += "┃ 🌅 Sunset Scene Description ┃\n"
+        output_message += "┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫\n"
+        output_message += f"┃ 📜 {description}\n"
+        output_message += "┃\n"
+        output_message += "┗━━━ 𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸 ━━━┛"
+        
+        return output_message, image_url
+    except Exception as e:
+        logger.error(f"Error generating sunset description or image: {e}")
+        return "Error generating sunset description or image. Please try again!", None
+
 class TelegramGeminiBot:
     def __init__(self):
         self.application = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
@@ -322,7 +370,8 @@ class TelegramGeminiBot:
         self.application.add_handler(CommandHandler("yts", self.yts_command))
         self.application.add_handler(CommandHandler("ipinfo", self.ipinfo_command))
         self.application.add_handler(CommandHandler("countryinfo", self.countryinfo_command))
-        self.application.add_handler(CommandHandler("weather", self.weather_command))  # New weather command
+        self.application.add_handler(CommandHandler("weather", self.weather_command))
+        self.application.add_handler(CommandHandler("sunset", self.sunset_command))  # New sunset command
         self.application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_message))
         self.application.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, self.handle_new_member))
         self.application.add_handler(CallbackQueryHandler(self.button_callback, pattern='^copy_code$'))
@@ -371,6 +420,7 @@ Available commands:
 - /ipinfo <ip_address>: Fetch IP address information
 - /countryinfo <country_name>: Fetch country information (use English names, e.g., 'Bangladesh')
 - /weather <location>: Fetch current weather information
+- /sunset: Generate a beautiful sunset description and image
 {'' if user_id != ADMIN_USER_ID else '- /api <key>: Set Gemini API key (admin only)\n- /setadmin: Set yourself as admin (first-time only)\n- /setmodel: Choose a different model (admin only)'}
 
 In groups, mention @I MasterTools or reply to my messages to get a response. I'm excited to chat with you!
@@ -424,6 +474,7 @@ Available commands:
 - /ipinfo <ip_address>: Fetch IP address information
 - /countryinfo <country_name>: Fetch country information (use English names, e.g., 'Bangladesh')
 - /weather <location>: Fetch current weather information
+- /sunset: Generate a beautiful sunset description and image
 {'' if user_id != ADMIN_USER_ID else '- /api <key>: Set Gemini API key (admin only)\n- /setadmin: Set yourself as admin (first-time only)\n- /setmodel: Choose a different model (admin only)'}
 
 My personality:
@@ -815,6 +866,40 @@ For security, the command message will be deleted after setting the key.
         location = ' '.join(context.args)
         response_message = await get_weather_info(location)
         await update.message.reply_text(response_message)
+
+    async def sunset_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle /sunset command to generate a sunset description and image"""
+        user_id = update.effective_user.id
+        chat_type = update.effective_chat.type
+        chat_id = update.effective_chat.id
+
+        if chat_type == 'private' and user_id != ADMIN_USER_ID:
+            response, reply_markup = await self.get_private_chat_redirect()
+            await update.message.reply_text(response, reply_markup=reply_markup)
+            return
+
+        # Show typing action
+        await context.bot.send_chat_action(chat_id=chat_id, action="upload_photo")
+
+        # Generate description and image
+        description, image_url = await get_sunset_description_and_image()
+
+        # Send description
+        await update.message.reply_text(description)
+
+        # Send image if available
+        if image_url:
+            try:
+                await context.bot.send_photo(
+                    chat_id=chat_id,
+                    photo=image_url,
+                    caption="🌅 Generated Sunset Image\n┗━━━ 𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸 ━━━┛"
+                )
+            except Exception as e:
+                logger.error(f"Error sending sunset image: {e}")
+                await update.message.reply_text("Failed to send the sunset image. Here's the description, though!")
+        else:
+            await update.message.reply_text("Couldn't generate the image, but I hope you enjoy the description!")
 
     async def handle_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle regular text messages"""
