@@ -1,13 +1,13 @@
 import os
 import logging
 import google.generativeai as genai
+import requests
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, CallbackQuery
 from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters, ContextTypes
 import asyncio
 from datetime import datetime
 import random
 import re
-import requests
 
 # Configure logging
 logging.basicConfig(
@@ -19,8 +19,10 @@ logger = logging.getLogger(__name__)
 # Configuration
 TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN', '8380869007:AAGu7e41JJVU8aXG5wqXtCMUVKcCmmrp_gg')
 GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
+REMOVE_BG_API_KEY = '15smbepCfMYoHh7D7Cnzj9Z6'  # remove.bg API key
 ADMIN_USER_ID = int(os.getenv('ADMIN_USER_ID', '7835226724'))
 PORT = int(os.getenv('PORT', 8000))
+WEATHER_API_KEY = "c1794a3c9faa01e4b5142313d4191ef8"  # Weatherstack API key
 
 # Global variables for dynamic API key and model management
 current_gemini_api_key = GEMINI_API_KEY
@@ -37,37 +39,10 @@ current_model = 'gemini-1.5-flash'  # Default model
 PHONE_API_KEY = "num_live_Nf2vjeM19tHdi42qQ2LaVVMg2IGk1ReU2BYBKnvm"
 BIN_API_KEY = "kEXNklIYqLiLU657swFB1VXE0e4NF21G"
 
-# ===========================
-# লাইক পাঠানোর ফাংশন
-# ===========================
-def send_like(uid: str, server_name: str = "BD"):
-    api_url = f"https://free-like-api-aditya-ffm.vercel.app/like?uid={uid}&server_name={server_name}&key=@adityaapis"
-    
-    try:
-        response = requests.get(api_url, timeout=10)
-        if response.status_code == 200:
-            data = response.json()
-            before = data.get("LikesbeforeCommand", 0)
-            after = data.get("LikesafterCommand", 0)
-            added = after - before
-            level = data.get("PlayerLevel", "N/A")
-            region = data.get("PlayerRegion", "N/A")
-            nickname = data.get("PlayerNickname", "N/A")
-            
-            return {
-                "uid": uid,
-                "level": level,
-                "region": region,
-                "nickname": nickname,
-                "before": before,
-                "after": after,
-                "added": added,
-                "status": "Success ✅"
-            }
-        else:
-            return {"status": f"Error: {response.status_code}"}
-    except Exception as e:
-        return {"status": f"Error: {e}"}
+# Store conversation context and state for removebg
+conversation_context = {}
+group_activity = {}
+removebg_state = {}  # To track which chats are expecting an image for /removebg
 
 def initialize_gemini_models(api_key):
     """Initialize Gemini models with the provided API key"""
@@ -92,10 +67,6 @@ if GEMINI_API_KEY:
         logger.error(f"Failed to initialize Gemini API: {message}")
 else:
     logger.warning("GEMINI_API_KEY not set. Use /api command to configure.")
-
-# Store conversation context for each chat
-conversation_context = {}
-group_activity = {}
 
 async def validate_phone_number(phone_number: str, api_key: str, country_code: str = None):
     """
@@ -248,37 +219,6 @@ async def get_ip_info(ip_address: str):
         logger.error(f"Error fetching IP info: {e}")
         return "Invalid IP address or error fetching data. Please try a different IP!"
 
-async def get_ip_info2(ip_address: str):
-    """
-    Fetch IP information using ip2location.io
-    :param ip_address: IP address to look up
-    :return: Formatted response string
-    """
-    url = f"https://api.ip2location.io/?ip={ip_address}"
-    
-    try:
-        response = requests.get(url)
-        if response.status_code == 200:
-            data = response.json()
-            output_message = "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓\n"
-            output_message += f"┃ 🌐 IP Location Information for '{ip_address}' ┃\n"
-            output_message += "┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫\n"
-            output_message += f"┃ 📍 IP: {data.get('ip', 'N/A')}\n"
-            output_message += f"┃ 🇺🇳 Country: {data.get('country_name', 'N/A')}\n"
-            output_message += f"┃ 🌍 Region: {data.get('region_name', 'N/A')}\n"
-            output_message += f"┃ 🏙️ City: {data.get('city', 'N/A')}\n"
-            output_message += f"┃ 📌 Latitude: {data.get('latitude', 'N/A')}\n"
-            output_message += f"┃ 📌 Longitude: {data.get('longitude', 'N/A')}\n"
-            output_message += f"┃ 🏢 ISP: {data.get('isp', 'N/A')}\n"
-            output_message += "┃\n"
-            output_message += "┗━━━ 𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸 ━━━┛"
-            return output_message
-        else:
-            return "Failed to fetch data"
-    except Exception as e:
-        logger.error(f"Error fetching IP info from ip2location.io: {e}")
-        return f"Error fetching data: {str(e)}"
-
 async def get_country_info(country_name: str):
     """
     Fetch country information using restcountries.com
@@ -327,6 +267,167 @@ async def get_country_info(country_name: str):
         logger.error(f"Error fetching country info: {e}")
         return f"Error fetching country data: {str(e)}. Please try a different country name!"
 
+async def get_weather_info(location: str):
+    """
+    Fetch weather information using Weatherstack API
+    :param location: City or location name to look up
+    :return: Formatted response string with box design
+    """
+    url = "http://api.weatherstack.com/current"
+    params = {
+        'access_key': WEATHER_API_KEY,
+        'query': location
+    }
+    
+    try:
+        response = requests.get(url, params=params)
+        response.raise_for_status()
+        data = response.json()
+        
+        if response.status_code == 200 and 'current' in data:
+            current_weather = data['current']
+            output_message = "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓\n"
+            output_message += f"┃ ☁ Weather Information for '{location.title()}' ┃\n"
+            output_message += "┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫\n"
+            output_message += f"┃ 🌡️ Temperature: {current_weather.get('temperature', 'N/A')}°C\n"
+            output_message += f"┃ ☁ Weather: {current_weather.get('weather_descriptions', ['N/A'])[0]}\n"
+            output_message += f"┃ 💧 Humidity: {current_weather.get('humidity', 'N/A')}% \n"
+            output_message += f"┃ 💨 Wind Speed: {current_weather.get('wind_speed', 'N/A')} km/h\n"
+            output_message += "┃\n"
+            output_message += "┗━━━ 𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸 ━━━┛"
+            return output_message
+        else:
+            error_info = data.get("error", {}).get("info", "Unknown error")
+            return f"Error fetching weather data: {error_info}"
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error fetching weather info: {e}")
+        return f"Error fetching weather data: {str(e)}. Please try a different location!"
+
+async def remove_background(image_data: bytes, chat_id: int):
+    """
+    Remove background from an image using remove.bg API
+    :param image_data: Bytes of the image file
+    :param chat_id: Telegram chat ID for logging
+    :return: Tuple of (success, response_content or error_message)
+    """
+    url = 'https://api.remove.bg/v1.0/removebg'
+    try:
+        response = requests.post(
+            url,
+            files={'image_file': ('image.jpg', image_data)},
+            data={'size': 'auto'},
+            headers={'X-Api-Key': REMOVE_BG_API_KEY}
+        )
+        if response.status_code == 200:
+            return True, response.content
+        else:
+            logger.error(f"remove.bg API error for chat {chat_id}: {response.status_code} - {response.text}")
+            return False, f"Error: {response.status_code} - {response.text}"
+    except Exception as e:
+        logger.error(f"Error removing background for chat {chat_id}: {e}")
+        return False, f"Error removing background: {str(e)}"
+
+async def get_gemini_trading_pairs():
+    """
+    Fetch available trading pairs from Gemini API
+    :return: Formatted response string with box design
+    """
+    url = "https://api.gemini.com/v1/symbols"
+    headers = {
+        "Content-Type": "application/json"
+    }
+    
+    try:
+        response = requests.get(url, headers=headers)
+        if response.status_code == 200:
+            symbols = response.json()
+            output_message = "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓\n"
+            output_message += "┃ 💹 Available Trading Pairs on Gemini ┃\n"
+            output_message += "┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫\n"
+            for i, symbol in enumerate(symbols[:10], 1):  # Limit to 10 pairs for brevity
+                output_message += f"┃ 💱 Pair {i}: {symbol.upper()}\n"
+            output_message += "┃\n"
+            output_message += "┗━━━ 𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸 ━━━┛"
+            return output_message
+        else:
+            logger.error(f"Gemini API error: {response.status_code} - {response.text}")
+            return f"❌ Error fetching trading pairs: {response.status_code} - {response.text}"
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error fetching Gemini trading pairs: {e}")
+        return f"❌ Error fetching trading pairs: {str(e)}"
+
+async def get_binance_ticker(symbol: str):
+    """
+    Fetch 24hr ticker data for a specific symbol from Binance API
+    :param symbol: Trading pair symbol (e.g., BTCUSDT)
+    :return: Formatted response string with box design
+    """
+    url = 'https://api4.binance.com/api/v3/ticker/24hr'
+    full_url = f"{url}?symbol={symbol}"
+    
+    try:
+        response = requests.get(full_url)
+        if response.status_code == 200:
+            data = response.json()
+            output_message = "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓\n"
+            output_message += f"┃ 💹 24hr Ticker Data for {data['symbol']} ┃\n"
+            output_message += "┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫\n"
+            output_message += f"┃ 💰 Last Price: {data.get('lastPrice', 'N/A')}\n"
+            output_message += f"┃ 📈 Price Change (24h): {data.get('priceChange', 'N/A')}\n"
+            output_message += f"┃ 📊 Price Change Percent: {data.get('priceChangePercent', 'N/A')}% \n"
+            output_message += f"┃ 🔺 24h High Price: {data.get('highPrice', 'N/A')}\n"
+            output_message += f"┃ 🔻 24h Low Price: {data.get('lowPrice', 'N/A')}\n"
+            output_message += f"┃ 📉 24h Volume: {data.get('volume', 'N/A')}\n"
+            output_message += "┃\n"
+            output_message += "┗━━━ 𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸 ━━━┛"
+            return output_message
+        else:
+            logger.error(f"Binance API error: {response.status_code} - {response.text}")
+            return f"❌ Error fetching ticker data: {response.status_code} - {response.text}"
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error fetching Binance ticker data: {e}")
+        return f"❌ Error fetching ticker data: {str(e)}"
+
+async def send_like(uid: str, server_name: str = "BD"):
+    """
+    Send likes to a Free Fire UID
+    :param uid: Free Fire user ID
+    :param server_name: Server name (default: BD)
+    :return: Formatted response string with box design
+    """
+    api_url = f"https://free-like-api-aditya-ffm.vercel.app/like?uid={uid}&server_name={server_name}&key=@adityaapis"
+    
+    try:
+        response = requests.get(api_url, timeout=10)
+        if response.status_code == 200:
+            data = response.json()
+            before = data.get("LikesbeforeCommand", 0)
+            after = data.get("LikesafterCommand", 0)
+            added = after - before
+            level = data.get("PlayerLevel", "N/A")
+            region = data.get("PlayerRegion", "N/A")
+            nickname = data.get("PlayerNickname", "N/A")
+            
+            output_message = "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓\n"
+            output_message += f"┃ ✅ Likes Sent to Free Fire UID {uid} ┃\n"
+            output_message += "┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫\n"
+            output_message += f"┃ 👤 Player Nickname: {nickname}\n"
+            output_message += f"┃ 🏆 Player Level: {level}\n"
+            output_message += f"┃ 🌍 Player Region: {region}\n"
+            output_message += f"┃ ❤️ Likes Before: {before}\n"
+            output_message += f"┃ ❤️ Likes After: {after}\n"
+            output_message += f"┃ ➕ Likes Added: {added}\n"
+            output_message += f"┃ 🟢 Status: Success ✅\n"
+            output_message += "┃\n"
+            output_message += "┗━━━ 𝗖�_r𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸 ━━━┛"
+            return output_message
+        else:
+            logger.error(f"Free Fire Like API error: {response.status_code} - {response.text}")
+            return f"❌ Failed to send like.\nStatus: Error {response.status_code}"
+    except Exception as e:
+        logger.error(f"Error sending Free Fire like: {e}")
+        return f"❌ Failed to send like.\nStatus: Error: {str(e)}"
+
 class TelegramGeminiBot:
     def __init__(self):
         self.application = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
@@ -347,11 +448,15 @@ class TelegramGeminiBot:
         self.application.add_handler(CommandHandler("validatebin", self.validatebin_command))
         self.application.add_handler(CommandHandler("yts", self.yts_command))
         self.application.add_handler(CommandHandler("ipinfo", self.ipinfo_command))
-        self.application.add_handler(CommandHandler("ipinfo2", self.ipinfo2_command))
-        self.application.add_handler(CommandHandler("like", self.like_command))
         self.application.add_handler(CommandHandler("countryinfo", self.countryinfo_command))
+        self.application.add_handler(CommandHandler("weather", self.weather_command))
+        self.application.add_handler(CommandHandler("removebg", self.removebg_command))
+        self.application.add_handler(CommandHandler("gemini", self.gemini_command))
+        self.application.add_handler(CommandHandler("binance", self.binance_command))
+        self.application.add_handler(CommandHandler("like", self.like_command))
         self.application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_message))
         self.application.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, self.handle_new_member))
+        self.application.add_handler(MessageHandler(filters.PHOTO & ~filters.COMMAND, self.handle_photo))
         self.application.add_handler(CallbackQueryHandler(self.button_callback, pattern='^copy_code$'))
         self.application.add_error_handler(self.error_handler)
 
@@ -396,10 +501,13 @@ Available commands:
 - /validatebin <bin_number]: Validate a BIN number
 - /yts <query> [limit]: Search YouTube videos
 - /ipinfo <ip_address>: Fetch IP address information
-- /ipinfo2 <ip_address>: Fetch IP address information (IP2Location)
-- /like <UID>: Send likes to a Free Fire UID
 - /countryinfo <country_name>: Fetch country information (use English names, e.g., 'Bangladesh')
-{'' if user_id != ADMIN_USER_ID else '- /api <key>: Set Gemini API key (admin only)\n- /setadmin: Set yourself as admin (first-time only)\n- /setmodel: Choose a different model (admin only)'}
+- /weather <location>: Fetch current weather information
+- /removebg: Remove the background from an uploaded image
+- /gemini: List available trading pairs on Gemini exchange
+- /binance <symbol>: Fetch 24hr ticker data for a Binance trading pair
+- /like <uid>: Send likes to a Free Fire UID
+{'' if user_id != ADMIN_USER_ID else '- /api <key>: Set Gemini AI API key (admin only)\n- /setadmin: Set yourself as admin (first-time only)\n- /setmodel: Choose a different model (admin only)'}
 
 In groups, mention @I MasterTools or reply to my messages to get a response. I'm excited to chat with you!
             """
@@ -450,10 +558,13 @@ Available commands:
 - /validatebin <bin_number]: Validate a BIN number
 - /yts <query> [limit]: Search YouTube videos
 - /ipinfo <ip_address>: Fetch IP address information
-- /ipinfo2 <ip_address>: Fetch IP address information (IP2Location)
-- /like <UID>: Send likes to a Free Fire UID
 - /countryinfo <country_name>: Fetch country information (use English names, e.g., 'Bangladesh')
-{'' if user_id != ADMIN_USER_ID else '- /api <key>: Set Gemini API key (admin only)\n- /setadmin: Set yourself as admin (first-time only)\n- /setmodel: Choose a different model (admin only)'}
+- /weather <location>: Fetch current weather information
+- /removebg: Remove the background from an uploaded image
+- /gemini: List available trading pairs on Gemini exchange
+- /binance <symbol>: Fetch 24hr ticker data for a Binance trading pair
+- /like <uid>: Send likes to a Free Fire UID
+{'' if user_id != ADMIN_USER_ID else '- /api <key>: Set Gemini AI API key (admin only)\n- /setadmin: Set yourself as admin (first-time only)\n- /setmodel: Choose a different model (admin only)'}
 
 My personality:
 - I'm a friendly companion who loves chatting and making friends
@@ -478,6 +589,8 @@ Powered by Google Gemini
         else:
             if chat_id in conversation_context:
                 del conversation_context[chat_id]
+            if chat_id in removebg_state:
+                del removebg_state[chat_id]
             await update.message.reply_text("Conversation history has been cleared. Let's start fresh!")
 
     async def checkmail_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -560,7 +673,7 @@ All systems are ready for action. I'm thrilled to assist!
                     await update.message.reply_text("Sorry, the admin is already set. Only the current admin can manage the bot.")
 
     async def api_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle /api command to set Gemini API key"""
+        """Handle /api command to set Gemini AI API key"""
         global current_gemini_api_key, general_model, coding_model
         user_id = update.effective_user.id
         chat_type = update.effective_chat.type
@@ -581,7 +694,7 @@ Please provide an API key.
 
 Usage: `/api your_gemini_api_key_here`
 
-To get a Gemini API key:
+To get a Gemini AI API key:
 1. Visit https://makersuite.google.com/app/apikey
 2. Generate a new API key
 3. Use the command: /api YOUR_API_KEY
@@ -591,7 +704,7 @@ For security, the command message will be deleted after setting the key.
                 return
             api_key = ' '.join(context.args)
             if len(api_key) < 20 or not api_key.startswith('AI'):
-                await update.message.reply_text("Invalid API key format. Gemini API keys typically start with 'AI' and are over 20 characters.")
+                await update.message.reply_text("Invalid API key format. Gemini AI API keys typically start with 'AI' and are over 20 characters.")
                 return
             success, message = initialize_gemini_models(api_key)
             try:
@@ -599,8 +712,8 @@ For security, the command message will be deleted after setting the key.
             except Exception as e:
                 logger.error(f"Error deleting API command message: {e}")
             if success:
-                await update.effective_chat.send_message(f"Gemini API key updated successfully! Key: ...{api_key[-8:]}")
-                logger.info(f"Gemini API key updated by admin {user_id}")
+                await update.effective_chat.send_message(f"Gemini AI API key updated successfully! Key: ...{api_key[-8:]}")
+                logger.info(f"Gemini AI API key updated by admin {user_id}")
             else:
                 await update.effective_chat.send_message(f"Failed to set API key: {message}")
                 logger.error(f"Failed to set API key: {message}")
@@ -723,7 +836,7 @@ For security, the command message will be deleted after setting the key.
         except Exception as e:
             logger.error(f"Error sending profile photo: {e}")
             await bot.send_message(
-                chart_id=chat_id,
+                chat_id=chat_id,
                 text=info_text,
                 parse_mode="Markdown",
                 reply_to_message_id=update.message.message_id,
@@ -804,57 +917,6 @@ For security, the command message will be deleted after setting the key.
         response_message = await get_ip_info(ip_address)
         await update.message.reply_text(response_message)
 
-    async def ipinfo2_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle /ipinfo2 command to fetch IP address information using ip2location.io"""
-        user_id = update.effective_user.id
-        chat_type = update.effective_chat.type
-
-        if chat_type == 'private' and user_id != ADMIN_USER_ID:
-            response, reply_markup = await self.get_private_chat_redirect()
-            await update.message.reply_text(response, reply_markup=reply_markup)
-            return
-
-        if not context.args:
-            await update.message.reply_text("Usage: /ipinfo2 <ip_address>\nExample: /ipinfo2 8.8.8.8")
-            return
-
-        ip_address = context.args[0]
-        response_message = await get_ip_info2(ip_address)
-        await update.message.reply_text(response_message)
-
-    async def like_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle /like command to send likes to a Free Fire UID"""
-        user_id = update.effective_user.id
-        chat_type = update.effective_chat.type
-
-        if chat_type == 'private' and user_id != ADMIN_USER_ID:
-            response, reply_markup = await self.get_private_chat_redirect()
-            await update.message.reply_text(response, reply_markup=reply_markup)
-            return
-
-        if len(context.args) != 1:
-            await update.message.reply_text("Usage: /like <UID>")
-            return
-    
-        uid = context.args[0]
-        result = send_like(uid)
-    
-        if "added" in result:
-            message = (
-                f"✅ Likes Sent!\n\n"
-                f"UID: {result['uid']}\n"
-                f"Player Level: {result['level']}\n"
-                f"Player Region: {result['region']}\n"
-                f"Player Nickname: {result['nickname']}\n"
-                f"Likes Before: {result['before']}\n"
-                f"Likes After: {result['after']}\n"
-                f"Likes Added: {result['added']}"
-            )
-        else:
-            message = f"Failed to send like.\nStatus: {result.get('status', 'Unknown Error')}"
-    
-        await update.message.reply_text(message)
-
     async def countryinfo_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /countryinfo command to fetch country information"""
         user_id = update.effective_user.id
@@ -877,6 +939,139 @@ For security, the command message will be deleted after setting the key.
 
         response_message = await get_country_info(country_name)
         await update.message.reply_text(response_message)
+
+    async def weather_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle /weather command to fetch current weather information"""
+        user_id = update.effective_user.id
+        chat_type = update.effective_chat.type
+
+        if chat_type == 'private' and user_id != ADMIN_USER_ID:
+            response, reply_markup = await self.get_private_chat_redirect()
+            await update.message.reply_text(response, reply_markup=reply_markup)
+            return
+
+        if not context.args:
+            await update.message.reply_text("Usage: /weather <location>\nExample: /weather Dhaka")
+            return
+
+        location = ' '.join(context.args)
+        response_message = await get_weather_info(location)
+        await update.message.reply_text(response_message)
+
+    async def removebg_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle /removebg command to initiate background removal"""
+        user_id = update.effective_user.id
+        chat_id = update.effective_chat.id
+        chat_type = update.effective_chat.type
+
+        if chat_type == 'private' and user_id != ADMIN_USER_ID:
+            response, reply_markup = await self.get_private_chat_redirect()
+            await update.message.reply_text(response, reply_markup=reply_markup)
+            return
+
+        # Set state to expect a photo
+        removebg_state[chat_id] = True
+        await update.message.reply_text(
+            "Please upload an image to remove its background. I'll process it and send back the result!"
+        )
+
+    async def gemini_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle /gemini command to list available trading pairs"""
+        user_id = update.effective_user.id
+        chat_type = update.effective_chat.type
+
+        if chat_type == 'private' and user_id != ADMIN_USER_ID:
+            response, reply_markup = await self.get_private_chat_redirect()
+            await update.message.reply_text(response, reply_markup=reply_markup)
+            return
+
+        await context.bot.send_chat_action(chat_id=update.effective_chat.id, action="typing")
+        response_message = await get_gemini_trading_pairs()
+        await update.message.reply_text(response_message)
+
+    async def binance_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle /binance command to fetch 24hr ticker data"""
+        user_id = update.effective_user.id
+        chat_type = update.effective_chat.type
+
+        if chat_type == 'private' and user_id != ADMIN_USER_ID:
+            response, reply_markup = await self.get_private_chat_redirect()
+            await update.message.reply_text(response, reply_markup=reply_markup)
+            return
+
+        if not context.args:
+            await update.message.reply_text("Usage: /binance <symbol>\nExample: /binance BTCUSDT")
+            return
+
+        symbol = context.args[0].upper()  # Ensure symbol is uppercase
+        await context.bot.send_chat_action(chat_id=update.effective_chat.id, action="typing")
+        response_message = await get_binance_ticker(symbol)
+        await update.message.reply_text(response_message)
+
+    async def like_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle /like command to send likes to a Free Fire UID"""
+        user_id = update.effective_user.id
+        chat_type = update.effective_chat.type
+
+        if chat_type == 'private' and user_id != ADMIN_USER_ID:
+            response, reply_markup = await self.get_private_chat_redirect()
+            await update.message.reply_text(response, reply_markup=reply_markup)
+            return
+
+        if len(context.args) != 1:
+            await update.message.reply_text("Usage: /like <UID>\nExample: /like 3533918864")
+            return
+
+        uid = context.args[0]
+        await context.bot.send_chat_action(chat_id=update.effective_chat.id, action="typing")
+        response_message = await send_like(uid)
+        await update.message.reply_text(response_message)
+
+    async def handle_photo(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle photo uploads for background removal"""
+        user_id = update.effective_user.id
+        chat_id = update.effective_chat.id
+        chat_type = update.effective_chat.type
+
+        if chat_type == 'private' and user_id != ADMIN_USER_ID:
+            response, reply_markup = await self.get_private_chat_redirect()
+            await update.message.reply_text(response, reply_markup=reply_markup)
+            return
+
+        if chat_id not in removebg_state or not removebg_state[chat_id]:
+            return  # Ignore photos unless /removebg was called
+
+        # Show uploading photo action
+        await context.bot.send_chat_action(chat_id=chat_id, action="upload_photo")
+
+        try:
+            # Get the photo (use the highest resolution available)
+            photo = update.message.photo[-1]
+            file = await photo.get_file()
+            image_data = await file.download_as_bytearray()
+
+            # Call remove.bg API
+            success, result = await remove_background(image_data, chat_id)
+
+            if success:
+                # Send the processed image
+                await context.bot.send_photo(
+                    chat_id=chat_id,
+                    photo=result,
+                    caption="✅ Background removed successfully!\n┗━━━ 𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸 ━━━┛"
+                )
+            else:
+                await update.message.reply_text(f"❌ Failed to remove background: {result}")
+
+            # Clear the removebg state
+            if chat_id in removebg_state:
+                del removebg_state[chat_id]
+
+        except Exception as e:
+            logger.error(f"Error handling photo for chat {chat_id}: {e}")
+            await update.message.reply_text("Something went wrong while processing the image. Please try again!")
+            if chat_id in removebg_state:
+                del removebg_state[chat_id]
 
     async def handle_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle regular text messages"""
@@ -1040,11 +1235,11 @@ def main():
     logger.info("Starting Telegram Bot...")
     logger.info(f"Admin User ID: {ADMIN_USER_ID}")
     if current_gemini_api_key:
-        logger.info("Gemini API configured and ready")
+        logger.info("Gemini AI API configured and ready")
     else:
-        logger.warning("Gemini API not configured. Use /setadmin and /api commands to set up.")
+        logger.warning("Gemini AI API not configured. Use /setadmin and /api commands to set up.")
     bot = TelegramGeminiBot()
     bot.run()
 
 if __name__ == '__main__':
-    main() এটা রাখেন 
+    main()
