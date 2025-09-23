@@ -37,6 +37,38 @@ current_model = 'gemini-1.5-flash'  # Default model
 PHONE_API_KEY = "num_live_Nf2vjeM19tHdi42qQ2LaVVMg2IGk1ReU2BYBKnvm"
 BIN_API_KEY = "kEXNklIYqLiLU657swFB1VXE0e4NF21G"
 
+# ===========================
+# লাইক পাঠানোর ফাংশন
+# ===========================
+def send_like(uid: str, server_name: str = "BD"):
+    api_url = f"https://free-like-api-aditya-ffm.vercel.app/like?uid={uid}&server_name={server_name}&key=@adityaapis"
+    
+    try:
+        response = requests.get(api_url, timeout=10)
+        if response.status_code == 200:
+            data = response.json()
+            before = data.get("LikesbeforeCommand", 0)
+            after = data.get("LikesafterCommand", 0)
+            added = after - before
+            level = data.get("PlayerLevel", "N/A")
+            region = data.get("PlayerRegion", "N/A")
+            nickname = data.get("PlayerNickname", "N/A")
+            
+            return {
+                "uid": uid,
+                "level": level,
+                "region": region,
+                "nickname": nickname,
+                "before": before,
+                "after": after,
+                "added": added,
+                "status": "Success ✅"
+            }
+        else:
+            return {"status": f"Error: {response.status_code}"}
+    except Exception as e:
+        return {"status": f"Error: {e}"}
+
 def initialize_gemini_models(api_key):
     """Initialize Gemini models with the provided API key"""
     global general_model, coding_model, current_gemini_api_key
@@ -316,6 +348,7 @@ class TelegramGeminiBot:
         self.application.add_handler(CommandHandler("yts", self.yts_command))
         self.application.add_handler(CommandHandler("ipinfo", self.ipinfo_command))
         self.application.add_handler(CommandHandler("ipinfo2", self.ipinfo2_command))
+        self.application.add_handler(CommandHandler("like", self.like_command))
         self.application.add_handler(CommandHandler("countryinfo", self.countryinfo_command))
         self.application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_message))
         self.application.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, self.handle_new_member))
@@ -364,6 +397,7 @@ Available commands:
 - /yts <query> [limit]: Search YouTube videos
 - /ipinfo <ip_address>: Fetch IP address information
 - /ipinfo2 <ip_address>: Fetch IP address information (IP2Location)
+- /like <UID>: Send likes to a Free Fire UID
 - /countryinfo <country_name>: Fetch country information (use English names, e.g., 'Bangladesh')
 {'' if user_id != ADMIN_USER_ID else '- /api <key>: Set Gemini API key (admin only)\n- /setadmin: Set yourself as admin (first-time only)\n- /setmodel: Choose a different model (admin only)'}
 
@@ -417,6 +451,7 @@ Available commands:
 - /yts <query> [limit]: Search YouTube videos
 - /ipinfo <ip_address>: Fetch IP address information
 - /ipinfo2 <ip_address>: Fetch IP address information (IP2Location)
+- /like <UID>: Send likes to a Free Fire UID
 - /countryinfo <country_name>: Fetch country information (use English names, e.g., 'Bangladesh')
 {'' if user_id != ADMIN_USER_ID else '- /api <key>: Set Gemini API key (admin only)\n- /setadmin: Set yourself as admin (first-time only)\n- /setmodel: Choose a different model (admin only)'}
 
@@ -688,7 +723,7 @@ For security, the command message will be deleted after setting the key.
         except Exception as e:
             logger.error(f"Error sending profile photo: {e}")
             await bot.send_message(
-                chat_id=chat_id,
+                chart_id=chat_id,
                 text=info_text,
                 parse_mode="Markdown",
                 reply_to_message_id=update.message.message_id,
@@ -786,6 +821,39 @@ For security, the command message will be deleted after setting the key.
         ip_address = context.args[0]
         response_message = await get_ip_info2(ip_address)
         await update.message.reply_text(response_message)
+
+    async def like_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle /like command to send likes to a Free Fire UID"""
+        user_id = update.effective_user.id
+        chat_type = update.effective_chat.type
+
+        if chat_type == 'private' and user_id != ADMIN_USER_ID:
+            response, reply_markup = await self.get_private_chat_redirect()
+            await update.message.reply_text(response, reply_markup=reply_markup)
+            return
+
+        if len(context.args) != 1:
+            await update.message.reply_text("Usage: /like <UID>")
+            return
+    
+        uid = context.args[0]
+        result = send_like(uid)
+    
+        if "added" in result:
+            message = (
+                f"✅ Likes Sent!\n\n"
+                f"UID: {result['uid']}\n"
+                f"Player Level: {result['level']}\n"
+                f"Player Region: {result['region']}\n"
+                f"Player Nickname: {result['nickname']}\n"
+                f"Likes Before: {result['before']}\n"
+                f"Likes After: {result['after']}\n"
+                f"Likes Added: {result['added']}"
+            )
+        else:
+            message = f"Failed to send like.\nStatus: {result.get('status', 'Unknown Error')}"
+    
+        await update.message.reply_text(message)
 
     async def countryinfo_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /countryinfo command to fetch country information"""
