@@ -1,15 +1,12 @@
-
 import os
 import logging
 import google.generativeai as genai
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, CallbackQuery
-from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters, ContextTypes
+from telegram.ext import Application, CommandHandler, CallbackQueryHandler, filters, ContextTypes
 import asyncio
-from datetime import datetime
 import random
 import re
 import requests
-import time
 
 # Configure logging
 logging.basicConfig(
@@ -39,9 +36,6 @@ current_model = 'gemini-1.5-flash'  # Default model
 PHONE_API_KEY = "num_live_Nf2vjeM19tHdi42qQ2LaVVMg2IGk1ReU2BYBKnvm"
 BIN_API_KEY = "kEXNklIYqLiLU657swFB1VXE0e4NF21G"
 API_URL = "https://free-like-api-aditya-ffm.vercel.app/like"
-
-# User Likes Tracking Database or Dictionary
-user_likes = {}
 
 # ===========================
 # Function to Send Likes
@@ -309,7 +303,7 @@ async def get_ip_info2(ip_address: str):
             output_message += f"┃ 📌 Longitude: {data.get('longitude', 'N/A')}\n"
             output_message += f"┃ 🏢 ISP: {data.get('isp', 'N/A')}\n"
             output_message += "┃\n"
-            output_message += "┗━━━ 𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸 ━━━┛"
+            output_message += "┗━━━ 𝗖�_r𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸 ━━━┛"
             return output_message
         else:
             return "Failed to fetch data"
@@ -357,7 +351,7 @@ async def get_country_info(country_name: str):
             output_message += f"┃ 🌐 Region: {country.get('region', 'N/A')}\n"
             output_message += f"┃ 🗺️ Subregion: {country.get('subregion', 'N/A')}\n"
             output_message += "┃\n"
-            output_message += "┗━━━ 𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸 ━━━┛"
+            output_message += "┗━━━ 𝗖�_r𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸 ━━━┛"
             return output_message
         else:
             return "No information found for this country. Please try a different country name!"
@@ -387,10 +381,7 @@ class TelegramGeminiBot:
         self.application.add_handler(CommandHandler("ipinfo", self.ipinfo_command))
         self.application.add_handler(CommandHandler("ipinfo2", self.ipinfo2_command))
         self.application.add_handler(CommandHandler("like", self.like_command))
-        self.application.add_handler(CommandHandler("ban", self.ban_user))
-        self.application.add_handler(CommandHandler("unban", self.unban_user))
         self.application.add_handler(CommandHandler("countryinfo", self.countryinfo_command))
-        self.application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_message))
         self.application.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, self.handle_new_member))
         self.application.add_handler(CallbackQueryHandler(self.button_callback, pattern='^copy_code$'))
         self.application.add_error_handler(self.error_handler)
@@ -438,8 +429,6 @@ Available commands:
 - /ipinfo <ip_address>: Fetch IP address information
 - /ipinfo2 <ip_address>: Fetch IP address information (IP2Location)
 - /like <UID>: Send likes to a Free Fire UID
-- /ban <USER_ID>: Ban a user (admin only)
-- /unban <USER_ID>: Unban a user (admin only)
 - /countryinfo <country_name>: Fetch country information (use English names, e.g., 'Bangladesh')
 {'' if user_id != ADMIN_USER_ID else '- /api <key>: Set Gemini API key (admin only)\n- /setadmin: Set yourself as admin (first-time only)\n- /setmodel: Choose a different model (admin only)'}
 
@@ -494,8 +483,6 @@ Available commands:
 - /ipinfo <ip_address>: Fetch IP address information
 - /ipinfo2 <ip_address>: Fetch IP address information (IP2Location)
 - /like <UID>: Send likes to a Free Fire UID
-- /ban <USER_ID>: Ban a user (admin only)
-- /unban <USER_ID>: Unban a user (admin only)
 - /countryinfo <country_name>: Fetch country information (use English names, e.g., 'Bangladesh')
 {'' if user_id != ADMIN_USER_ID else '- /api <key>: Set Gemini API key (admin only)\n- /setadmin: Set yourself as admin (first-time only)\n- /setmodel: Choose a different model (admin only)'}
 
@@ -884,18 +871,6 @@ For security, the command message will be deleted after setting the key.
             await update.message.reply_text(response, reply_markup=reply_markup)
             return
 
-        current_time = time.time()
-        
-        # If user has previous like data
-        if user_id in user_likes:
-            last_time, likes_count = user_likes[user_id]
-            time_diff = current_time - last_time
-            
-            # If the user tries to send more than 2 likes within 24 hours
-            if likes_count >= 2 and time_diff < 86400:  # 86400 seconds = 24 hours
-                await update.message.reply_text("You have already sent two likes in the last 24 hours. Please try again after 24 hours.")
-                return
-
         if len(context.args) != 1:
             await update.message.reply_text("Usage: /like <UID>")
             return
@@ -905,7 +880,7 @@ For security, the command message will be deleted after setting the key.
         
         if "added" in result:
             message = (
-                f"✅ Like Sent!\n\n"
+                f"✅ Likes Sent!\n\n"
                 f"UID: {result['uid']}\n"
                 f"Player Level: {result['level']}\n"
                 f"Player Region: {result['region']}\n"
@@ -914,62 +889,10 @@ For security, the command message will be deleted after setting the key.
                 f"Likes After: {result['after']}\n"
                 f"Likes Added: {result['added']}"
             )
-            # Update user data
-            user_likes[user_id] = (current_time, user_likes.get(user_id, (0, 0))[1] + 1)
         else:
             message = f"Failed to send like.\nStatus: {result.get('status', 'Unknown Error')}"
         
         await update.message.reply_text(message)
-
-    async def ban_user(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle /ban command to ban a user"""
-        user_id = update.effective_user.id
-        chat_type = update.effective_chat.type
-
-        if chat_type == 'private' and user_id != ADMIN_USER_ID:
-            response, reply_markup = await self.get_private_chat_redirect()
-            await update.message.reply_text(response, reply_markup=reply_markup)
-            return
-
-        if user_id != ADMIN_USER_ID:
-            await update.message.reply_text("Sorry, you do not have permission to use this command.")
-            return
-
-        if len(context.args) != 1:
-            await update.message.reply_text("Usage: /ban <USER_ID>")
-            return
-
-        try:
-            banned_user_id = int(context.args[0])
-            await update.message.reply_text(f"User {banned_user_id} has been banned.")
-            # You can add logic to store or act upon banning the user
-        except ValueError:
-            await update.message.reply_text("Invalid USER_ID. Please provide a numeric user ID.")
-
-    async def unban_user(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle /unban command to unban a user"""
-        user_id = update.effective_user.id
-        chat_type = update.effective_chat.type
-
-        if chat_type == 'private' and user_id != ADMIN_USER_ID:
-            response, reply_markup = await self.get_private_chat_redirect()
-            await update.message.reply_text(response, reply_markup=reply_markup)
-            return
-
-        if user_id != ADMIN_USER_ID:
-            await update.message.reply_text("Sorry, you do not have permission to use this command.")
-            return
-
-        if len(context.args) != 1:
-            await update.message.reply_text("Usage: /unban <USER_ID>")
-            return
-
-        try:
-            unbanned_user_id = int(context.args[0])
-            await update.message.reply_text(f"User {unbanned_user_id} has been unbanned.")
-            # You can add logic to restore access for the unbanned user
-        except ValueError:
-            await update.message.reply_text("Invalid USER_ID. Please provide a numeric user ID.")
 
     async def countryinfo_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /countryinfo command to fetch country information"""
@@ -993,22 +916,6 @@ For security, the command message will be deleted after setting the key.
 
         response_message = await get_country_info(country_name)
         await update.message.reply_text(response_message)
-
-    async def handle_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle regular text messages"""
-        chat_type = update.effective_chat.type
-        if chat_type not in ['group', 'supergroup']:
-            return
-
-        message = update.message.text.lower()
-        
-        # Responding to specific messages
-        if 'hello' in message:
-            await update.message.reply_text("Hello, welcome to the group! 😊")
-        elif 'help' in message:
-            await update.message.reply_text("Here are some commands:\n- /like <UID> : Send a like to a player.\n- /ban <USER_ID> : Ban a user.\n- /unban <USER_ID> : Unban a user.")
-        else:
-            await update.message.reply_text("I am here to help! Type 'help' to see the available commands.")
 
     async def generate_gemini_response(self, prompt, chat_type="private", is_coding_query=False, is_short_word=False):
         """Generate response using Gemini with personality"""
