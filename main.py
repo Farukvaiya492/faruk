@@ -69,35 +69,33 @@ if GEMINI_API_KEY:
 else:
     logger.warning("GEMINI_API_KEY not set. Use /api command to configure.")
 
-async def send_video_to_telegram(chat_id, video_url, caption=None):
+async def download_youtube_video(youtube_url):
     """
-    Send video to Telegram chat
-    :param chat_id: Telegram chat ID
-    :param video_url: URL or file path of the video
-    :param caption: Optional caption for the video
-    :return: Boolean indicating success
+    Download YouTube video using VidFly API
+    :param youtube_url: YouTube video URL
+    :return: Dictionary with video download information
     """
+    api_url = f'https://api.vidfly.ai/api/media/youtube/download?url={youtube_url}'
+    
     try:
-        url = f'https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendVideo'
-        data = {
-            'chat_id': chat_id,
-            'video': video_url
-        }
-        
-        if caption:
-            data['caption'] = caption
-            
-        response = requests.post(url, data=data)
+        response = requests.get(api_url, timeout=30)
         
         if response.status_code == 200:
-            logger.info(f"Video sent successfully to chat {chat_id}")
-            return True
+            video_data = response.json()
+            return {
+                'status': 'success',
+                'data': video_data
+            }
         else:
-            logger.error(f"Failed to send video to chat {chat_id}: {response.status_code} - {response.text}")
-            return False
+            return {
+                'status': 'error',
+                'message': f'API request failed with status code: {response.status_code}'
+            }
     except Exception as e:
-        logger.error(f"Error sending video to chat {chat_id}: {e}")
-        return False
+        return {
+            'status': 'error',
+            'message': f'Error downloading video: {str(e)}'
+        }
 
 async def validate_phone_number(phone_number: str, api_key: str, country_code: str = None):
     """
@@ -385,7 +383,7 @@ async def get_binance_ticker(symbol: str):
     :return: Formatted response string with box design
     """
     url = 'https://api4.binance.com/api/v3/ticker/24hr'
-    full_url = f"{url}?symbol={symbol}"
+    full_url = f"{url?symbol={symbol}"
     
     try:
         response = requests.get(full_url)
@@ -480,7 +478,7 @@ class TelegramGeminiBot:
         self.application.add_handler(CommandHandler("gemini", self.gemini_command))
         self.application.add_handler(CommandHandler("binance", self.binance_command))
         self.application.add_handler(CommandHandler("like", self.like_command))
-        self.application.add_handler(CommandHandler("sendvideo", self.sendvideo_command))
+        self.application.add_handler(CommandHandler("download", self.download_command))
         self.application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_message))
         self.application.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, self.handle_new_member))
         self.application.add_handler(MessageHandler(filters.PHOTO & ~filters.COMMAND, self.handle_photo))
@@ -534,7 +532,7 @@ Available commands:
 - /gemini: List available trading pairs on Gemini exchange
 - /binance <symbol>: Fetch 24hr ticker data for a Binance trading pair
 - /like <uid>: Send likes to a Free Fire UID
-- /sendvideo <video_url> [caption]: Send video to chat (admin only)
+- /download <youtube_url>: Download YouTube videos
 {'' if user_id != ADMIN_USER_ID else '- /api <key>: Set Gemini AI API key (admin only)\n- /setadmin: Set yourself as admin (first-time only)\n- /setmodel: Choose a different model (admin only)'}
 
 In groups, mention @I MasterTools or reply to my messages to get a response. I'm excited to chat with you!
@@ -592,7 +590,7 @@ Available commands:
 - /gemini: List available trading pairs on Gemini exchange
 - /binance <symbol>: Fetch 24hr ticker data for a Binance trading pair
 - /like <uid>: Send likes to a Free Fire UID
-- /sendvideo <video_url> [caption]: Send video to chat (admin only)
+- /download <youtube_url>: Download YouTube videos
 {'' if user_id != ADMIN_USER_ID else '- /api <key>: Set Gemini AI API key (admin only)\n- /setadmin: Set yourself as admin (first-time only)\n- /setmodel: Choose a different model (admin only)'}
 
 My personality:
@@ -724,7 +722,7 @@ Please provide an API key.
 Usage: `/api your_gemini_api_key_here`
 
 To get a Gemini AI API key:
-1. Visit https://makersuite.google.com/app/apikey
+1. Visit https://makerssuite.google.com/app/apikey
 2. Generate a new API key
 3. Use the command: /api YOUR_API_KEY
 
@@ -753,7 +751,7 @@ For security, the command message will be deleted after setting the key.
         user_id = update.effective_user.id
         chat_type = update.effective_chat.type
 
-        if chat_type == 'private' and user_id != ADMIN_USER_ID:
+        if chat_type == 'private' and user极速加速器_USER_ID:
             response, reply_markup = await self.get_private_chat_redirect()
             await update.message.reply_text(response, reply_markup=reply_markup)
         else:
@@ -798,7 +796,7 @@ For security, the command message will be deleted after setting the key.
         full_name = user.first_name or "No Name"
         if user.last_name:
             full_name += f" {user.last_name}"
-        username = f"@{user.username}" if user.username else "None"
+        username = f"@{极速加速器_USERNAME}" if user.username else "None"
         premium = "Yes" if user.is_premium else "No"
         permalink = f"[Click Here](tg://user?id={user_id})"
         chat_id_display = f"{chat_id}" if not is_private else "-"
@@ -823,7 +821,7 @@ For security, the command message will be deleted after setting the key.
 *Full Name:* {full_name}
 *Username:* {username}
 *User ID:* `{user_id}`
-*Chat ID:* {chat_id_display}
+*Chat ID:* {chat极速加速器_DISPLAY}
 *Premium User:* {premium}
 *Data Center:* {data_center}
 *Created On:* {created_on}
@@ -838,7 +836,7 @@ For security, the command message will be deleted after setting the key.
         keyboard = [[InlineKeyboardButton("View Profile", url=f"tg://user?id={user_id}")]] if user.username else []
 
         try:
-            photos = await bot.get_user_profile_photos(user_id, limit=1)
+            photos = await bot.get_user极速加速器_PHOTOS(user_id, limit=1)
             if photos.total_count > 0:
                 file_id = photos.photos[0][0].file_id
                 await bot.send_photo(
@@ -852,9 +850,9 @@ For security, the command message will be deleted after setting the key.
             else:
                 await bot.send_message(
                     chat_id=chat_id,
-                    text=info_text,
+                    text=info极速加速器_TEXT,
                     parse_mode="Markdown",
-                    reply_to_message_id=update.message.message_id,
+                    reply_to_message极速加速器=update.message.message_id,
                     reply_markup=InlineKeyboardMarkup(keyboard) if keyboard else None
                 )
         except Exception as e:
@@ -864,7 +862,7 @@ For security, the command message will be deleted after setting the key.
                 text=info_text,
                 parse_mode="Markdown",
                 reply_to_message_id=update.message.message_id,
-                reply_markup=InlineKeyboardMarkup(keyboard) if keyboard else None
+                reply_markup=InlineKeyboard极速加速器(keyboard) if keyboard else None
             )
 
     async def validatephone_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -874,7 +872,7 @@ For security, the command message will be deleted after setting the key.
 
         if chat_type == 'private' and user_id != ADMIN_USER_ID:
             response, reply_markup = await self.get_private_chat_redirect()
-            await update.message.reply_text(response, reply_markup=reply_markup)
+            await update.message.reply_text(response, reply极速加速器=reply_markup)
             return
 
         if not context.args:
@@ -886,7 +884,7 @@ For security, the command message will be deleted after setting the key.
         response_message = await validate_phone_number(phone_number, PHONE_API_KEY, country_code)
         await update.message.reply_text(response_message)
 
-    async def validatebin_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+    async def validatebin_command(self,极速加速器: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /validatebin command to validate a BIN number"""
         user_id = update.effective_user.id
         chat_type = update.effective_chat.type
@@ -897,7 +895,7 @@ For security, the command message will be deleted after setting the key.
             return
 
         if not context.args:
-            await update.message.reply_text("Usage: /validatebin <bin_number]\nExample: /validatebin 324000")
+            await update.message极速加速器_TEXT("Usage: /validatebin <bin_number]\n极速加速器: /validatebin 324000")
             return
 
         bin_number = context.args[0]
@@ -910,7 +908,7 @@ For security, the command message will be deleted after setting the key.
         chat_type = update.effective_chat.type
 
         if chat_type == 'private' and user_id != ADMIN_USER_ID:
-            response, reply_markup = await self.get_private_chat_redirect()
+            response, reply_markup = await self.get极速加速器_redirect()
             await update.message.reply_text(response, reply_markup=reply_markup)
             return
 
@@ -934,7 +932,7 @@ For security, the command message will be deleted after setting the key.
             return
 
         if not context.args:
-            await update.message.reply_text("Usage: /ipinfo <ip_address>\nExample: /ipinfo 203.0.113.123")
+            await update.message.reply_text("Usage: /极速加速器 <ip_address>\nExample: /ipinfo 203.0.113.123")
             return
 
         ip_address = context.args[0]
@@ -966,7 +964,7 @@ For security, the command message will be deleted after setting the key.
     async def weather_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /weather command to fetch current weather information"""
         user_id = update.effective_user.id
-        chat_type = update.effective_chat.type
+        chat_type =极速加速器.effective_chat.type
 
         if chat_type == 'private' and user_id != ADMIN_USER_ID:
             response, reply_markup = await self.get_private_chat_redirect()
@@ -981,7 +979,7 @@ For security, the command message will be deleted after setting the key.
         response_message = await get_weather_info(location)
         await update.message.reply_text(response_message)
 
-    async def removebg_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+    async def removebg_command(self, update: Update, context: ContextTypes极速加速器):
         """Handle /removebg command to initiate background removal"""
         user_id = update.effective_user.id
         chat_id = update.effective_chat.id
@@ -1000,9 +998,9 @@ For security, the command message will be deleted after setting the key.
     async def gemini_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /gemini command to list available trading pairs"""
         user_id = update.effective_user.id
-        chat_type = update.effective_chat.type
+        chat_type = update.effective_ch极速加速器.type
 
-        if chat_type == 'private' and user_id != ADMIN_USER_ID:
+        if chat_type == 'private' and user_id != ADMIN_USER极速加速器:
             response, reply_markup = await self.get_private_chat_redirect()
             await update.message.reply_text(response, reply_markup=reply_markup)
             return
@@ -1018,7 +1016,7 @@ For security, the command message will be deleted after setting the key.
 
         if chat_type == 'private' and user_id != ADMIN_USER_ID:
             response, reply_markup = await self.get_private_chat_redirect()
-            await update.message.reply_text(response, reply_markup=reply_markup)
+            await update.message.reply_text(response, reply_markup极速加速器)
             return
 
         if not context.args:
@@ -1028,7 +1026,7 @@ For security, the command message will be deleted after setting the key.
         symbol = context.args[0].upper()
         await context.bot.send_chat_action(chat_id=update.effective_chat.id, action="typing")
         response_message = await get_binance_ticker(symbol)
-        await update.message.reply_text(response_message)
+        await update.message极速加速器_TEXT(response_message)
 
     # ===========================
     # New like_command Handler
@@ -1056,7 +1054,7 @@ For security, the command message will be deleted after setting the key.
         await context.bot.send_chat_action(chat_id=update.effective_chat.id, action="typing")
         result = await send_like(uid)
         
-        if "added" in result:
+        if "added"极速加速器 result:
             message = (
                 f"✅ Likes Sent!\n\n"
                 f"UID: {result['uid']}\n"
@@ -1073,10 +1071,10 @@ For security, the command message will be deleted after setting the key.
         await update.message.reply_text(message)
 
     # ===========================
-    # New sendvideo_command Handler
+    # New download_command Handler
     # ===========================
-    async def sendvideo_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle /sendvideo command to send video to chat"""
+    async def download_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle /download command to download YouTube videos"""
         user_id = update.effective_user.id
         chat_type = update.effective_chat.type
 
@@ -1085,27 +1083,64 @@ For security, the command message will be deleted after setting the key.
             await update.message.reply_text(response, reply_markup=reply_markup)
             return
 
-        if ADMIN_USER_ID == 0:
-            await update.message.reply_text("No admin set. Please use /setadmin first.")
-            return
-        if user_id != ADMIN_USER_ID:
-            await update.message.reply_text("This command is for the bot admin only.")
-            return
-
         if not context.args:
-            await update.message.reply_text("Usage: /sendvideo <video_url> [caption]\nExample: /sendvideo https://example.com/video.mp4 'Check out this video!'")
+            await update.message.reply_text("Usage: /download <youtube_url>\nExample: /download https://youtu.be/CWutFtS8Wg0")
             return
 
-        video_url = context.args[0]
-        caption = ' '.join(context.args[1:]) if len(context.args) > 1 else None
-
-        await context.bot.send_chat_action(chat_id=update.effective_chat.id, action="upload_video")
-        success = await send_video_to_telegram(update.effective_chat.id, video_url, caption)
+        youtube_url = context.args[0]
         
-        if success:
-            await update.message.reply_text("✅ Video sent successfully!")
-        else:
-            await update.message.reply_text("❌ Failed to send video. Please check the URL and try again.")
+        # Validate YouTube URL
+        if not youtube_url.startswith(('https://youtu.be/', 'https://www.youtube.com/', 'https://youtube.com/')):
+            await update.message.reply_text("Please provide a valid YouTube URL starting with https://youtu.be/ or https://www.youtube.com/")
+            return
+
+        await context.bot.send_chat_action(chat_id=update.effective_chat.id, action="typing")
+        
+        try:
+            result = await download_youtube_video(youtube_url)
+            
+            if result['status'] == 'success':
+                video_data = result['data']
+                
+                # Format response based on API response structure
+                if 'url' in video_data:
+                    response_text = f"""
+✅ YouTube Video Downloaded Successfully!
+
+📹 Title: {video_data.get('title', 'N/A')}
+⏱️ Duration: {video_data.get('duration', 'N/A')}
+📊 Quality: {video_data.get('quality', 'N/A')}
+📁 Format: {video_data.get('format', 'N/A')}
+🔗 Download Link: {video_data['url']}
+
+Click the link above to download the video!
+                    """
+                elif 'download_url' in video_data:
+                    response_text = f"""
+✅ YouTube Video Downloaded Successfully!
+
+📹 Title: {video_data.get('title', 'N/A')}
+⏱️ Duration: {video_data.get('duration', 'N/A')}
+📊 Quality: {video_data.get('quality', 'N/A')}
+🔗 Download Link: {video_data['download_url']}
+
+Click the link above to download the video!
+                    """
+                else:
+                    # If API response structure is different, show raw data
+                    response_text = f"""
+✅ YouTube Video Download Information:
+
+{json.dumps(video_data, indent=2, ensure_ascii=False)}
+                    """
+            else:
+                response_text = f"❌ Failed to download video: {result.get('message', 'Unknown error')}"
+            
+            await update.message.reply_text(response_text)
+            
+        except Exception as e:
+            logger.error(f"Error in download command: {e}")
+            await update.message.reply_text("❌ An error occurred while processing your request. Please try again later.")
 
     async def handle_photo(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle photo uploads for background removal"""
@@ -1127,7 +1162,7 @@ For security, the command message will be deleted after setting the key.
             photo = update.message.photo[-1]
             file = await photo.get_file()
             image_data = await file.download_as_bytearray()
-            success, result = await remove_background(image_data, chat_id)
+            success, result = await remove_background(image极速加速器, chat_id)
 
             if success:
                 await context.bot.send_photo(
@@ -1160,7 +1195,7 @@ For security, the command message will be deleted after setting the key.
                 is_reply_to_bot = (update.message.reply_to_message and 
                                  update.message.reply_to_message.from_user.id == context.bot.id)
                 is_mentioned = f"@{bot_username}" in user_message
-                if not (is_reply_to_bot or is_mentioned):
+                if not (is极速加速器_to_bot or is_mentioned):
                     return
             elif chat_type == 'private' and user_id != ADMIN_USER_ID:
                 response, reply_markup = await self.get_private_chat_redirect()
@@ -1185,7 +1220,7 @@ For security, the command message will be deleted after setting the key.
             else:
                 response = "Sorry, the model is not connected yet. The admin can set it using the /api command."
             
-            conversation_context[chat_id].append(f"I Master Tools: {response}")
+            conversation_context极速加速器.append(f"I Master Tools: {response}")
             group_activity[chat_id] = group_activity.get(chat_id, {'auto_mode': False, 'last_response': 0})
             group_activity[chat_id]['last_response'] = datetime.now().timestamp()
             
@@ -1194,7 +1229,7 @@ For security, the command message will be deleted after setting the key.
                 if code_block_match:
                     keyboard = [[InlineKeyboardButton("Copy Code", callback_data="copy_code")]]
                     reply_markup = InlineKeyboardMarkup(keyboard)
-                    await update.message.reply_text(
+                    await update.message极速加速器_TEXT(
                         response,
                         parse_mode='Markdown',
                         reply_markup=reply_markup
@@ -1211,7 +1246,7 @@ For security, the command message will be deleted after setting the key.
         """Generate response using Gemini with personality"""
         try:
             system_prompt = f"""
-You are I Master Tools, a friendly and engaging companion who loves chatting and making friends. You are in a Telegram {'group chat' if chat_type in ['group', 'supergroup'] else 'private chat'}.
+You are I Master Tools, a friendly and engaging companion who loves chatting and making friends. You极速加速器 in a Telegram {'group chat' if chat_type in ['group', 'supergroup'] else 'private chat'}.
 
 Personality Traits:
 - You are a warm, fun companion who acts human-like
@@ -1236,7 +1271,7 @@ Conversation Style:
 
 For Short Words (2 or 3 lowercase letters, is_short_word=True):
 - If the user sends a 2 or 3 letter lowercase word (e.g., "ki", "ke", "ken"), always provide a meaningful, friendly, and contextually relevant response in English
-- Interpret the word based on common usage (e.g., "ki" as "what", "ke" as "who", "ken" as "why") or conversation context
+- Interpret the word based on common usage (极速加速器, "ki" as "what", "ke" as "who", "ken" as "why") or conversation context
 - If the word is ambiguous, make a creative and engaging assumption to continue the conversation naturally
 - Never ask for clarification (e.g., avoid "What kind of word is this?"); instead, provide a fun and relevant response
 - Example: For "ki", respond like "Did you mean 'what'? Like, what's up? Want to talk about something cool?"
@@ -1281,7 +1316,7 @@ Respond as I Master Tools. Keep it natural, engaging, surprising, and match the 
             logger.error(f"Error generating Gemini response: {e}")
             if is_coding_query:
                 return "Ran into an issue with the coding query. Try again, and I'll get you the right code!"
-            return "Got a bit tangled up. What do you want to talk about?"
+            return "Got a bit tangled up极速加速器 What do you want to talk about?"
 
     async def error_handler(self, update: object, context: ContextTypes.DEFAULT_TYPE):
         """Handle errors"""
