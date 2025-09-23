@@ -23,7 +23,7 @@ REMOVE_BG_API_KEY = '15smbepCfMYoHh7D7Cnzj9Z6'  # remove.bg API key
 ADMIN_USER_ID = int(os.getenv('ADMIN_USER_ID', '7835226724'))
 PORT = int(os.getenv('PORT', 8000))
 WEATHER_API_KEY = "c1794a3c9faa01e4b5142313d4191ef8"  # Weatherstack API key
-GROUP_CHAT_ID = "@VPSHUB_BD_CHAT"  # Group chat ID for /like command
+GROUP_CHAT_USERNAME = "@VPSHUB_BD_CHAT"  # Group chat username for /like command
 
 # Global variables for dynamic API key and model management
 current_gemini_api_key = GEMINI_API_KEY
@@ -286,7 +286,7 @@ async def get_weather_info(location: str):
             output_message += f"┃ 💧 Humidity: {current_weather.get('humidity', 'N/A')}% \n"
             output_message += f"┃ 💨 Wind Speed: {current_weather.get('wind_speed', 'N/A')} km/h\n"
             output_message += "┃\n"
-            output_message += "┗━━━ 𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸 ━━━┛"
+            output_message += "┗━━━ 𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮�_ruk ━━━┛"
             return output_message
         else:
             error_info = data.get("error", {}).get("info", "Unknown error")
@@ -393,9 +393,15 @@ async def send_like(uid: str, server_name: str = "BD"):
     api_url = f"https://free-like-api-aditya-ffm.vercel.app/like?uid={uid}&server_name={server_name}&key=@adityaapis"
     
     try:
-        response = requests.get(api_url, timeout=10)
+        response = requests.get(api_url, timeout=20)
+        
+        # Debugging: দেখতে চাইলে রেসপন্সটি প্রিন্ট করুন
+        print(response.text)  # রেসপন্স ডেটা দেখতে পারেন
+
         if response.status_code == 200:
             data = response.json()
+            print(f"Received data: {data}")  # ডেটা দেখতে পারেন
+
             before = data.get("LikesbeforeCommand", 0)
             after = data.get("LikesafterCommand", 0)
             added = after - before
@@ -1005,12 +1011,12 @@ For security, the command message will be deleted after setting the key.
             return
 
         # Check if the command is coming from the correct group
-        if chat_type in ['group', 'supergroup'] and update.message.chat.username != GROUP_CHAT_ID:
-            await update.message.reply_text("This command can only be used in the specific group.")
+        if chat_type in ['group', 'supergroup'] and update.message.chat.username != GROUP_CHAT_USERNAME.strip('@VPSHUB_BD_CHAT'):
+            await update.message.reply_text("এই কমান্ডটি শুধুমাত্র নির্দিষ্ট গ্রুপে ব্যবহার করা যাবে।")
             return
 
         if len(context.args) != 1:
-            await update.message.reply_text("Usage: /like <UID>")
+            await update.message.reply_text("ব্যবহার: /like <UID>")
             return
 
         uid = context.args[0]
@@ -1029,7 +1035,7 @@ For security, the command message will be deleted after setting the key.
                 f"Likes Added: {result['added']}"
             )
         else:
-            message = f"Failed to send like.\nStatus: {result.get('status', 'Unknown Error')}"
+            message = f"Likes পাঠানোতে ব্যর্থ।\nস্ট্যাটাস: {result.get('status', 'অজানা ত্রুটি')}"
         
         await update.message.reply_text(message)
 
