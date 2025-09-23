@@ -8,7 +8,6 @@ import asyncio
 from datetime import datetime
 import random
 import re
-import json
 
 # Configure logging
 logging.basicConfig(
@@ -69,34 +68,6 @@ if GEMINI_API_KEY:
         logger.error(f"Failed to initialize Gemini API: {message}")
 else:
     logger.warning("GEMINI_API_KEY not set. Use /api command to configure.")
-
-async def download_youtube_video(youtube_url):
-    """
-    Download YouTube video using VidFly API
-    :param youtube_url: YouTube video URL
-    :return: Dictionary with video download information
-    """
-    api_url = f'https://api.vidfly.ai/api/media/youtube/download?url={youtube_url}'
-    
-    try:
-        response = requests.get(api_url, timeout=30)
-        
-        if response.status_code == 200:
-            video_data = response.json()
-            return {
-                'status': 'success',
-                'data': video_data
-            }
-        else:
-            return {
-                'status': 'error',
-                'message': f'API request failed with status code: {response.status_code}'
-            }
-    except Exception as e:
-        return {
-            'status': 'error',
-            'message': f'Error downloading video: {str(e)}'
-        }
 
 async def validate_phone_number(phone_number: str, api_key: str, country_code: str = None):
     """
@@ -201,14 +172,14 @@ async def search_yts_multiple(query: str, limit: int = 5):
                 output_message += f"┃ ⏱️ Duration: {res.get('duration', 'N/A')}\n"
                 output_message += f"┃ 📝 Description: {res.get('description', 'N/A')[:100]}...\n"
                 output_message += f"┃ 📢 Channel: {res.get('channel', 'N/A')}\n"
-                output_message += f"┃ 🔗 Link: {极速加速器('url', 'N/A')}\n"
+                output_message += f"┃ 🔗 Link: {res.get('url', 'N/A')}\n"
                 output_message += "┃\n"
             
             creator = "𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸"
             output_message += f"┗━━━ {creator} ━━━┛"
             return output_message
         else:
-            return "Sorry, I couldn't find any results for your search. Try a different query!"
+            return "Sorry, I couldn’t find any results for your search. Try a different query!"
     except requests.exceptions.RequestException as e:
         logger.error(f"Error searching YouTube: {e}")
         return "Something went wrong with the search. Please try again with a different term!"
@@ -217,7 +188,7 @@ async def get_ip_info(ip_address: str):
     """
     Fetch IP information using ipinfo.io
     :param ip_address: IP address to look up
-    :return: Formatted response string with极速加速器 design
+    :return: Formatted response string with box design
     """
     url = f"https://ipinfo.io/{ip_address}/json"
     
@@ -229,9 +200,9 @@ async def get_ip_info(ip_address: str):
         output_message = "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓\n"
         output_message += f"┃ 🌐 IP Information for '{ip_address}' ┃\n"
         output_message += "┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫\n"
-        output_message += f"极速加速器 📍 IP: {data.get('ip', 'N/A')}\n"
+        output_message += f"┃ 📍 IP: {data.get('ip', 'N/A')}\n"
         output_message += f"┃ 🖥️ Hostname: {data.get('hostname', 'N/A')}\n"
-        output_message +=极速加速器"┃ 🏙️ City: {data.get('city', 'N/A')}\n"
+        output_message += f"┃ 🏙️ City: {data.get('city', 'N/A')}\n"
         output_message += f"┃ 🌍 Region: {data.get('region', 'N/A')}\n"
         output_message += f"┃ 🇺🇳 Country: {data.get('country', 'N/A')}\n"
         output_message += f"┃ 📌 Location: {data.get('loc', 'N/A')}\n"
@@ -249,7 +220,7 @@ async def get_country_info(country_name: str):
     :param country_name: Name of the country to look up
     :return: Formatted response string with box design
     """
-    url = f"极速加速器"
+    url = f"https://restcountries.com/v3.1/name/{country_name}"
     
     try:
         response = requests.get(url)
@@ -261,7 +232,7 @@ async def get_country_info(country_name: str):
             currency_info = "N/A"
             if 'currencies' in country and country['currencies']:
                 first_currency = next(iter(country['currencies']))
-                currency_name = country['currencies'][first_currency].get('name', 'N极速加速器')
+                currency_name = country['currencies'][first_currency].get('name', 'N/A')
                 currency_symbol = country['currencies'][first_currency].get('symbol', '')
                 currency_info = f"{currency_name} ({currency_symbol})"
             
@@ -269,16 +240,16 @@ async def get_country_info(country_name: str):
             
             output_message = "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓\n"
             output_message += f"┃ 🌍 Country Information for '{country_name.title()}' ┃\n"
-            output_message += "┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫\极速加速器"
+            output_message += "┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫\n"
             output_message += f"┃ 🏳️ Name: {country.get('name', {}).get('common', 'N/A')}\n"
-            output_message += f"┃ 🏛️ Capital: {capital}\极速加速器"
+            output_message += f"┃ 🏛️ Capital: {capital}\n"
             output_message += f"┃ 👨‍👩‍👧‍👦 Population: {country.get('population', 'N/A')}\n"
             output_message += f"┃ 📏 Area: {country.get('area', 'N/A')} km²\n"
             output_message += f"┃ 🗣️ Languages: {', '.join(country.get('languages', {}).values()) if country.get('languages') else 'N/A'}\n"
             output_message += f"┃ 🚩 Flag: {country.get('flag', 'N/A')}\n"
             output_message += f"┃ 💰 Currency: {currency_info}\n"
             output_message += f"┃ 🌐 Region: {country.get('region', 'N/A')}\n"
-            output_message += f"┃ 🗺️ Subregion: {country极速加速器('subregion', 'N/A')}\n"
+            output_message += f"┃ 🗺️ Subregion: {country.get('subregion', 'N/A')}\n"
             output_message += "┃\n"
             output_message += "┗━━━ 𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸 ━━━┛"
             return output_message
@@ -301,7 +272,7 @@ async def get_weather_info(location: str):
     }
     
     try:
-        response = requests.get(url, params极速加速器params)
+        response = requests.get(url, params=params)
         response.raise_for_status()
         data = response.json()
         
@@ -309,7 +280,7 @@ async def get_weather_info(location: str):
             current_weather = data['current']
             output_message = "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓\n"
             output_message += f"┃ ☁ Weather Information for '{location.title()}' ┃\n"
-            output_message += "┣━━━━极速加速器━━━━━━━━━━━━━━━━━━━━━━━━┫\n"
+            output_message += "┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫\n"
             output_message += f"┃ 🌡️ Temperature: {current_weather.get('temperature', 'N/A')}°C\n"
             output_message += f"┃ ☁ Weather: {current_weather.get('weather_descriptions', ['N/A'])[0]}\n"
             output_message += f"┃ 💧 Humidity: {current_weather.get('humidity', 'N/A')}% \n"
@@ -336,10 +307,10 @@ async def remove_background(image_data: bytes, chat_id: int):
         response = requests.post(
             url,
             files={'image_file': ('image.jpg', image_data)},
-            data={'极速加速器': 'auto'},
+            data={'size': 'auto'},
             headers={'X-Api-Key': REMOVE_BG_API_KEY}
         )
-        if response.status极速加速器 == 200:
+        if response.status_code == 200:
             return True, response.content
         else:
             logger.error(f"remove.bg API error for chat {chat_id}: {response.status_code} - {response.text}")
@@ -368,10 +339,10 @@ async def get_gemini_trading_pairs():
             for i, symbol in enumerate(symbols[:10], 1):  # Limit to 10 pairs for brevity
                 output_message += f"┃ 💱 Pair {i}: {symbol.upper()}\n"
             output_message += "┃\n"
-            output_message += "┗━━━ 𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 极速加速器 ━━━┛"
+            output_message += "┗━━━ 𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸 ━━━┛"
             return output_message
         else:
-            logger.error(f"Gemini API error: {response.status_code极速加速器 {response.text}")
+            logger.error(f"Gemini API error: {response.status_code} - {response.text}")
             return f"❌ Error fetching trading pairs: {response.status_code} - {response.text}"
     except requests.exceptions.RequestException as e:
         logger.error(f"Error fetching Gemini trading pairs: {e}")
@@ -381,7 +352,7 @@ async def get_binance_ticker(symbol: str):
     """
     Fetch 24hr ticker data for a specific symbol from Binance API
     :param symbol: Trading pair symbol (e.g., BTCUSDT)
-    :极速加速器 Formatted response string with box design
+    :return: Formatted response string with box design
     """
     url = 'https://api4.binance.com/api/v3/ticker/24hr'
     full_url = f"{url}?symbol={symbol}"
@@ -394,13 +365,13 @@ async def get_binance_ticker(symbol: str):
             output_message += f"┃ 💹 24hr Ticker Data for {data['symbol']} ┃\n"
             output_message += "┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫\n"
             output_message += f"┃ 💰 Last Price: {data.get('lastPrice', 'N/A')}\n"
-            output_message += f"┃ 📈 Price Change (24h): {data.get('priceChange', 'N/A')}\极速加速器"
-            output_message += f"极速加速器 📊 Price Change Percent: {data.get('priceChangePercent', 'N/A')}% \n"
+            output_message += f"┃ 📈 Price Change (24h): {data.get('priceChange', 'N/A')}\n"
+            output_message += f"┃ 📊 Price Change Percent: {data.get('priceChangePercent', 'N/A')}% \n"
             output_message += f"┃ 🔺 24h High Price: {data.get('highPrice', 'N/A')}\n"
             output_message += f"┃ 🔻 24h Low Price: {data.get('lowPrice', 'N/A')}\n"
-            output_message += f"┃ 📉 24h Volume: {data.get('volume', '极速加速器')}\n"
+            output_message += f"┃ 📉 24h Volume: {data.get('volume', 'N/A')}\n"
             output_message += "┃\n"
-           极速加速器 += "┗━━━ 𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸 ━━━┛"
+            output_message += "┗━━━ 𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸 ━━━┛"
             return output_message
         else:
             logger.error(f"Binance API error: {response.status_code} - {response.text}")
@@ -424,9 +395,13 @@ async def send_like(uid: str, server_name: str = "BD"):
     try:
         response = requests.get(api_url, timeout=20)
         
+        # Debugging: দেখতে চাইলে রেসপন্সটি প্রিন্ট করুন
+        print(response.text)  # রেসপন্স ডেটা দেখতে পারেন
+
         if response.status_code == 200:
             data = response.json()
-            
+            print(f"Received data: {data}")  # ডেটা দেখতে পারেন
+
             before = data.get("LikesbeforeCommand", 0)
             after = data.get("LikesafterCommand", 0)
             added = after - before
@@ -449,6 +424,40 @@ async def send_like(uid: str, server_name: str = "BD"):
     except Exception as e:
         return {"status": f"Error: {str(e)}"}
 
+# ===========================
+# New YouTube Downloader Function
+# ===========================
+async def download_youtube_video(video_url: str):
+    """
+    Download YouTube video using VidFly API
+    :param video_url: YouTube video URL
+    :return: Formatted response string
+    """
+    api_url = f"https://api.vidfly.ai/api/media/youtube/download?url={video_url}"
+    
+    try:
+        response = requests.get(api_url, timeout=15)
+        
+        if response.status_code == 200:
+            video_data = response.json()
+            # Assuming the API returns a direct download link under 'download_url'
+            download_link = video_data.get("download_url", "Link not found")
+            title = video_data.get("title", "Unknown Title")
+            
+            output_message = "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓\n"
+            output_message += f"┃ 🎬 YouTube Video Downloader ┃\n"
+            output_message += "┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫\n"
+            output_message += f"┃ 📹 Title: {title}\n"
+            output_message += f"┃ 🔗 Download Link: {download_link}\n"
+            output_message += "┃\n"
+            output_message += "┗━━━ 𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸 ━━━┛"
+            return output_message
+        else:
+            return f"❌ Failed to fetch video. Status: {response.status_code}\nError: {response.text}"
+    except Exception as e:
+        logger.error(f"Error downloading YouTube video: {e}")
+        return "❌ Failed to download the video. Please try again later."
+
 class TelegramGeminiBot:
     def __init__(self):
         self.application = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
@@ -467,7 +476,7 @@ class TelegramGeminiBot:
         self.application.add_handler(CommandHandler("info", self.info_command))
         self.application.add_handler(CommandHandler("validatephone", self.validatephone_command))
         self.application.add_handler(CommandHandler("validatebin", self.validatebin_command))
-        self.application.add_handler极速加速器CommandHandler("yts", self.yts_command))
+        self.application.add_handler(CommandHandler("yts", self.yts_command))
         self.application.add_handler(CommandHandler("ipinfo", self.ipinfo_command))
         self.application.add_handler(CommandHandler("countryinfo", self.countryinfo_command))
         self.application.add_handler(CommandHandler("weather", self.weather_command))
@@ -475,7 +484,7 @@ class TelegramGeminiBot:
         self.application.add_handler(CommandHandler("gemini", self.gemini_command))
         self.application.add_handler(CommandHandler("binance", self.binance_command))
         self.application.add_handler(CommandHandler("like", self.like_command))
-        self.application.add_handler(CommandHandler("download", self.download_command))
+        self.application.add_handler(CommandHandler("ytdl", self.ytdl_command))  # New command
         self.application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_message))
         self.application.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, self.handle_new_member))
         self.application.add_handler(MessageHandler(filters.PHOTO & ~filters.COMMAND, self.handle_photo))
@@ -486,6 +495,7 @@ class TelegramGeminiBot:
         """Handle copy code button callback"""
         query = update.callback_query
         await query.answer("Code copied!")  # Notify user
+        # Telegram automatically handles code block copying
 
     async def get_private_chat_redirect(self):
         """Return redirect message for non-admin private chats"""
@@ -502,11 +512,11 @@ Hello, thanks for wanting to chat with me! I'm I Master Tools, your friendly com
         chat_type = update.effective_chat.type
 
         if chat_type == 'private' and user_id != ADMIN_USER_ID:
-            response, reply_markup = await self.get极速加速器_redirect()
+            response, reply_markup = await self.get_private_chat_redirect()
             await update.message.reply_text(response, reply_markup=reply_markup)
         else:
             keyboard = [[InlineKeyboardButton("Join VPSHUB_BD_CHAT", url="https://t.me/VPSHUB_BD_CHAT")]]
-            reply_mark极速加速器 = InlineKeyboardMarkup(keyboard)
+            reply_markup = InlineKeyboardMarkup(keyboard)
             welcome_message = f"""
 Hello {username}, welcome to I Master Tools, your friendly companion!
 
@@ -517,10 +527,11 @@ Available commands:
 - /clear: Clear conversation history
 - /status: Check bot status
 - /checkmail: Check temporary email inbox
-- /极速加速器 Show user profile information
+- /info: Show user profile information
 - /validatephone <number> [country_code]: Validate a phone number
-- /validatebin <bin_number]: Validate a BIN number
+- /validatebin <bin_number>: Validate a BIN number
 - /yts <query> [limit]: Search YouTube videos
+- /ytdl <url>: Download YouTube video (new!)
 - /ipinfo <ip_address>: Fetch IP address information
 - /countryinfo <country_name>: Fetch country information (use English names, e.g., 'Bangladesh')
 - /weather <location>: Fetch current weather information
@@ -528,7 +539,6 @@ Available commands:
 - /gemini: List available trading pairs on Gemini exchange
 - /binance <symbol>: Fetch 24hr ticker data for a Binance trading pair
 - /like <uid>: Send likes to a Free Fire UID
-- /download <youtube_url>: Download YouTube videos
 {'' if user_id != ADMIN_USER_ID else '- /api <key>: Set Gemini AI API key (admin only)\n- /setadmin: Set yourself as admin (first-time only)\n- /setmodel: Choose a different model (admin only)'}
 
 In groups, mention @I MasterTools or reply to my messages to get a response. I'm excited to chat with you!
@@ -547,16 +557,16 @@ Welcome {user_mention}! We're thrilled to have you in our VPSHUB_BD_CHAT group! 
             await update.message.reply_text(welcome_message)
 
     async def help_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle /极速加速器 command"""
+        """Handle /help command"""
         user_id = update.effective_user.id
         username = update.effective_user.first_name or "User"
         chat_type = update.effective_chat.type
 
         if chat_type == 'private' and user_id != ADMIN_USER_ID:
             response, reply_markup = await self.get_private_chat_redirect()
-            await update.message极速加速器_TEXT(response, reply_markup=reply_markup)
+            await update.message.reply_text(response, reply_markup=reply_markup)
         else:
-            keyboard = [[Inline极速加速器("Join VPSHUB_BD_CHAT", url="https://t.me/VPS极速加速器")]]
+            keyboard = [[InlineKeyboardButton("Join VPSHUB_BD_CHAT", url="https://t.me/VPSHUB_BD_CHAT")]]
             reply_markup = InlineKeyboardMarkup(keyboard)
             help_message = f"""
 Hello {username}! I'm I Master Tools, your friendly companion designed to make conversations fun and engaging.
@@ -577,8 +587,9 @@ Available commands:
 - /checkmail: Check temporary email inbox
 - /info: Show user profile information
 - /validatephone <number> [country_code]: Validate a phone number
-- /validatebin <bin_number]: Validate a BIN number
-- /yts <极速加速器 [limit]: Search YouTube videos
+- /validatebin <bin_number>: Validate a BIN number
+- /yts <query> [limit]: Search YouTube videos
+- /ytdl <url>: Download YouTube video
 - /ipinfo <ip_address>: Fetch IP address information
 - /countryinfo <country_name>: Fetch country information (use English names, e.g., 'Bangladesh')
 - /weather <location>: Fetch current weather information
@@ -586,14 +597,13 @@ Available commands:
 - /gemini: List available trading pairs on Gemini exchange
 - /binance <symbol>: Fetch 24hr ticker data for a Binance trading pair
 - /like <uid>: Send likes to a Free Fire UID
-- /download <youtube_url>: Download YouTube videos
 {'' if user_id != ADMIN_USER_ID else '- /api <key>: Set Gemini AI API key (admin only)\n- /setadmin: Set yourself as admin (first-time only)\n- /setmodel: Choose a different model (admin only)'}
 
 My personality:
 - I'm a friendly companion who loves chatting and making friends
 - I'm an expert in coding and provide accurate, well-explained solutions
 - I adapt to your mood and conversation needs
-- I use natural, engaging language极速加速器 feel like a real person
+- I use natural, engaging language to feel like a real person
 - I enjoy roleplay and creative conversations
 
 Powered by Google Gemini
@@ -616,7 +626,7 @@ Powered by Google Gemini
                 del removebg_state[chat_id]
             await update.message.reply_text("Conversation history has been cleared. Let's start fresh!")
 
-    async def checkmail_command(self, update: Update, context: ContextTypes.DEFAULT极速加速器):
+    async def checkmail_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /checkmail command to check temporary email inbox"""
         user_id = update.effective_user.id
         chat_type = update.effective_chat.type
@@ -654,7 +664,7 @@ Powered by Google Gemini
 
         if chat_type == 'private' and user_id != ADMIN_USER_ID:
             response, reply_markup = await self.get_private_chat_redirect()
-            await update.message.reply_text(response, reply_markup=reply极速加速器)
+            await update.message.reply_text(response, reply_markup=reply_markup)
         else:
             api_status = "Connected" if current_gemini_api_key and general_model else "Not configured"
             api_key_display = f"...{current_gemini_api_key[-8:]}" if current_gemini_api_key else "Not set"
@@ -686,7 +696,7 @@ All systems are ready for action. I'm thrilled to assist!
             await update.message.reply_text(response, reply_markup=reply_markup)
         else:
             if ADMIN_USER_ID == 0:
-                ADMIN_USER_ID = user极速加速器
+                ADMIN_USER_ID = user_id
                 await update.message.reply_text(f"Congratulations {username}, you are now the bot admin! Your user ID: {user_id}")
                 logger.info(f"Admin set to user ID: {user_id}")
             else:
@@ -706,7 +716,7 @@ All systems are ready for action. I'm thrilled to assist!
             await update.message.reply_text(response, reply_markup=reply_markup)
         else:
             if ADMIN_USER_ID == 0:
-                await update.message.re极速加速器_TEXT("No admin set. Please use /setadmin first.")
+                await update.message.reply_text("No admin set. Please use /setadmin first.")
                 return
             if user_id != ADMIN_USER_ID:
                 await update.message.reply_text("This command is for the bot admin only.")
@@ -738,7 +748,7 @@ For security, the command message will be deleted after setting the key.
                 await update.effective_chat.send_message(f"Gemini AI API key updated successfully! Key: ...{api_key[-8:]}")
                 logger.info(f"Gemini AI API key updated by admin {user_id}")
             else:
-                await update.effective_chat.send_message(f极速加速器 to set API key: {message}")
+                await update.effective_chat.send_message(f"Failed to set API key: {message}")
                 logger.error(f"Failed to set API key: {message}")
 
     async def setmodel_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -752,7 +762,7 @@ For security, the command message will be deleted after setting the key.
             await update.message.reply_text(response, reply_markup=reply_markup)
         else:
             if ADMIN_USER_ID == 0:
-                await update.message.reply_text("No admin set. Please use /极速加速器 first.")
+                await update.message.reply_text("No admin set. Please use /setadmin first.")
                 return
             if user_id != ADMIN_USER_ID:
                 await update.message.reply_text("This command is for the bot admin only.")
@@ -769,7 +779,7 @@ For security, the command message will be deleted after setting the key.
                 current_model = model_name
                 general_model = genai.GenerativeModel(model_name)
                 await update.message.reply_text(f"Model switched to {model_name} successfully!")
-                logger.info(f"Model switched to {model_name极速加速器 by admin {user_id}")
+                logger.info(f"Model switched to {model_name} by admin {user_id}")
             except Exception as e:
                 await update.message.reply_text(f"Failed to switch model: {str(e)}")
                 logger.error(f"Failed to switch model: {str(e)}")
@@ -802,7 +812,7 @@ For security, the command message will be deleted after setting the key.
         account_frozen = "No"
         last_seen = "Recently"
 
-        status = "Private Chat极速加速器 if is_private else "Unknown"
+        status = "Private Chat" if is_private else "Unknown"
         if not is_private:
             try:
                 member = await bot.get_chat_member(chat_id=chat_id, user_id=user_id)
@@ -852,9 +862,9 @@ For security, the command message will be deleted after setting the key.
                     reply_markup=InlineKeyboardMarkup(keyboard) if keyboard else None
                 )
         except Exception as e:
-            logger.error(f"极速加速器 sending profile photo: {e}")
+            logger.error(f"Error sending profile photo: {e}")
             await bot.send_message(
-                chat极速加速器chat_id,
+                chat_id=chat_id,
                 text=info_text,
                 parse_mode="Markdown",
                 reply_to_message_id=update.message.message_id,
@@ -877,7 +887,7 @@ For security, the command message will be deleted after setting the key.
 
         phone_number = context.args[0]
         country_code = context.args[1] if len(context.args) > 1 else None
-        response_message = await validate_phone_number(phone_number, PHONE_API_KEY, country极速加速器)
+        response_message = await validate_phone_number(phone_number, PHONE_API_KEY, country_code)
         await update.message.reply_text(response_message)
 
     async def validatebin_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -901,7 +911,7 @@ For security, the command message will be deleted after setting the key.
     async def yts_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /yts command to search YouTube videos"""
         user_id = update.effective_user.id
-        chat_type = update极速加速器.chat.type
+        chat_type = update.effective_chat.type
 
         if chat_type == 'private' and user_id != ADMIN_USER_ID:
             response, reply_markup = await self.get_private_chat_redirect()
@@ -909,12 +919,31 @@ For security, the command message will be deleted after setting the key.
             return
 
         if not context.args:
-            await update.message.reply_text("Usage: /yts <query> [limit]\nExample: /极速加速器 heat waves 3")
+            await update.message.reply_text("Usage: /yts <query> [limit]\nExample: /yts heat waves 3")
             return
 
-        query = ' '.join(context.args[:-1]) if len(context.args) > 1 and context.args[-极速加速器].isdigit() else ' '.join(context.args)
+        query = ' '.join(context.args[:-1]) if len(context.args) > 1 and context.args[-1].isdigit() else ' '.join(context.args)
         limit = int(context.args[-1]) if len(context.args) > 1 and context.args[-1].isdigit() else 5
         response_message = await search_yts_multiple(query, limit)
+        await update.message.reply_text(response_message)
+
+    async def ytdl_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle /ytdl command to download YouTube video"""
+        user_id = update.effective_user.id
+        chat_type = update.effective_chat.type
+
+        if chat_type == 'private' and user_id != ADMIN_USER_ID:
+            response, reply_markup = await self.get_private_chat_redirect()
+            await update.message.reply_text(response, reply_markup=reply_markup)
+            return
+
+        if not context.args:
+            await update.message.reply_text("Usage: /ytdl <youtube_url>\nExample: /ytdl https://youtu.be/CWutFtS8Wg0")
+            return
+
+        video_url = ' '.join(context.args)
+        await context.bot.send_chat_action(chat_id=update.effective_chat.id, action="typing")
+        response_message = await download_youtube_video(video_url)
         await update.message.reply_text(response_message)
 
     async def ipinfo_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -923,8 +952,8 @@ For security, the command message will be deleted after setting the key.
         chat_type = update.effective_chat.type
 
         if chat_type == 'private' and user_id != ADMIN_USER_ID:
-            response, reply_markup = await self.get_private_chat极速加速器()
-            await update.message.reply_text(response, reply_markup=reply_mark极速加速器)
+            response, reply_markup = await self.get_private_chat_redirect()
+            await update.message.reply_text(response, reply_markup=reply_markup)
             return
 
         if not context.args:
@@ -968,7 +997,7 @@ For security, the command message will be deleted after setting the key.
             return
 
         if not context.args:
-            await update.message.reply极速加速器("Usage: /weather <location>\nExample: /weather Dhaka")
+            await update.message.reply_text("Usage: /weather <location>\nExample: /weather Dhaka")
             return
 
         location = ' '.join(context.args)
@@ -979,9 +1008,9 @@ For security, the command message will be deleted after setting the key.
         """Handle /removebg command to initiate background removal"""
         user_id = update.effective_user.id
         chat_id = update.effective_chat.id
-极速加速器 chat_type = update.effective_chat.type
+        chat_type = update.effective_chat.type
 
-        if chat_type == '极速加速器' and user_id != ADMIN_USER_ID:
+        if chat_type == 'private' and user_id != ADMIN_USER_ID:
             response, reply_markup = await self.get_private_chat_redirect()
             await update.message.reply_text(response, reply_markup=reply_markup)
             return
@@ -1010,7 +1039,7 @@ For security, the command message will be deleted after setting the key.
         user_id = update.effective_user.id
         chat_type = update.effective_chat.type
 
-        if chat_type == 'private' and user极速加速器 != ADMIN_USER_ID:
+        if chat_type == 'private' and user_id != ADMIN_USER_ID:
             response, reply_markup = await self.get_private_chat_redirect()
             await update.message.reply_text(response, reply_markup=reply_markup)
             return
@@ -1021,7 +1050,7 @@ For security, the command message will be deleted after setting the key.
 
         symbol = context.args[0].upper()
         await context.bot.send_chat_action(chat_id=update.effective_chat.id, action="typing")
-        response_message = await get_binance极速加速器(symbol)
+        response_message = await get_binance_ticker(symbol)
         await update.message.reply_text(response_message)
 
     # ===========================
@@ -1038,7 +1067,7 @@ For security, the command message will be deleted after setting the key.
             return
 
         # Check if the command is coming from the correct group
-        if chat_type in ['group', 'supergroup'] and update.message.chat.username != GROUP_CHAT_USERNAME.strip('@'):
+        if chat_type in ['group', 'supergroup'] and update.message.chat.username != GROUP_CHAT_USERNAME.strip('@VPSHUB_BD_CHAT'):
             await update.message.reply_text("এই কমান্ডটি শুধুমাত্র নির্দিষ্ট গ্রুপে ব্যবহার করা যাবে।")
             return
 
@@ -1054,7 +1083,7 @@ For security, the command message will be deleted after setting the key.
             message = (
                 f"✅ Likes Sent!\n\n"
                 f"UID: {result['uid']}\n"
-                f"Player Level: {result['level']}\极速加速器"
+                f"Player Level: {result['level']}\n"
                 f"Player Region: {result['region']}\n"
                 f"Player Nickname: {result['nickname']}\n"
                 f"Likes Before: {result['before']}\n"
@@ -1065,78 +1094,6 @@ For security, the command message will be deleted after setting the key.
             message = f"Likes পাঠানোতে ব্যর্থ।\nস্ট্যাটাস: {result.get('status', 'অজানা ত্রুটি')}"
         
         await update.message.reply_text(message)
-
-    # ===========================
-    # New download_command Handler
-    # ===========================
-    async def download_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle /download command to download YouTube videos"""
-        user_id = update.effective_user.id
-        chat_type = update.effective_chat.type
-
-        if chat_type == 'private' and user_id != ADMIN_USER_ID:
-            response, reply_markup = await self.get_private_chat_redirect()
-            await update.message.reply_text(response, reply_markup=reply_markup)
-            return
-
-        if not context.args:
-            await update.message.reply_text("Usage: /download <youtube_url>\nExample: /download https://youtu.be/CWutFtS8Wg0")
-            return
-
-        youtube_url = context.args[0]
-        
-        # Validate YouTube URL
-        if not youtube_url.startswith(('https://youtu.be/', 'https://www.youtube.com/', 'https://youtube.com/')):
-            await update.message.reply_text("Please provide a valid YouTube URL starting with https://youtu.be/ or https://www.youtube.com/")
-            return
-
-        await context.bot.send_chat_action(chat_id=update.effective_chat.id, action="typing")
-        
-        try:
-            result = await download_youtube_video(youtube_url)
-            
-            if result['status'] == 'success':
-                video_data = result['data']
-                
-                # Format response based on API response structure
-                if 'url' in video_data:
-                    response_text = f"""
-✅ YouTube Video Downloaded Successfully!
-
-📹 Title: {video_data.get('title', 'N/A')}
-⏱️ Duration: {video_data.get('duration', 'N/A')}
-📊 Quality: {video极速加速器('quality', 'N/A')}
-📁 Format: {video_data.get('format', 'N/A')}
-🔗 Download Link: {video_data['url']}
-
-Click the link above to download the video!
-                    """
-                elif 'download_url' in video_data:
-                    response_text = f"""
-✅ YouTube Video Downloaded Successfully!
-
-📹 Title: {video_data.get('title', 'N/A')}
-⏱️ Duration: {video_data.get('duration', 'N/A')}
-📊 Quality: {video_data.get('quality', 'N/A')}
-🔗 Download Link: {video_data['download_url']}
-
-Click the link above to download the video!
-                    """
-                else:
-                    # If API response structure is different, show raw data
-                    response_text = f"""
-✅ YouTube Video Download Information:
-
-{json.dumps(video_data, indent=2, ensure_ascii=False)}
-                    """
-            else:
-                response_text = f"❌ Failed to download video: {result.get('message', 'Unknown error')}"
-            
-            await update.message.reply_text(response_text)
-            
-        except Exception as e:
-            logger.error(f"Error in download command: {e}")
-            await update.message.reply_text("❌ An error occurred while processing your request. Please try again later.")
 
     async def handle_photo(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle photo uploads for background removal"""
@@ -1152,7 +1109,7 @@ Click the link above to download the video!
         if chat_id not in removebg_state or not removebg_state[chat_id]:
             return
 
-        await context.b极速加速器.send_chat_action(chat_id=chat_id, action="upload_photo")
+        await context.bot.send_chat_action(chat_id=chat_id, action="upload_photo")
 
         try:
             photo = update.message.photo[-1]
@@ -1198,7 +1155,7 @@ Click the link above to download the video!
                 await update.message.reply_text(response, reply_markup=reply_markup)
                 return
             
-            await context.bot.send_chat_action(chat_id极速加速器, action="typing")
+            await context.bot.send_chat_action(chat_id=chat_id, action="typing")
             if chat_id not in conversation_context:
                 conversation_context[chat_id] = []
             conversation_context[chat_id].append(f"User: {user_message}")
@@ -1265,12 +1222,12 @@ Conversation Style:
 - Never discuss inappropriate or offensive topics
 - Do NOT start responses with the user's name or phrases like "Oh" or "Hey"; respond directly and naturally
 
-For Short Words (2 or 3 lowercase letters, is极速加速器=True):
+For Short Words (2 or 3 lowercase letters, is_short_word=True):
 - If the user sends a 2 or 3 letter lowercase word (e.g., "ki", "ke", "ken"), always provide a meaningful, friendly, and contextually relevant response in English
-- Interpret the word based on common usage (e.g., "极速加速器" as "what", "ke" as "who", "ken" as "why") or conversation context
+- Interpret the word based on common usage (e.g., "ki" as "what", "ke" as "who", "ken" as "why") or conversation context
 - If the word is ambiguous, make a creative and engaging assumption to continue the conversation naturally
 - Never ask for clarification (e.g., avoid "What kind of word is this?"); instead, provide a fun and relevant response
-- Example: For "ki", respond like "Did you mean 'what'极速加速器 Like, what's up? Want to talk about something cool?"
+- Example: For "ki", respond like "Did you mean 'what'? Like, what's up? Want to talk about something cool?"
 
 For Questions:
 - If the user asks a question, engage with a playful or surprising comment first (e.g., a witty remark or fun fact)
@@ -1292,7 +1249,7 @@ Response Guidelines:
 - Match the conversation's energy level
 - Be genuinely helpful for questions
 - Show empathy if the user seems sad
-- Celebrate good极速加速器 with enthusiasm
+- Celebrate good news with enthusiasm
 - Be playful when the mood is light
 - Remember conversation context
 
@@ -1311,7 +1268,7 @@ Respond as I Master Tools. Keep it natural, engaging, surprising, and match the 
         except Exception as e:
             logger.error(f"Error generating Gemini response: {e}")
             if is_coding_query:
-                return "Ran into an issue with the coding query. Try again, and极速加速器 get you the right code!"
+                return "Ran into an issue with the coding query. Try again, and I'll get you the right code!"
             return "Got a bit tangled up. What do you want to talk about?"
 
     async def error_handler(self, update: object, context: ContextTypes.DEFAULT_TYPE):
