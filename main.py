@@ -37,6 +37,20 @@ current_model = 'gemini-1.5-flash'  # Default model
 PHONE_API_KEY = "num_live_Nf2vjeM19tHdi42qQ2LaVVMg2IGk1ReU2BYBKnvm"
 BIN_API_KEY = "kEXNklIYqLiLU657swFB1VXE0e4NF21G"
 
+# ইউটিউব অটো-কাম্পলিট API রিকোয়েস্ট ফাংশন
+def get_youtube_suggestions(query):
+    url = f"https://youtube138.p.rapidapi.com/auto-complete/?q={query}&hl=en&gl=US"
+    headers = {
+        "x-rapidapi-key": "5633c46ecdmsha727a36c28c8858p1a79ecjsn4a77463bd01b",  # RapidAPI Key
+        "x-rapidapi-host": "youtube138.p.rapidapi.com"  # RapidAPI Host
+    }
+    
+    response = requests.get(url, headers=headers)
+    if response.status_code == 200:
+        return response.json()['result']
+    else:
+        return None
+
 def initialize_gemini_models(api_key):
     """Initialize Gemini models with the provided API key"""
     global general_model, coding_model, current_gemini_api_key
@@ -210,7 +224,7 @@ async def get_ip_info(ip_address: str):
         output_message += f"┃ 📌 Location: {data.get('loc', 'N/A')}\n"
         output_message += f"┃ 🏢 Organization: {data.get('org', 'N/A')}\n"
         output_message += "┃\n"
-        output_message += "┗━━━ 𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂�_k ━━━┛"
+        output_message += "┗━━━ 𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸 ━━━┛"
         return output_message
     except requests.exceptions.RequestException as e:
         logger.error(f"Error fetching IP info: {e}")
@@ -218,7 +232,7 @@ async def get_ip_info(ip_address: str):
 
 async def get_ip_info2(ip_address: str):
     """
-    Fetch IP information using ip2location.io (new command as per user request)
+    Fetch IP information using ip2location.io
     :param ip_address: IP address to look up
     :return: Formatted response string
     """
@@ -315,7 +329,8 @@ class TelegramGeminiBot:
         self.application.add_handler(CommandHandler("validatebin", self.validatebin_command))
         self.application.add_handler(CommandHandler("yts", self.yts_command))
         self.application.add_handler(CommandHandler("ipinfo", self.ipinfo_command))
-        self.application.add_handler(CommandHandler("ipinfo2", self.ipinfo2_command))  # New command
+        self.application.add_handler(CommandHandler("ipinfo2", self.ipinfo2_command))
+        self.application.add_handler(CommandHandler("search", self.search_command))  # New command
         self.application.add_handler(CommandHandler("countryinfo", self.countryinfo_command))
         self.application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_message))
         self.application.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, self.handle_new_member))
@@ -364,6 +379,7 @@ Available commands:
 - /yts <query> [limit]: Search YouTube videos
 - /ipinfo <ip_address>: Fetch IP address information
 - /ipinfo2 <ip_address>: Fetch IP address information (IP2Location)
+- /search <query>: Get YouTube search suggestions
 - /countryinfo <country_name>: Fetch country information (use English names, e.g., 'Bangladesh')
 {'' if user_id != ADMIN_USER_ID else '- /api <key>: Set Gemini API key (admin only)\n- /setadmin: Set yourself as admin (first-time only)\n- /setmodel: Choose a different model (admin only)'}
 
@@ -417,6 +433,7 @@ Available commands:
 - /yts <query> [limit]: Search YouTube videos
 - /ipinfo <ip_address>: Fetch IP address information
 - /ipinfo2 <ip_address>: Fetch IP address information (IP2Location)
+- /search <query>: Get YouTube search suggestions
 - /countryinfo <country_name>: Fetch country information (use English names, e.g., 'Bangladesh')
 {'' if user_id != ADMIN_USER_ID else '- /api <key>: Set Gemini API key (admin only)\n- /setadmin: Set yourself as admin (first-time only)\n- /setmodel: Choose a different model (admin only)'}
 
@@ -725,7 +742,7 @@ For security, the command message will be deleted after setting the key.
             return
 
         if not context.args:
-            await update.message.reply_text("Usage: /validatebin <bin_number]\nExample: /validatebin 324000")
+            update.message.reply_text("Usage: /validatebin <bin_number]\nExample: /validatebin 324000")
             return
 
         bin_number = context.args[0]
@@ -786,6 +803,36 @@ For security, the command message will be deleted after setting the key.
         ip_address = context.args[0]
         response_message = await get_ip_info2(ip_address)
         await update.message.reply_text(response_message)
+
+    async def search_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle /search command to get YouTube search suggestions"""
+        user_id = update.effective_user.id
+        chat_type = update.effective_chat.type
+
+        if chat_type == 'private' and user_id != ADMIN_USER_ID:
+            response, reply_markup = await self.get_private_chat_redirect()
+            await update.message.reply_text(response, reply_markup=reply_markup)
+            return
+
+        if not context.args:
+            await update.message.reply_text("Please provide a search query. Example: /search desp")
+            return
+
+        query = " ".join(context.args)
+        suggestions = get_youtube_suggestions(query)
+        if suggestions:
+            # সেরা তিনটি সাজেশন প্রিন্ট করা
+            message = "🎥 YouTube Suggestions:\n"
+            keyboard = []
+            for suggestion in suggestions[:3]:
+                title = suggestion['title']
+                url = suggestion['url']
+                keyboard.append([InlineKeyboardButton(title, url=url)])
+
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            await update.message.reply_text(message, reply_markup=reply_markup)
+        else:
+            await update.message.reply_text("Sorry, no suggestions found!")
 
     async def countryinfo_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /countryinfo command to fetch country information"""
