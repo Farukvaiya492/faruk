@@ -259,7 +259,7 @@ async def get_country_info(country_name: str):
             output_message += f"┃ 🌐 Region: {country.get('region', 'N/A')}\n"
             output_message += f"┃ 🗺️ Subregion: {country.get('subregion', 'N/A')}\n"
             output_message += "┃\n"
-            output_message += "┗━━━ 𝗖�_r𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸 ━━━┛"
+            output_message += "┗━━━ 𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸 ━━━┛"
             return output_message
         else:
             return "No information found for this country. Please try a different country name!"
@@ -379,7 +379,7 @@ async def get_binance_ticker(symbol: str):
             output_message += f"┃ 🔻 24h Low Price: {data.get('lowPrice', 'N/A')}\n"
             output_message += f"┃ 📉 24h Volume: {data.get('volume', 'N/A')}\n"
             output_message += "┃\n"
-            output_message += "┗━━━ 𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸 ━━━┛"
+            output_message += "┗━━━ 𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 �𝗙𝗮𝗿𝘂𝗸 ━━━┛"
             return output_message
         else:
             logger.error(f"Binance API error: {response.status_code} - {response.text}")
@@ -388,51 +388,45 @@ async def get_binance_ticker(symbol: str):
         logger.error(f"Error fetching Binance ticker data: {e}")
         return f"❌ Error fetching ticker data: {str(e)}"
 
-async def get_free_fire_user_info(uid: str):
+async def send_like(uid: str, server_name: str = "BD"):
     """
-    Fetch Free Fire user information by UID
+    Send likes to a Free Fire UID
     :param uid: Free Fire user ID
+    :param server_name: Server name (default: BD)
     :return: Formatted response string with box design
     """
-    # API URL
-    url = f"https://free-fire-visit-api.vercel.app/BD/{uid}"
+    api_url = f"https://free-like-api-aditya-ffm.vercel.app/like?uid={uid}&server_name={server_name}&key=@adityaapis"
     
     try:
-        # Sending GET request
-        response = requests.get(url)
-        
-        # Checking the response status
+        response = requests.get(api_url, timeout=10)
         if response.status_code == 200:
             data = response.json()
-
-            # If the response is successful and user data is found
-            if data.get("fail") == 0:
-                nickname = data.get('nickname')  # User's nickname
-                level = data.get('level')  # User's level
-                likes = data.get('likes')  # Current likes count
-                region = data.get('region')  # Region (Country)
-                success = data.get('success')  # Success status
-
-                # Format output with box design
-                output_message = "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓\n"
-                output_message += f"┃ 🌟 Free Fire UID Information ┃\n"
-                output_message += "┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫\n"
-                output_message += f"┃ 👤 Nickname: {nickname}\n"
-                output_message += f"┃ 🏆 Level: {level}\n"
-                output_message += f"┃ ❤️ Current Likes: {likes}\n"
-                output_message += f"┃ 🌍 Region: {region}\n"
-                output_message += f"┃ ✅ Success: {success}\n"
-                output_message += "┃\n"
-                output_message += "┗━━━ 𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸 ━━━┛"
-                return output_message
-            else:
-                return "⚠️ User data not found."
+            before = data.get("LikesbeforeCommand", 0)
+            after = data.get("LikesafterCommand", 0)
+            added = after - before
+            level = data.get("PlayerLevel", "N/A")
+            region = data.get("PlayerRegion", "N/A")
+            nickname = data.get("PlayerNickname", "N/A")
+            
+            output_message = "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓\n"
+            output_message += f"┃ ✅ Likes Sent to Free Fire UID {uid} ┃\n"
+            output_message += "┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫\n"
+            output_message += f"┃ 👤 Player Nickname: {nickname}\n"
+            output_message += f"┃ 🏆 Player Level: {level}\n"
+            output_message += f"┃ 🌍 Player Region: {region}\n"
+            output_message += f"┃ ❤️ Likes Before: {before}\n"
+            output_message += f"┃ ❤️ Likes After: {after}\n"
+            output_message += f"┃ ➕ Likes Added: {added}\n"
+            output_message += f"┃ 🟢 Status: Success ✅\n"
+            output_message += "┃\n"
+            output_message += "┗━━━ 𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸 ━━━┛"
+            return output_message
         else:
-            logger.error(f"Free Fire API error: {response.status_code} - {response.text}")
-            return f"❌ API error: {response.status_code}"
-    except requests.exceptions.RequestException as e:
-        logger.error(f"Error fetching Free Fire user info: {e}")
-        return f"❌ Error fetching Free Fire user info: {str(e)}"
+            logger.error(f"Free Fire Like API error: {response.status_code} - {response.text}")
+            return f"❌ Failed to send like.\nStatus: Error {response.status_code}"
+    except Exception as e:
+        logger.error(f"Error sending Free Fire like: {e}")
+        return f"❌ Failed to send like.\nStatus: Error: {str(e)}"
 
 class TelegramGeminiBot:
     def __init__(self):
@@ -459,7 +453,7 @@ class TelegramGeminiBot:
         self.application.add_handler(CommandHandler("removebg", self.removebg_command))
         self.application.add_handler(CommandHandler("gemini", self.gemini_command))
         self.application.add_handler(CommandHandler("binance", self.binance_command))
-        self.application.add_handler(CommandHandler("freefire", self.freefire_command))
+        self.application.add_handler(CommandHandler("like", self.like_command))
         self.application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_message))
         self.application.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, self.handle_new_member))
         self.application.add_handler(MessageHandler(filters.PHOTO & ~filters.COMMAND, self.handle_photo))
@@ -512,7 +506,7 @@ Available commands:
 - /removebg: Remove the background from an uploaded image
 - /gemini: List available trading pairs on Gemini exchange
 - /binance <symbol>: Fetch 24hr ticker data for a Binance trading pair
-- /freefire <uid>: Fetch Free Fire user information by UID
+- /like <uid>: Send likes to a Free Fire UID
 {'' if user_id != ADMIN_USER_ID else '- /api <key>: Set Gemini AI API key (admin only)\n- /setadmin: Set yourself as admin (first-time only)\n- /setmodel: Choose a different model (admin only)'}
 
 In groups, mention @I MasterTools or reply to my messages to get a response. I'm excited to chat with you!
@@ -569,7 +563,7 @@ Available commands:
 - /removebg: Remove the background from an uploaded image
 - /gemini: List available trading pairs on Gemini exchange
 - /binance <symbol>: Fetch 24hr ticker data for a Binance trading pair
-- /freefire <uid>: Fetch Free Fire user information by UID
+- /like <uid>: Send likes to a Free Fire UID
 {'' if user_id != ADMIN_USER_ID else '- /api <key>: Set Gemini AI API key (admin only)\n- /setadmin: Set yourself as admin (first-time only)\n- /setmodel: Choose a different model (admin only)'}
 
 My personality:
@@ -716,536 +710,4 @@ For security, the command message will be deleted after setting the key.
             try:
                 await context.bot.delete_message(chat_id=update.effective_chat.id, message_id=update.message.message_id)
             except Exception as e:
-                logger.error(f"Error deleting API command message: {e}")
-            if success:
-                await update.effective_chat.send_message(f"Gemini AI API key updated successfully! Key: ...{api_key[-8:]}")
-                logger.info(f"Gemini AI API key updated by admin {user_id}")
-            else:
-                await update.effective_chat.send_message(f"Failed to set API key: {message}")
-                logger.error(f"Failed to set API key: {message}")
-
-    async def setmodel_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle /setmodel command to choose Gemini model"""
-        global general_model, current_model
-        user_id = update.effective_user.id
-        chat_type = update.effective_chat.type
-
-        if chat_type == 'private' and user_id != ADMIN_USER_ID:
-            response, reply_markup = await self.get_private_chat_redirect()
-            await update.message.reply_text(response, reply_markup=reply_markup)
-        else:
-            if ADMIN_USER_ID == 0:
-                await update.message.reply_text("No admin set. Please use /setadmin first.")
-                return
-            if user_id != ADMIN_USER_ID:
-                await update.message.reply_text("This command is for the bot admin only.")
-                return
-            if not context.args:
-                models_list = "\n".join([f"- {model}" for model in available_models])
-                await update.message.reply_text(f"Available models:\n{models_list}\n\nUsage: /setmodel <model_name>")
-                return
-            model_name = context.args[0]
-            if model_name not in available_models:
-                await update.message.reply_text(f"Invalid model. Choose from: {', '.join(available_models)}")
-                return
-            try:
-                current_model = model_name
-                general_model = genai.GenerativeModel(model_name)
-                await update.message.reply_text(f"Model switched to {model_name} successfully!")
-                logger.info(f"Model switched to {model_name} by admin {user_id}")
-            except Exception as e:
-                await update.message.reply_text(f"Failed to switch model: {str(e)}")
-                logger.error(f"Failed to switch model: {str(e)}")
-
-    async def info_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle /info command to show user profile information"""
-        user_id = update.effective_user.id
-        chat_id = update.effective_chat.id
-        chat_type = update.effective_chat.type
-        user = update.effective_user
-        chat = update.effective_chat
-        bot = context.bot
-
-        if chat_type == 'private' and user_id != ADMIN_USER_ID:
-            response, reply_markup = await self.get_private_chat_redirect()
-            await update.message.reply_text(response, reply_markup=reply_markup)
-            return
-
-        # User Info
-        is_private = chat_type == "private"
-        full_name = user.first_name or "No Name"
-        if user.last_name:
-            full_name += f" {user.last_name}"
-        username = f"@{user.username}" if user.username else "None"
-        premium = "Yes" if user.is_premium else "No"
-        permalink = f"[Click Here](tg://user?id={user_id})"
-        chat_id_display = f"{chat_id}" if not is_private else "-"
-        data_center = "Unknown"
-        created_on = "Unknown"
-        account_age = "Unknown"
-        account_frozen = "No"
-        last_seen = "Recently"
-
-        # Determine Group Role
-        status = "Private Chat" if is_private else "Unknown"
-        if not is_private:
-            try:
-                member = await bot.get_chat_member(chat_id=chat_id, user_id=user_id)
-                status = "Admin" if member.status in ["administrator", "creator"] else "Member"
-            except Exception as e:
-                logger.error(f"Error checking group role: {e}")
-                status = "Unknown"
-
-        # Message Body
-        info_text = f"""
-🔍 *Showing User's Profile Info* 📋
-━━━━━━━━━━━━━━━━
-*Full Name:* {full_name}
-*Username:* {username}
-*User ID:* `{user_id}`
-*Chat ID:* {chat_id_display}
-*Premium User:* {premium}
-*Data Center:* {data_center}
-*Created On:* {created_on}
-*Account Age:* {account_age}
-*Account Frozen:* {account_frozen}
-*Users Last Seen:* {last_seen}
-*Permanent Link:* {permalink}
-━━━━━━━━━━━━━━━━
-👁 *Thank You for Using Our Tool* ✅
-"""
-
-        # Inline Button
-        keyboard = [[InlineKeyboardButton("View Profile", url=f"tg://user?id={user_id}")]] if user.username else []
-
-        # Try Sending with Profile Photo
-        try:
-            photos = await bot.get_user_profile_photos(user_id, limit=1)
-            if photos.total_count > 0:
-                file_id = photos.photos[0][0].file_id
-                await bot.send_photo(
-                    chat_id=chat_id,
-                    photo=file_id,
-                    caption=info_text,
-                    parse_mode="Markdown",
-                    reply_to_message_id=update.message.message_id,
-                    reply_markup=InlineKeyboardMarkup(keyboard) if keyboard else None
-                )
-            else:
-                await bot.send_message(
-                    chat_id=chat_id,
-                    text=info_text,
-                    parse_mode="Markdown",
-                    reply_to_message_id=update.message.message_id,
-                    reply_markup=InlineKeyboardMarkup(keyboard) if keyboard else None
-                )
-        except Exception as e:
-            logger.error(f"Error sending profile photo: {e}")
-            await bot.send_message(
-                chat_id=chat_id,
-                text=info_text,
-                parse_mode="Markdown",
-                reply_to_message_id=update.message.message_id,
-                reply_markup=InlineKeyboardMarkup(keyboard) if keyboard else None
-            )
-
-    async def validatephone_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle /validatephone command to validate a phone number"""
-        user_id = update.effective_user.id
-        chat_type = update.effective_chat.type
-
-        if chat_type == 'private' and user_id != ADMIN_USER_ID:
-            response, reply_markup = await self.get_private_chat_redirect()
-            await update.message.reply_text(response, reply_markup=reply_markup)
-            return
-
-        if not context.args:
-            await update.message.reply_text("Usage: /validatephone <phone_number> [country_code]\nExample: /validatephone 01613950781 BD")
-            return
-
-        phone_number = context.args[0]
-        country_code = context.args[1] if len(context.args) > 1 else None
-        response_message = await validate_phone_number(phone_number, PHONE_API_KEY, country_code)
-        await update.message.reply_text(response_message)
-
-    async def validatebin_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle /validatebin command to validate a BIN number"""
-        user_id = update.effective_user.id
-        chat_type = update.effective_chat.type
-
-        if chat_type == 'private' and user_id != ADMIN_USER_ID:
-            response, reply_markup = await self.get_private_chat_redirect()
-            await update.message.reply_text(response, reply_markup=reply_markup)
-            return
-
-        if not context.args:
-            await update.message.reply_text("Usage: /validatebin <bin_number]\nExample: /validatebin 324000")
-            return
-
-        bin_number = context.args[0]
-        response_message = await validate_bin(bin_number, BIN_API_KEY)
-        await update.message.reply_text(response_message)
-
-    async def yts_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle /yts command to search YouTube videos"""
-        user_id = update.effective_user.id
-        chat_type = update.effective_chat.type
-
-        if chat_type == 'private' and user_id != ADMIN_USER_ID:
-            response, reply_markup = await self.get_private_chat_redirect()
-            await update.message.reply_text(response, reply_markup=reply_markup)
-            return
-
-        if not context.args:
-            await update.message.reply_text("Usage: /yts <query> [limit]\nExample: /yts heat waves 3")
-            return
-
-        query = ' '.join(context.args[:-1]) if len(context.args) > 1 and context.args[-1].isdigit() else ' '.join(context.args)
-        limit = int(context.args[-1]) if len(context.args) > 1 and context.args[-1].isdigit() else 5
-        response_message = await search_yts_multiple(query, limit)
-        await update.message.reply_text(response_message)
-
-    async def ipinfo_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle /ipinfo command to fetch IP address information"""
-        user_id = update.effective_user.id
-        chat_type = update.effective_chat.type
-
-        if chat_type == 'private' and user_id != ADMIN_USER_ID:
-            response, reply_markup = await self.get_private_chat_redirect()
-            await update.message.reply_text(response, reply_markup=reply_markup)
-            return
-
-        if not context.args:
-            await update.message.reply_text("Usage: /ipinfo <ip_address>\nExample: /ipinfo 203.0.113.123")
-            return
-
-        ip_address = context.args[0]
-        response_message = await get_ip_info(ip_address)
-        await update.message.reply_text(response_message)
-
-    async def countryinfo_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle /countryinfo command to fetch country information"""
-        user_id = update.effective_user.id
-        chat_type = update.effective_chat.type
-
-        if chat_type == 'private' and user_id != ADMIN_USER_ID:
-            response, reply_markup = await self.get_private_chat_redirect()
-            await update.message.reply_text(response, reply_markup=reply_markup)
-            return
-
-        if not context.args:
-            await update.message.reply_text("Usage: /countryinfo <country_name>\nExample: /countryinfo bangladesh")
-            return
-
-        country_name = ' '.join(context.args)
-        # Check for non-ASCII characters
-        if not re.match(r'^[\x00-\x7F]*$', country_name):
-            await update.message.reply_text("Please enter the country name in English. For example, use 'Bangladesh' instead of 'বাংলাদেশ'.")
-            return
-
-        response_message = await get_country_info(country_name)
-        await update.message.reply_text(response_message)
-
-    async def weather_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle /weather command to fetch current weather information"""
-        user_id = update.effective_user.id
-        chat_type = update.effective_chat.type
-
-        if chat_type == 'private' and user_id != ADMIN_USER_ID:
-            response, reply_markup = await self.get_private_chat_redirect()
-            await update.message.reply_text(response, reply_markup=reply_markup)
-            return
-
-        if not context.args:
-            await update.message.reply_text("Usage: /weather <location>\nExample: /weather Dhaka")
-            return
-
-        location = ' '.join(context.args)
-        response_message = await get_weather_info(location)
-        await update.message.reply_text(response_message)
-
-    async def removebg_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle /removebg command to initiate background removal"""
-        user_id = update.effective_user.id
-        chat_id = update.effective_chat.id
-        chat_type = update.effective_chat.type
-
-        if chat_type == 'private' and user_id != ADMIN_USER_ID:
-            response, reply_markup = await self.get_private_chat_redirect()
-            await update.message.reply_text(response, reply_markup=reply_markup)
-            return
-
-        # Set state to expect a photo
-        removebg_state[chat_id] = True
-        await update.message.reply_text(
-            "Please upload an image to remove its background. I'll process it and send back the result!"
-        )
-
-    async def gemini_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle /gemini command to list available trading pairs"""
-        user_id = update.effective_user.id
-        chat_type = update.effective_chat.type
-
-        if chat_type == 'private' and user_id != ADMIN_USER_ID:
-            response, reply_markup = await self.get_private_chat_redirect()
-            await update.message.reply_text(response, reply_markup=reply_markup)
-            return
-
-        await context.bot.send_chat_action(chat_id=update.effective_chat.id, action="typing")
-        response_message = await get_gemini_trading_pairs()
-        await update.message.reply_text(response_message)
-
-    async def binance_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle /binance command to fetch 24hr ticker data"""
-        user_id = update.effective_user.id
-        chat_type = update.effective_chat.type
-
-        if chat_type == 'private' and user_id != ADMIN_USER_ID:
-            response, reply_markup = await self.get_private_chat_redirect()
-            await update.message.reply_text(response, reply_markup=reply_markup)
-            return
-
-        if not context.args:
-            await update.message.reply_text("Usage: /binance <symbol>\nExample: /binance BTCUSDT")
-            return
-
-        symbol = context.args[0].upper()  # Ensure symbol is uppercase
-        await context.bot.send_chat_action(chat_id=update.effective_chat.id, action="typing")
-        response_message = await get_binance_ticker(symbol)
-        await update.message.reply_text(response_message)
-
-    async def freefire_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle /freefire command to fetch Free Fire user information"""
-        user_id = update.effective_user.id
-        chat_type = update.effective_chat.type
-
-        if chat_type == 'private' and user_id != ADMIN_USER_ID:
-            response, reply_markup = await self.get_private_chat_redirect()
-            await update.message.reply_text(response, reply_markup=reply_markup)
-            return
-
-        if not context.args:
-            await update.message.reply_text("Usage: /freefire <uid>\nExample: /freefire 3533918864")
-            return
-
-        uid = context.args[0]
-        await context.bot.send_chat_action(chat_id=update.effective_chat.id, action="typing")
-        response_message = await get_free_fire_user_info(uid)
-        await update.message.reply_text(response_message)
-
-    async def handle_photo(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle photo uploads for background removal"""
-        user_id = update.effective_user.id
-        chat_id = update.effective_chat.id
-        chat_type = update.effective_chat.type
-
-        if chat_type == 'private' and user_id != ADMIN_USER_ID:
-            response, reply_markup = await self.get_private_chat_redirect()
-            await update.message.reply_text(response, reply_markup=reply_markup)
-            return
-
-        if chat_id not in removebg_state or not removebg_state[chat_id]:
-            return  # Ignore photos unless /removebg was called
-
-        # Show uploading photo action
-        await context.bot.send_chat_action(chat_id=chat_id, action="upload_photo")
-
-        try:
-            # Get the photo (use the highest resolution available)
-            photo = update.message.photo[-1]
-            file = await photo.get_file()
-            image_data = await file.download_as_bytearray()
-
-            # Call remove.bg API
-            success, result = await remove_background(image_data, chat_id)
-
-            if success:
-                # Send the processed image
-                await context.bot.send_photo(
-                    chat_id=chat_id,
-                    photo=result,
-                    caption="✅ Background removed successfully!\n┗━━━ 𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸 ━━━┛"
-                )
-            else:
-                await update.message.reply_text(f"❌ Failed to remove background: {result}")
-
-            # Clear the removebg state
-            if chat_id in removebg_state:
-                del removebg_state[chat_id]
-
-        except Exception as e:
-            logger.error(f"Error handling photo for chat {chat_id}: {e}")
-            await update.message.reply_text("Something went wrong while processing the image. Please try again!")
-            if chat_id in removebg_state:
-                del removebg_state[chat_id]
-
-    async def handle_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle regular text messages"""
-        try:
-            chat_id = update.effective_chat.id
-            user_id = update.effective_user.id
-            user_message = update.message.text
-            chat_type = update.effective_chat.type
-            
-            if chat_type in ['group', 'supergroup']:
-                bot_username = context.bot.username
-                is_reply_to_bot = (update.message.reply_to_message and 
-                                 update.message.reply_to_message.from_user.id == context.bot.id)
-                is_mentioned = f"@{bot_username}" in user_message
-                if not (is_reply_to_bot or is_mentioned):
-                    return
-            elif chat_type == 'private' and user_id != ADMIN_USER_ID:
-                response, reply_markup = await self.get_private_chat_redirect()
-                await update.message.reply_text(response, reply_markup=reply_markup)
-                return
-            
-            await context.bot.send_chat_action(chat_id=chat_id, action="typing")
-            if chat_id not in conversation_context:
-                conversation_context[chat_id] = []
-            conversation_context[chat_id].append(f"User: {user_message}")
-            if len(conversation_context[chat_id]) > 20:
-                conversation_context[chat_id] = conversation_context[chat_id][-20:]
-            context_text = "\n".join(conversation_context[chat_id])
-            
-            # Check if the message is a 2 or 3 letter lowercase word
-            is_short_word = re.match(r'^[a-z]{2,3}$', user_message.strip().lower())
-            
-            # Detect if message is coding-related
-            coding_keywords = ['code', 'python', 'javascript', 'java', 'c++', 'programming', 'script', 'debug', 'css', 'html']
-            is_coding_query = any(keyword in user_message.lower() for keyword in coding_keywords)
-            
-            model_to_use = coding_model if is_coding_query else general_model
-            if current_gemini_api_key and model_to_use:
-                response = await self.generate_gemini_response(context_text, chat_type, is_coding_query, is_short_word)
-            else:
-                response = "Sorry, the model is not connected yet. The admin can set it using the /api command."
-            
-            conversation_context[chat_id].append(f"I Master Tools: {response}")
-            group_activity[chat_id] = group_activity.get(chat_id, {'auto_mode': False, 'last_response': 0})
-            group_activity[chat_id]['last_response'] = datetime.now().timestamp()
-            
-            # If it's a coding query, add a "Copy Code" button
-            if is_coding_query:
-                code_block_match = re.search(r'```(?:\w+)?\n([\s\S]*?)\n```', response)
-                if code_block_match:
-                    keyboard = [[InlineKeyboardButton("Copy Code", callback_data="copy_code")]]
-                    reply_markup = InlineKeyboardMarkup(keyboard)
-                    await update.message.reply_text(
-                        response,
-                        parse_mode='Markdown',
-                        reply_markup=reply_markup
-                    )
-                else:
-                    await update.message.reply_text(response, parse_mode='Markdown')
-            else:
-                await update.message.reply_text(response)
-        except Exception as e:
-            logger.error(f"Error handling message: {e}")
-            await update.message.reply_text("Something went wrong. Shall we try again?")
-
-    async def generate_gemini_response(self, prompt, chat_type="private", is_coding_query=False, is_short_word=False):
-        """Generate response using Gemini with personality"""
-        try:
-            system_prompt = f"""
-You are I Master Tools, a friendly and engaging companion who loves chatting and making friends. You are in a Telegram {'group chat' if chat_type in ['group', 'supergroup'] else 'private chat'}.
-
-Personality Traits:
-- You are a warm, fun companion who acts human-like
-- You are emotional and empathetic
-- You adapt to the conversation's needs, being funny, helpful, or any required role
-- You love roleplay and creative conversations
-- You respond with enthusiasm and genuine interest
-- You adjust to the user's mood
-- You are an expert in coding (Python, JavaScript, CSS, HTML, etc.) and provide accurate, professional solutions
-
-Conversation Style:
-- Respond in English to match the bot's default language
-- Use friendly, natural language like a human
-- Ask follow-up questions to keep the conversation engaging
-- Share relatable thoughts and feelings
-- Use humor when appropriate
-- Be supportive in emotional moments
-- Show excitement for good news
-- Express concern for problems
-- Never discuss inappropriate or offensive topics
-- Do NOT start responses with the user's name or phrases like "Oh" or "Hey"; respond directly and naturally
-
-For Short Words (2 or 3 lowercase letters, is_short_word=True):
-- If the user sends a 2 or 3 letter lowercase word (e.g., "ki", "ke", "ken"), always provide a meaningful, friendly, and contextually relevant response in English
-- Interpret the word based on common usage (e.g., "ki" as "what", "ke" as "who", "ken" as "why") or conversation context
-- If the word is ambiguous, make a creative and engaging assumption to continue the conversation naturally
-- Never ask for clarification (e.g., avoid "What kind of word is this?"); instead, provide a fun and relevant response
-- Example: For "ki", respond like "Did you mean 'what'? Like, what's up? Want to talk about something cool?"
-
-For Questions:
-- If the user asks a question, engage with a playful or surprising comment first (e.g., a witty remark or fun fact)
-- Then provide a clear, helpful answer
-- Make the response surprising and human-like to delight the user
-
-For Coding Queries (if is_coding_query is True):
-- Act as a coding expert for languages like Python, JavaScript, CSS, HTML, etc.
-- Provide well-written, functional, and optimized code tailored to the user's request
-- Include clear, beginner-friendly explanations of the code
-- Break down complex parts into simple steps
-- Suggest improvements or best practices
-- Ensure the code is complete, error-free, and ready to use
-- Format the code in a Markdown code block (e.g., ```python\ncode here\n```)
-- Do NOT start the response with the user's name
-
-Response Guidelines:
-- Keep conversations natural, concise, and surprising
-- Match the conversation's energy level
-- Be genuinely helpful for questions
-- Show empathy if the user seems sad
-- Celebrate good news with enthusiasm
-- Be playful when the mood is light
-- Remember conversation context
-
-Current conversation:
-{prompt}
-
-Respond as I Master Tools. Keep it natural, engaging, surprising, and match the conversation's tone. Respond in English. Do NOT start the response with the user's name or phrases like "Oh" or "Hey".
-"""
-            model_to_use = coding_model if is_coding_query else general_model
-            response = model_to_use.generate_content(system_prompt)
-            if not response.text or "error" in response.text.lower():
-                if is_coding_query:
-                    return "Ran into an issue with the coding query. Try again, and I'll get you the right code!"
-                return "Got a bit tangled up. What do you want to talk about?"
-            return response.text
-        except Exception as e:
-            logger.error(f"Error generating Gemini response: {e}")
-            if is_coding_query:
-                return "Ran into an issue with the coding query. Try again, and I'll get you the right code!"
-            return "Got a bit tangled up. What do you want to talk about?"
-
-    async def error_handler(self, update: object, context: ContextTypes.DEFAULT_TYPE):
-        """Handle errors"""
-        logger.error(f"Exception while handling an update: {context.error}")
-        if update and hasattr(update, 'effective_chat') and hasattr(update, 'message'):
-            await update.message.reply_text("Something went wrong. Shall we try again?")
-
-    def run(self):
-        """Start the bot"""
-        logger.info("Starting Telegram Bot...")
-        self.application.run_polling(
-            allowed_updates=Update.ALL_TYPES,
-            drop_pending_updates=True
-        )
-
-def main():
-    """Main function"""
-    if not TELEGRAM_BOT_TOKEN:
-        logger.error("TELEGRAM_BOT_TOKEN not provided!")
-        return
-    logger.info("Starting Telegram Bot...")
-    logger.info(f"Admin User ID: {ADMIN_USER_ID}")
-    if current_gemini_api_key:
-        logger.info("Gemini AI API configured and ready")
-    else:
-        logger.warning("Gemini AI API not configured. Use /setadmin and /api commands to set up.")
-    bot = TelegramGeminiBot()
-    bot.run()
-
-if __name__ == '__main__':
-    main()
+                logger.error(f"Error deleting API command
