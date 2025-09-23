@@ -21,6 +21,7 @@ TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN', '8380869007:AAGu7e41JJVU8aX
 GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
 ADMIN_USER_ID = int(os.getenv('ADMIN_USER_ID', '7835226724'))
 PORT = int(os.getenv('PORT', 8000))
+WEATHER_API_KEY = "c1794a3c9faa01e4b5142313d4191ef8"  # Weatherstack API key
 
 # Global variables for dynamic API key and model management
 current_gemini_api_key = GEMINI_API_KEY
@@ -264,6 +265,42 @@ async def get_country_info(country_name: str):
         logger.error(f"Error fetching country info: {e}")
         return f"Error fetching country data: {str(e)}. Please try a different country name!"
 
+async def get_weather_info(location: str):
+    """
+    Fetch weather information using Weatherstack API
+    :param location: City or location name to look up
+    :return: Formatted response string with box design
+    """
+    url = "http://api.weatherstack.com/current"
+    params = {
+        'access_key': WEATHER_API_KEY,
+        'query': location
+    }
+    
+    try:
+        response = requests.get(url, params=params)
+        response.raise_for_status()
+        data = response.json()
+        
+        if response.status_code == 200 and 'current' in data:
+            current_weather = data['current']
+            output_message = "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓\n"
+            output_message += f"┃ ☁ Weather Information for '{location.title()}' ┃\n"
+            output_message += "┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫\n"
+            output_message += f"┃ 🌡️ Temperature: {current_weather.get('temperature', 'N/A')}°C\n"
+            output_message += f"┃ ☁ Weather: {current_weather.get('weather_descriptions', ['N/A'])[0]}\n"
+            output_message += f"┃ 💧 Humidity: {current_weather.get('humidity', 'N/A')}% \n"
+            output_message += f"┃ 💨 Wind Speed: {current_weather.get('wind_speed', 'N/A')} km/h\n"
+            output_message += "┃\n"
+            output_message += "┗━━━ 𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸 ━━━┛"
+            return output_message
+        else:
+            error_info = data.get("error", {}).get("info", "Unknown error")
+            return f"Error fetching weather data: {error_info}"
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error fetching weather info: {e}")
+        return f"Error fetching weather data: {str(e)}. Please try a different location!"
+
 class TelegramGeminiBot:
     def __init__(self):
         self.application = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
@@ -285,6 +322,7 @@ class TelegramGeminiBot:
         self.application.add_handler(CommandHandler("yts", self.yts_command))
         self.application.add_handler(CommandHandler("ipinfo", self.ipinfo_command))
         self.application.add_handler(CommandHandler("countryinfo", self.countryinfo_command))
+        self.application.add_handler(CommandHandler("weather", self.weather_command))  # New weather command
         self.application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_message))
         self.application.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, self.handle_new_member))
         self.application.add_handler(CallbackQueryHandler(self.button_callback, pattern='^copy_code$'))
@@ -332,6 +370,7 @@ Available commands:
 - /yts <query> [limit]: Search YouTube videos
 - /ipinfo <ip_address>: Fetch IP address information
 - /countryinfo <country_name>: Fetch country information (use English names, e.g., 'Bangladesh')
+- /weather <location>: Fetch current weather information
 {'' if user_id != ADMIN_USER_ID else '- /api <key>: Set Gemini API key (admin only)\n- /setadmin: Set yourself as admin (first-time only)\n- /setmodel: Choose a different model (admin only)'}
 
 In groups, mention @I MasterTools or reply to my messages to get a response. I'm excited to chat with you!
@@ -384,6 +423,7 @@ Available commands:
 - /yts <query> [limit]: Search YouTube videos
 - /ipinfo <ip_address>: Fetch IP address information
 - /countryinfo <country_name>: Fetch country information (use English names, e.g., 'Bangladesh')
+- /weather <location>: Fetch current weather information
 {'' if user_id != ADMIN_USER_ID else '- /api <key>: Set Gemini API key (admin only)\n- /setadmin: Set yourself as admin (first-time only)\n- /setmodel: Choose a different model (admin only)'}
 
 My personality:
@@ -756,6 +796,24 @@ For security, the command message will be deleted after setting the key.
             return
 
         response_message = await get_country_info(country_name)
+        await update.message.reply_text(response_message)
+
+    async def weather_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle /weather command to fetch current weather information"""
+        user_id = update.effective_user.id
+        chat_type = update.effective_chat.type
+
+        if chat_type == 'private' and user_id != ADMIN_USER_ID:
+            response, reply_markup = await self.get_private_chat_redirect()
+            await update.message.reply_text(response, reply_markup=reply_markup)
+            return
+
+        if not context.args:
+            await update.message.reply_text("Usage: /weather <location>\nExample: /weather Dhaka")
+            return
+
+        location = ' '.join(context.args)
+        response_message = await get_weather_info(location)
         await update.message.reply_text(response_message)
 
     async def handle_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
