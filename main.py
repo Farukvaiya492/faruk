@@ -69,6 +69,36 @@ if GEMINI_API_KEY:
 else:
     logger.warning("GEMINI_API_KEY not set. Use /api command to configure.")
 
+async def send_video_to_telegram(chat_id, video_url, caption=None):
+    """
+    Send video to Telegram chat
+    :param chat_id: Telegram chat ID
+    :param video_url: URL or file path of the video
+    :param caption: Optional caption for the video
+    :return: Boolean indicating success
+    """
+    try:
+        url = f'https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendVideo'
+        data = {
+            'chat_id': chat_id,
+            'video': video_url
+        }
+        
+        if caption:
+            data['caption'] = caption
+            
+        response = requests.post(url, data=data)
+        
+        if response.status_code == 200:
+            logger.info(f"Video sent successfully to chat {chat_id}")
+            return True
+        else:
+            logger.error(f"Failed to send video to chat {chat_id}: {response.status_code} - {response.text}")
+            return False
+    except Exception as e:
+        logger.error(f"Error sending video to chat {chat_id}: {e}")
+        return False
+
 async def validate_phone_number(phone_number: str, api_key: str, country_code: str = None):
     """
     Validate a phone number
@@ -179,7 +209,7 @@ async def search_yts_multiple(query: str, limit: int = 5):
             output_message += f"┗━━━ {creator} ━━━┛"
             return output_message
         else:
-            return "Sorry, I couldn’t find any results for your search. Try a different query!"
+            return "Sorry, I couldn't find any results for your search. Try a different query!"
     except requests.exceptions.RequestException as e:
         logger.error(f"Error searching YouTube: {e}")
         return "Something went wrong with the search. Please try again with a different term!"
@@ -286,7 +316,7 @@ async def get_weather_info(location: str):
             output_message += f"┃ 💧 Humidity: {current_weather.get('humidity', 'N/A')}% \n"
             output_message += f"┃ 💨 Wind Speed: {current_weather.get('wind_speed', 'N/A')} km/h\n"
             output_message += "┃\n"
-            output_message += "┗━━━ 𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮�_ruk ━━━┛"
+            output_message += "┗━━━ 𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸 ━━━┛"
             return output_message
         else:
             error_info = data.get("error", {}).get("info", "Unknown error")
@@ -450,6 +480,7 @@ class TelegramGeminiBot:
         self.application.add_handler(CommandHandler("gemini", self.gemini_command))
         self.application.add_handler(CommandHandler("binance", self.binance_command))
         self.application.add_handler(CommandHandler("like", self.like_command))
+        self.application.add_handler(CommandHandler("sendvideo", self.sendvideo_command))
         self.application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_message))
         self.application.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, self.handle_new_member))
         self.application.add_handler(MessageHandler(filters.PHOTO & ~filters.COMMAND, self.handle_photo))
@@ -503,6 +534,7 @@ Available commands:
 - /gemini: List available trading pairs on Gemini exchange
 - /binance <symbol>: Fetch 24hr ticker data for a Binance trading pair
 - /like <uid>: Send likes to a Free Fire UID
+- /sendvideo <video_url> [caption]: Send video to chat (admin only)
 {'' if user_id != ADMIN_USER_ID else '- /api <key>: Set Gemini AI API key (admin only)\n- /setadmin: Set yourself as admin (first-time only)\n- /setmodel: Choose a different model (admin only)'}
 
 In groups, mention @I MasterTools or reply to my messages to get a response. I'm excited to chat with you!
@@ -560,6 +592,7 @@ Available commands:
 - /gemini: List available trading pairs on Gemini exchange
 - /binance <symbol>: Fetch 24hr ticker data for a Binance trading pair
 - /like <uid>: Send likes to a Free Fire UID
+- /sendvideo <video_url> [caption]: Send video to chat (admin only)
 {'' if user_id != ADMIN_USER_ID else '- /api <key>: Set Gemini AI API key (admin only)\n- /setadmin: Set yourself as admin (first-time only)\n- /setmodel: Choose a different model (admin only)'}
 
 My personality:
@@ -1011,7 +1044,7 @@ For security, the command message will be deleted after setting the key.
             return
 
         # Check if the command is coming from the correct group
-        if chat_type in ['group', 'supergroup'] and update.message.chat.username != GROUP_CHAT_USERNAME.strip('@VPSHUB_BD_CHAT'):
+        if chat_type in ['group', 'supergroup'] and update.message.chat.username != GROUP_CHAT_USERNAME.strip('@'):
             await update.message.reply_text("এই কমান্ডটি শুধুমাত্র নির্দিষ্ট গ্রুপে ব্যবহার করা যাবে।")
             return
 
@@ -1038,6 +1071,41 @@ For security, the command message will be deleted after setting the key.
             message = f"Likes পাঠানোতে ব্যর্থ।\nস্ট্যাটাস: {result.get('status', 'অজানা ত্রুটি')}"
         
         await update.message.reply_text(message)
+
+    # ===========================
+    # New sendvideo_command Handler
+    # ===========================
+    async def sendvideo_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle /sendvideo command to send video to chat"""
+        user_id = update.effective_user.id
+        chat_type = update.effective_chat.type
+
+        if chat_type == 'private' and user_id != ADMIN_USER_ID:
+            response, reply_markup = await self.get_private_chat_redirect()
+            await update.message.reply_text(response, reply_markup=reply_markup)
+            return
+
+        if ADMIN_USER_ID == 0:
+            await update.message.reply_text("No admin set. Please use /setadmin first.")
+            return
+        if user_id != ADMIN_USER_ID:
+            await update.message.reply_text("This command is for the bot admin only.")
+            return
+
+        if not context.args:
+            await update.message.reply_text("Usage: /sendvideo <video_url> [caption]\nExample: /sendvideo https://example.com/video.mp4 'Check out this video!'")
+            return
+
+        video_url = context.args[0]
+        caption = ' '.join(context.args[1:]) if len(context.args) > 1 else None
+
+        await context.bot.send_chat_action(chat_id=update.effective_chat.id, action="upload_video")
+        success = await send_video_to_telegram(update.effective_chat.id, video_url, caption)
+        
+        if success:
+            await update.message.reply_text("✅ Video sent successfully!")
+        else:
+            await update.message.reply_text("❌ Failed to send video. Please check the URL and try again.")
 
     async def handle_photo(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle photo uploads for background removal"""
