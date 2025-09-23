@@ -2,9 +2,8 @@ import os
 import logging
 import google.generativeai as genai
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, CallbackQuery
-from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters, ContextTypes
+from telegram.ext import Application, CommandHandler, CallbackQueryHandler, filters, ContextTypes
 import asyncio
-from datetime import datetime
 import random
 import re
 import requests
@@ -36,38 +35,97 @@ current_model = 'gemini-1.5-flash'  # Default model
 # API keys for external services
 PHONE_API_KEY = "num_live_Nf2vjeM19tHdi42qQ2LaVVMg2IGk1ReU2BYBKnvm"
 BIN_API_KEY = "kEXNklIYqLiLU657swFB1VXE0e4NF21G"
+API_URL = "https://free-like-api-aditya-ffm.vercel.app/like"
+
+# Allowed groups and regions
+ALLOWED_GROUPS = [-1001234567890]  # Replace with actual group IDs
+REGIONS = ["BD", "IN", "ID"]  # Common Free Fire server regions
+
+# Dummy function for API rate limit (replace with actual implementation if available)
+def get_api_remaining():
+    """Dummy function to return API remaining requests and daily limit"""
+    return 10, 100  # Example values: 10 remaining, 100 daily limit
 
 # ===========================
-# লাইক পাঠানোর ফাংশন
+# Function to Send Likes
 # ===========================
-def send_like(uid: str, server_name: str = "BD"):
-    api_url = f"https://free-like-api-aditya-ffm.vercel.app/like?uid={uid}&server_name={server_name}&key=@adityaapis"
+async def send_like(chat_id: int, region: str, uid: str):
+    """Send likes to a Free Fire UID"""
+    if chat_id not in ALLOWED_GROUPS:
+        return {"status": "Error: Chat not allowed"}
+    
+    if region not in REGIONS:
+        return {"status": f"Error: Invalid region: {region}"}
+    
+    remaining, daily_limit = get_api_remaining()
+    if remaining <= 0:
+        return {"status": f"Error: Limit Reached! please try again later\nId: {chat_id}"}
+    
+    api_url = f"{API_URL}?uid={uid}&server_name={region}&key=@adityaapis"
+    
+    try:
+        response = requests.get(api_url, timeout=10)
+        remaining_after, daily_limit_after = get_api_remaining()
+        
+        if response.status_code == 200:
+            result = response.json()
+            status = result.get("status")
+            nickname = str(result.get('PlayerNickname', 'N/A')).replace('\n', '\\n').replace('<', '&lt;').replace('>', '&gt;')
+            
+            if status == 1:
+                return {
+                    "status": "Success",
+                    "nickname": nickname,
+                    "region": result.get('PlayerRegion', 'N/A'),
+                    "level": result.get('PlayerLevel', 'N/A'),
+                    "before": result.get('LikesbeforeCommand', 'N/A'),
+                    "after": result.get('LikesafterCommand', 'N/A'),
+                    "added": result.get('LikesGivenByAPI', '0')
+                }
+            elif status == 2:
+                return {"status": "Error: likes_already_send"}
+            else:
+                return {"status": "Error: player_not_found"}
+        else:
+            return {"status": "Error: Failed to connect to the API"}
+    except Exception as e:
+        return {"status": f"Error: {str(e).replace('<', '&lt;').replace('>', '&gt;')}"}
+
+# ===========================
+# Function to Check Account Status
+# ===========================
+async def get_account_status(region: str, uid: str):
+    """Check Free Fire account status"""
+    if region not in REGIONS:
+        return {"status": f"Error: Invalid region: {region}"}
+    
+    api_url = f"{API_URL}?uid={uid}&server_name={region}&key=@adityaapis"
     
     try:
         response = requests.get(api_url, timeout=10)
         if response.status_code == 200:
-            data = response.json()
-            before = data.get("LikesbeforeCommand", 0)
-            after = data.get("LikesafterCommand", 0)
-            added = after - before
-            level = data.get("PlayerLevel", "N/A")
-            region = data.get("PlayerRegion", "N/A")
-            nickname = data.get("PlayerNickname", "N/A")
+            result = response.json()
+            status = result.get("status")
+            nickname = str(result.get('PlayerNickname', 'N/A')).replace('\n', '\\n').replace('<', '&lt;').replace('>', '&gt;')
             
-            return {
-                "uid": uid,
-                "level": level,
-                "region": region,
-                "nickname": nickname,
-                "before": before,
-                "after": after,
-                "added": added,
-                "status": "Success ✅"
-            }
+            if status == 1:
+                return {
+                    "status": "Success",
+                    "nickname": nickname,
+                    "region": result.get('PlayerRegion', 'N/A'),
+                    "level": result.get('PlayerLevel', 'N/A'),
+                    "before": result.get('LikesbeforeCommand', 'N/A'),
+                    "after": result.get('LikesafterCommand', 'N/A'),
+                    "added": result.get('LikesGivenByAPI', '0')
+                }
+            elif status == 2:
+                return {"status": "Error: likes_already_send"}
+            else:
+                return {"status": "Error: player_not_found"}
         else:
             return {"status": f"Error: {response.status_code}"}
     except Exception as e:
-        return {"status": f"Error: {e}"}
+        return {"status": f"Error: {str(e).replace('<', '&lt;').replace('>', '&gt;')}"}
 
 def initialize_gemini_models(api_key):
     """Initialize Gemini models with the provided API key"""
@@ -75,7 +133,7 @@ def initialize_gemini_models(api_key):
     try:
         genai.configure(api_key=api_key)
         general_model = genai.GenerativeModel(current_model)
-        coding_model = genai.GenerativeModel('gemini-1.5-pro')  # Dedicated for coding
+        coding_model = genai.GenerativeModel('gemini-1.5-pro')
         current_gemini_api_key = api_key
         logger.info("Gemini API configured successfully")
         return True, "Gemini API configured successfully!"
@@ -187,7 +245,6 @@ async def search_yts_multiple(query: str, limit: int = 5):
             if not isinstance(results, list):
                 results = [results]
                 
-            # New box design using ┏, ┗, ━, ┃
             output_message = "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓\n"
             output_message += f"┃ 🔍 YouTube Search Results for '{query}' ┃\n"
             output_message += "┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫\n"
@@ -204,10 +261,8 @@ async def search_yts_multiple(query: str, limit: int = 5):
                 output_message += f"┃ 🔗 Link: {res.get('url', 'N/A')}\n"
                 output_message += "┃\n"
             
-            # Get creator and log for debugging
             creator = data.get('creator', 'Unknown')
             logger.info(f"Raw creator value: {creator}")
-            # Replace the creator with the new text
             creator = "𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸"
             output_message += f"┗━━━ {creator} ━━━┛"
             return output_message
@@ -230,7 +285,6 @@ async def get_ip_info(ip_address: str):
         response.raise_for_status()
         data = response.json()
         
-        # Box design matching /yts
         output_message = "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓\n"
         output_message += f"┃ 🌐 IP Information for '{ip_address}' ┃\n"
         output_message += "┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫\n"
@@ -266,7 +320,7 @@ async def get_ip_info2(ip_address: str):
             output_message += f"┃ 📍 IP: {data.get('ip', 'N/A')}\n"
             output_message += f"┃ 🇺🇳 Country: {data.get('country_name', 'N/A')}\n"
             output_message += f"┃ 🌍 Region: {data.get('region_name', 'N/A')}\n"
-            output_message += f"┃ 🏙️ City: {data.get('city', 'N/A')}\n"
+            output_message += f"┃ 🏙️ City: {data.get('city_name', 'N/A')}\n"
             output_message += f"┃ 📌 Latitude: {data.get('latitude', 'N/A')}\n"
             output_message += f"┃ 📌 Longitude: {data.get('longitude', 'N/A')}\n"
             output_message += f"┃ 🏢 ISP: {data.get('isp', 'N/A')}\n"
@@ -294,7 +348,6 @@ async def get_country_info(country_name: str):
         
         if country_data:
             country = country_data[0]
-            # Handle currency dynamically
             currency_info = "N/A"
             if 'currencies' in country and country['currencies']:
                 first_currency = next(iter(country['currencies']))
@@ -302,10 +355,8 @@ async def get_country_info(country_name: str):
                 currency_symbol = country['currencies'][first_currency].get('symbol', '')
                 currency_info = f"{currency_name} ({currency_symbol})"
             
-            # Handle capital as a list or string
             capital = country.get('capital', ['N/A'])[0] if isinstance(country.get('capital'), list) else country.get('capital', 'N/A')
             
-            # Format output with box design
             output_message = "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓\n"
             output_message += f"┃ 🌍 Country Information for '{country_name.title()}' ┃\n"
             output_message += "┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫\n"
@@ -350,7 +401,6 @@ class TelegramGeminiBot:
         self.application.add_handler(CommandHandler("ipinfo2", self.ipinfo2_command))
         self.application.add_handler(CommandHandler("like", self.like_command))
         self.application.add_handler(CommandHandler("countryinfo", self.countryinfo_command))
-        self.application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_message))
         self.application.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, self.handle_new_member))
         self.application.add_handler(CallbackQueryHandler(self.button_callback, pattern='^copy_code$'))
         self.application.add_error_handler(self.error_handler)
@@ -358,7 +408,7 @@ class TelegramGeminiBot:
     async def button_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle copy code button callback"""
         query = update.callback_query
-        await query.answer("Code copied!")  # Notify user
+        await query.answer("Code copied!")
         # Telegram automatically handles code block copying
 
     async def get_private_chat_redirect(self):
@@ -389,7 +439,7 @@ To chat with me, please join our official Telegram group or mention @I MasterToo
 Available commands:
 - /help: Get help and usage information
 - /clear: Clear conversation history
-- /status: Check bot status
+- /status <region> <UID>: Check Free Fire account status (admin only)
 - /checkmail: Check temporary email inbox
 - /info: Show user profile information
 - /validatephone <number> [country_code]: Validate a phone number
@@ -397,7 +447,7 @@ Available commands:
 - /yts <query> [limit]: Search YouTube videos
 - /ipinfo <ip_address>: Fetch IP address information
 - /ipinfo2 <ip_address>: Fetch IP address information (IP2Location)
-- /like <UID>: Send likes to a Free Fire UID
+- /like <region> <UID>: Send likes to a Free Fire UID
 - /countryinfo <country_name>: Fetch country information (use English names, e.g., 'Bangladesh')
 {'' if user_id != ADMIN_USER_ID else '- /api <key>: Set Gemini API key (admin only)\n- /setadmin: Set yourself as admin (first-time only)\n- /setmodel: Choose a different model (admin only)'}
 
@@ -443,7 +493,7 @@ Available commands:
 - /start: Show welcome message with group link
 - /help: Display this help message
 - /clear: Clear your conversation history
-- /status: Check bot status
+- /status <region> <UID>: Check Free Fire account status (admin only)
 - /checkmail: Check temporary email inbox
 - /info: Show user profile information
 - /validatephone <number> [country_code]: Validate a phone number
@@ -451,7 +501,7 @@ Available commands:
 - /yts <query> [limit]: Search YouTube videos
 - /ipinfo <ip_address>: Fetch IP address information
 - /ipinfo2 <ip_address>: Fetch IP address information (IP2Location)
-- /like <UID>: Send likes to a Free Fire UID
+- /like <region> <UID>: Send likes to a Free Fire UID
 - /countryinfo <country_name>: Fetch country information (use English names, e.g., 'Bangladesh')
 {'' if user_id != ADMIN_USER_ID else '- /api <key>: Set Gemini API key (admin only)\n- /setadmin: Set yourself as admin (first-time only)\n- /setmodel: Choose a different model (admin only)'}
 
@@ -488,76 +538,62 @@ Powered by Google Gemini
         if chat_type == 'private' and user_id != ADMIN_USER_ID:
             response, reply_markup = await self.get_private_chat_redirect()
             await update.message.reply_text(response, reply_markup=reply_markup)
-        else:
-            try:
-                u = 'txoguqa'
-                d = random.choice(['mailto.plus', 'fexpost.com', 'fexbox.org', 'rover.info'])
-                email = f'{u}@{d}'
-                response = requests.get(
-                    'https://tempmail.plus/api/mails',
-                    params={'email': email, 'limit': 20, 'epin': ''},
-                    cookies={'email': email},
-                    headers={'user-agent': 'Mozilla/5.0'}
-                )
-                mail_list = response.json().get('mail_list', [])
-                if not mail_list:
-                    await update.message.reply_text(f"No emails found in the inbox for {email}. Want to try again later?")
-                    return
-                subjects = [m['subject'] for m in mail_list]
-                response_text = f"Here are the emails in the inbox for {email}:\n\n" + "\n".join(subjects)
-                await update.message.reply_text(response_text)
-            except Exception as e:
-                logger.error(f"Error checking email: {e}")
-                await update.message.reply_text("Something went wrong while checking the email. Shall we try again?")
+            return
+
+        try:
+            u = 'txoguqa'
+            d = random.choice(['mailto.plus', 'fexpost.com', 'fexbox.org', 'rover.info'])
+            email = f'{u}@{d}'
+            response = requests.get(
+                'https://tempmail.plus/api/mails',
+                params={'email': email, 'limit': 20, 'epin': ''},
+                cookies={'email': email},
+                headers={'user-agent': 'Mozilla/5.0'}
+            )
+            mail_list = response.json().get('mail_list', [])
+            if not mail_list:
+                await update.message.reply_text(f"No emails found in the inbox for {email}. Want to try again later?")
+                return
+            subjects = [m['subject'] for m in mail_list]
+            response_text = f"Here are the emails in the inbox for {email}:\n\n" + "\n".join(subjects)
+            await update.message.reply_text(response_text)
+        except Exception as e:
+            logger.error(f"Error checking email: {e}")
+            await update.message.reply_text("Something went wrong while checking the email. Shall we try again?")
 
     async def status_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle /status command"""
+        """Handle /status command to check Free Fire account status"""
         user_id = update.effective_user.id
-        chat_id = update.effective_chat.id
         chat_type = update.effective_chat.type
 
         if chat_type == 'private' and user_id != ADMIN_USER_ID:
             response, reply_markup = await self.get_private_chat_redirect()
             await update.message.reply_text(response, reply_markup=reply_markup)
-        else:
-            api_status = "Connected" if current_gemini_api_key and general_model else "Not configured"
-            api_key_display = f"...{current_gemini_api_key[-8:]}" if current_gemini_api_key else "Not set"
-            status_message = f"""
-Here's the I Master Tools status report:
+            return
 
-Bot Status: Online and ready
-Model: {current_model}
-API Status: {api_status}
-API Key: {api_key_display}
-Group Responses: Mention or reply only
-Current Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
-Active Conversations: {len(conversation_context)}
-Admin ID: {ADMIN_USER_ID if ADMIN_USER_ID != 0 else 'Not set'}
-
-All systems are ready for action. I'm thrilled to assist!
-            """
-            await update.message.reply_text(status_message)
-
-    async def setadmin_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle /setadmin command"""
-        global ADMIN_USER_ID
-        user_id = update.effective_user.id
-        username = update.effective_user.first_name or "User"
-        chat_type = update.effective_chat.type
-
-        if chat_type == 'private' and user_id != ADMIN_USER_ID:
-            response, reply_markup = await self.get_private_chat_redirect()
-            await update.message.reply_text(response, reply_markup=reply_markup)
-        else:
-            if ADMIN_USER_ID == 0:
-                ADMIN_USER_ID = user_id
-                await update.message.reply_text(f"Congratulations {username}, you are now the bot admin! Your user ID: {user_id}")
-                logger.info(f"Admin set to user ID: {user_id}")
+        if str(user_id) == str(ADMIN_USER_ID):
+            if len(context.args) != 2:
+                await update.message.reply_text("Usage: /status <region> <UID>")
+                return
+            region, uid = context.args[0].upper(), context.args[1]
+            result = await get_account_status(region, uid)
+            
+            if result.get("status") == "Success":
+                message = (
+                    f"<b>Account Status:</b>\n\n"
+                    f"<b>Player Nickname:</b> {result['nickname']}\n"
+                    f"<b>Player Region:</b> {result['region']}\n"
+                    f"<b>Player Level:</b> {result['level']}\n"
+                    f"<b>Before Likes:</b> {result['before']}\n"
+                    f"<b>After Likes:</b> {result['after']}\n"
+                    f"<b>Likes Given By Bot:</b> {result['added']}"
+                )
             else:
-                if user_id == ADMIN_USER_ID:
-                    await update.message.reply_text(f"You're already the admin! Your user ID: {user_id}")
-                else:
-                    await update.message.reply_text("Sorry, the admin is already set. Only the current admin can manage the bot.")
+                message = f"<b>Failed to retrieve account status.</b>\n<b>Status:</b> {result.get('status', 'Unknown Error')}"
+            
+            await context.bot.send_message(chat_id="@VPSHUB_BD_CHAT", text=message, parse_mode="HTML")
+        else:
+            await update.message.reply_text("You are not authorized to use this command.")
 
     async def api_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /api command to set Gemini API key"""
@@ -604,6 +640,27 @@ For security, the command message will be deleted after setting the key.
             else:
                 await update.effective_chat.send_message(f"Failed to set API key: {message}")
                 logger.error(f"Failed to set API key: {message}")
+
+    async def setadmin_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle /setadmin command"""
+        global ADMIN_USER_ID
+        user_id = update.effective_user.id
+        username = update.effective_user.first_name or "User"
+        chat_type = update.effective_chat.type
+
+        if chat_type == 'private' and user_id != ADMIN_USER_ID:
+            response, reply_markup = await self.get_private_chat_redirect()
+            await update.message.reply_text(response, reply_markup=reply_markup)
+        else:
+            if ADMIN_USER_ID == 0:
+                ADMIN_USER_ID = user_id
+                await update.message.reply_text(f"Congratulations {username}, you are now the bot admin! Your user ID: {user_id}")
+                logger.info(f"Admin set to user ID: {user_id}")
+            else:
+                if user_id == ADMIN_USER_ID:
+                    await update.message.reply_text(f"You're already the admin! Your user ID: {user_id}")
+                else:
+                    await update.message.reply_text("Sorry, the admin is already set. Only the current admin can manage the bot.")
 
     async def setmodel_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /setmodel command to choose Gemini model"""
@@ -652,7 +709,6 @@ For security, the command message will be deleted after setting the key.
             await update.message.reply_text(response, reply_markup=reply_markup)
             return
 
-        # User Info
         is_private = chat_type == "private"
         full_name = user.first_name or "No Name"
         if user.last_name:
@@ -667,7 +723,6 @@ For security, the command message will be deleted after setting the key.
         account_frozen = "No"
         last_seen = "Recently"
 
-        # Determine Group Role
         status = "Private Chat" if is_private else "Unknown"
         if not is_private:
             try:
@@ -677,7 +732,6 @@ For security, the command message will be deleted after setting the key.
                 logger.error(f"Error checking group role: {e}")
                 status = "Unknown"
 
-        # Message Body
         info_text = f"""
 🔍 *Showing User's Profile Info* 📋
 ━━━━━━━━━━━━━━━━
@@ -696,10 +750,8 @@ For security, the command message will be deleted after setting the key.
 👁 *Thank You for Using Our Tool* ✅
 """
 
-        # Inline Button
         keyboard = [[InlineKeyboardButton("View Profile", url=f"tg://user?id={user_id}")]] if user.username else []
 
-        # Try Sending with Profile Photo
         try:
             photos = await bot.get_user_profile_photos(user_id, limit=1)
             if photos.total_count > 0:
@@ -723,7 +775,7 @@ For security, the command message will be deleted after setting the key.
         except Exception as e:
             logger.error(f"Error sending profile photo: {e}")
             await bot.send_message(
-                chart_id=chat_id,
+                chat_id=chat_id,
                 text=info_text,
                 parse_mode="Markdown",
                 reply_to_message_id=update.message.message_id,
@@ -825,6 +877,7 @@ For security, the command message will be deleted after setting the key.
     async def like_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /like command to send likes to a Free Fire UID"""
         user_id = update.effective_user.id
+        chat_id = update.effective_chat.id
         chat_type = update.effective_chat.type
 
         if chat_type == 'private' and user_id != ADMIN_USER_ID:
@@ -832,28 +885,34 @@ For security, the command message will be deleted after setting the key.
             await update.message.reply_text(response, reply_markup=reply_markup)
             return
 
-        if len(context.args) != 1:
-            await update.message.reply_text("Usage: /like <UID>")
+        if len(context.args) != 2:
+            await update.message.reply_text("<b>Usage: /like {region} {uid}</b>", parse_mode="HTML")
             return
-    
-        uid = context.args[0]
-        result = send_like(uid)
-    
-        if "added" in result:
+        
+        region, uid = context.args[0].upper(), context.args[1]
+        processing_msg = await update.message.reply_text("<b>Processing your request...</b>", parse_mode="HTML")
+        
+        result = await send_like(chat_id, region, uid)
+        
+        if result.get("status") == "Success":
             message = (
-                f"✅ Likes Sent!\n\n"
-                f"UID: {result['uid']}\n"
-                f"Player Level: {result['level']}\n"
-                f"Player Region: {result['region']}\n"
-                f"Player Nickname: {result['nickname']}\n"
-                f"Likes Before: {result['before']}\n"
-                f"Likes After: {result['after']}\n"
-                f"Likes Added: {result['added']}"
+                "<b>Likes Sent Successfully</b>\n"
+                f"<b>Player Nickname:</b> {result['nickname']}\n"
+                f"<b>Player Region:</b> {result['region']}\n"
+                f"<b>Player Level:</b> {result['level']}\n"
+                f"<b>Before Likes:</b> {result['before']}\n"
+                f"<b>After Likes:</b> {result['after']}\n"
+                f"<b>Likes Given By Bot:</b> {result['added']}"
             )
         else:
-            message = f"Failed to send like.\nStatus: {result.get('status', 'Unknown Error')}"
-    
-        await update.message.reply_text(message)
+            message = f"<b>Failed to send likes.</b>\n<b>Message:</b> {result.get('status', 'Unknown Error')}"
+        
+        await context.bot.edit_message_text(
+            text=message,
+            chat_id=chat_id,
+            message_id=processing_msg.message_id,
+            parse_mode="HTML"
+        )
 
     async def countryinfo_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /countryinfo command to fetch country information"""
@@ -870,77 +929,12 @@ For security, the command message will be deleted after setting the key.
             return
 
         country_name = ' '.join(context.args)
-        # Check for non-ASCII characters
         if not re.match(r'^[\x00-\x7F]*$', country_name):
             await update.message.reply_text("Please enter the country name in English. For example, use 'Bangladesh' instead of 'বাংলাদেশ'.")
             return
 
         response_message = await get_country_info(country_name)
         await update.message.reply_text(response_message)
-
-    async def handle_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle regular text messages"""
-        try:
-            chat_id = update.effective_chat.id
-            user_id = update.effective_user.id
-            user_message = update.message.text
-            chat_type = update.effective_chat.type
-            
-            if chat_type in ['group', 'supergroup']:
-                bot_username = context.bot.username
-                is_reply_to_bot = (update.message.reply_to_message and 
-                                 update.message.reply_to_message.from_user.id == context.bot.id)
-                is_mentioned = f"@{bot_username}" in user_message
-                if not (is_reply_to_bot or is_mentioned):
-                    return
-            elif chat_type == 'private' and user_id != ADMIN_USER_ID:
-                response, reply_markup = await self.get_private_chat_redirect()
-                await update.message.reply_text(response, reply_markup=reply_markup)
-                return
-            
-            await context.bot.send_chat_action(chat_id=chat_id, action="typing")
-            if chat_id not in conversation_context:
-                conversation_context[chat_id] = []
-            conversation_context[chat_id].append(f"User: {user_message}")
-            if len(conversation_context[chat_id]) > 20:
-                conversation_context[chat_id] = conversation_context[chat_id][-20:]
-            context_text = "\n".join(conversation_context[chat_id])
-            
-            # Check if the message is a 2 or 3 letter lowercase word
-            is_short_word = re.match(r'^[a-z]{2,3}$', user_message.strip().lower())
-            
-            # Detect if message is coding-related
-            coding_keywords = ['code', 'python', 'javascript', 'java', 'c++', 'programming', 'script', 'debug', 'css', 'html']
-            is_coding_query = any(keyword in user_message.lower() for keyword in coding_keywords)
-            
-            model_to_use = coding_model if is_coding_query else general_model
-            if current_gemini_api_key and model_to_use:
-                response = await self.generate_gemini_response(context_text, chat_type, is_coding_query, is_short_word)
-            else:
-                response = "Sorry, the model is not connected yet. The admin can set it using the /api command."
-            
-            conversation_context[chat_id].append(f"I Master Tools: {response}")
-            group_activity[chat_id] = group_activity.get(chat_id, {'auto_mode': False, 'last_response': 0})
-            group_activity[chat_id]['last_response'] = datetime.now().timestamp()
-            
-            # If it's a coding query, add a "Copy Code" button
-            if is_coding_query:
-                code_block_match = re.search(r'```(?:\w+)?\n([\s\S]*?)\n```', response)
-                if code_block_match:
-                    keyboard = [[InlineKeyboardButton("Copy Code", callback_data="copy_code")]]
-                    reply_markup = InlineKeyboardMarkup(keyboard)
-                    await update.message.reply_text(
-                        response,
-                        parse_mode='Markdown',
-                        reply_markup=reply_markup
-                    )
-                else:
-                    await update.message.reply_text(response, parse_mode='Markdown')
-            else:
-                await update.message.reply_text(response)
-        except Exception as e:
-            logger.error(f"Error handling message: {e}")
-            await update.message.reply_text("Something went wrong. Shall we try again?")
 
     async def generate_gemini_response(self, prompt, chat_type="private", is_coding_query=False, is_short_word=False):
         """Generate response using Gemini with personality"""
