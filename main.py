@@ -327,6 +327,35 @@ async def remove_background(image_data: bytes, chat_id: int):
         logger.error(f"Error removing background for chat {chat_id}: {e}")
         return False, f"Error removing background: {str(e)}"
 
+async def get_gemini_trading_pairs():
+    """
+    Fetch available trading pairs from Gemini API
+    :return: Formatted response string with box design
+    """
+    url = "https://api.gemini.com/v1/symbols"
+    headers = {
+        "Content-Type": "application/json"
+    }
+    
+    try:
+        response = requests.get(url, headers=headers)
+        if response.status_code == 200:
+            symbols = response.json()
+            output_message = "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓\n"
+            output_message += "┃ 💹 Available Trading Pairs on Gemini ┃\n"
+            output_message += "┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫\n"
+            for i, symbol in enumerate(symbols[:10], 1):  # Limit to 10 pairs for brevity
+                output_message += f"┃ 💱 Pair {i}: {symbol.upper()}\n"
+            output_message += "┃\n"
+            output_message += "┗━━━ 𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸 ━━━┛"
+            return output_message
+        else:
+            logger.error(f"Gemini API error: {response.status_code} - {response.text}")
+            return f"❌ Error fetching trading pairs: {response.status_code} - {response.text}"
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error fetching Gemini trading pairs: {e}")
+        return f"❌ Error fetching trading pairs: {str(e)}"
+
 class TelegramGeminiBot:
     def __init__(self):
         self.application = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
@@ -350,6 +379,7 @@ class TelegramGeminiBot:
         self.application.add_handler(CommandHandler("countryinfo", self.countryinfo_command))
         self.application.add_handler(CommandHandler("weather", self.weather_command))
         self.application.add_handler(CommandHandler("removebg", self.removebg_command))
+        self.application.add_handler(CommandHandler("gemini", self.gemini_command))
         self.application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_message))
         self.application.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, self.handle_new_member))
         self.application.add_handler(MessageHandler(filters.PHOTO & ~filters.COMMAND, self.handle_photo))
@@ -400,7 +430,8 @@ Available commands:
 - /countryinfo <country_name>: Fetch country information (use English names, e.g., 'Bangladesh')
 - /weather <location>: Fetch current weather information
 - /removebg: Remove the background from an uploaded image
-{'' if user_id != ADMIN_USER_ID else '- /api <key>: Set Gemini API key (admin only)\n- /setadmin: Set yourself as admin (first-time only)\n- /setmodel: Choose a different model (admin only)'}
+- /gemini: List available trading pairs on Gemini exchange
+{'' if user_id != ADMIN_USER_ID else '- /api <key>: Set Gemini AI API key (admin only)\n- /setadmin: Set yourself as admin (first-time only)\n- /setmodel: Choose a different model (admin only)'}
 
 In groups, mention @I MasterTools or reply to my messages to get a response. I'm excited to chat with you!
             """
@@ -454,7 +485,8 @@ Available commands:
 - /countryinfo <country_name>: Fetch country information (use English names, e.g., 'Bangladesh')
 - /weather <location>: Fetch current weather information
 - /removebg: Remove the background from an uploaded image
-{'' if user_id != ADMIN_USER_ID else '- /api <key>: Set Gemini API key (admin only)\n- /setadmin: Set yourself as admin (first-time only)\n- /setmodel: Choose a different model (admin only)'}
+- /gemini: List available trading pairs on Gemini exchange
+{'' if user_id != ADMIN_USER_ID else '- /api <key>: Set Gemini AI API key (admin only)\n- /setadmin: Set yourself as admin (first-time only)\n- /setmodel: Choose a different model (admin only)'}
 
 My personality:
 - I'm a friendly companion who loves chatting and making friends
@@ -563,7 +595,7 @@ All systems are ready for action. I'm thrilled to assist!
                     await update.message.reply_text("Sorry, the admin is already set. Only the current admin can manage the bot.")
 
     async def api_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle /api command to set Gemini API key"""
+        """Handle /api command to set Gemini AI API key"""
         global current_gemini_api_key, general_model, coding_model
         user_id = update.effective_user.id
         chat_type = update.effective_chat.type
@@ -584,7 +616,7 @@ Please provide an API key.
 
 Usage: `/api your_gemini_api_key_here`
 
-To get a Gemini API key:
+To get a Gemini AI API key:
 1. Visit https://makersuite.google.com/app/apikey
 2. Generate a new API key
 3. Use the command: /api YOUR_API_KEY
@@ -594,7 +626,7 @@ For security, the command message will be deleted after setting the key.
                 return
             api_key = ' '.join(context.args)
             if len(api_key) < 20 or not api_key.startswith('AI'):
-                await update.message.reply_text("Invalid API key format. Gemini API keys typically start with 'AI' and are over 20 characters.")
+                await update.message.reply_text("Invalid API key format. Gemini AI API keys typically start with 'AI' and are over 20 characters.")
                 return
             success, message = initialize_gemini_models(api_key)
             try:
@@ -602,8 +634,8 @@ For security, the command message will be deleted after setting the key.
             except Exception as e:
                 logger.error(f"Error deleting API command message: {e}")
             if success:
-                await update.effective_chat.send_message(f"Gemini API key updated successfully! Key: ...{api_key[-8:]}")
-                logger.info(f"Gemini API key updated by admin {user_id}")
+                await update.effective_chat.send_message(f"Gemini AI API key updated successfully! Key: ...{api_key[-8:]}")
+                logger.info(f"Gemini AI API key updated by admin {user_id}")
             else:
                 await update.effective_chat.send_message(f"Failed to set API key: {message}")
                 logger.error(f"Failed to set API key: {message}")
@@ -865,6 +897,20 @@ For security, the command message will be deleted after setting the key.
             "Please upload an image to remove its background. I'll process it and send back the result!"
         )
 
+    async def gemini_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle /gemini command to list available trading pairs"""
+        user_id = update.effective_user.id
+        chat_type = update.effective_chat.type
+
+        if chat_type == 'private' and user_id != ADMIN_USER_ID:
+            response, reply_markup = await self.get_private_chat_redirect()
+            await update.message.reply_text(response, reply_markup=reply_markup)
+            return
+
+        await context.bot.send_chat_action(chat_id=update.effective_chat.id, action="typing")
+        response_message = await get_gemini_trading_pairs()
+        await update.message.reply_text(response_message)
+
     async def handle_photo(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle photo uploads for background removal"""
         user_id = update.effective_user.id
@@ -1073,9 +1119,9 @@ def main():
     logger.info("Starting Telegram Bot...")
     logger.info(f"Admin User ID: {ADMIN_USER_ID}")
     if current_gemini_api_key:
-        logger.info("Gemini API configured and ready")
+        logger.info("Gemini AI API configured and ready")
     else:
-        logger.warning("Gemini API not configured. Use /setadmin and /api commands to set up.")
+        logger.warning("Gemini AI API not configured. Use /setadmin and /api commands to set up.")
     bot = TelegramGeminiBot()
     bot.run()
 
