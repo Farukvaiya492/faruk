@@ -1,13 +1,13 @@
 import os
 import logging
 import google.generativeai as genai
+import requests
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, CallbackQuery
 from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters, ContextTypes
 import asyncio
 from datetime import datetime
 import random
 import re
-import requests
 
 # Configure logging
 logging.basicConfig(
@@ -19,6 +19,7 @@ logger = logging.getLogger(__name__)
 # Configuration
 TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN', '8380869007:AAGu7e41JJVU8aXG5wqXtCMUVKcCmmrp_gg')
 GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
+REMOVE_BG_API_KEY = '15smbepCfMYoHh7D7Cnzj9Z6'  # remove.bg API key
 ADMIN_USER_ID = int(os.getenv('ADMIN_USER_ID', '7835226724'))
 PORT = int(os.getenv('PORT', 8000))
 WEATHER_API_KEY = "c1794a3c9faa01e4b5142313d4191ef8"  # Weatherstack API key
@@ -37,6 +38,11 @@ current_model = 'gemini-1.5-flash'  # Default model
 # API keys for external services
 PHONE_API_KEY = "num_live_Nf2vjeM19tHdi42qQ2LaVVMg2IGk1ReU2BYBKnvm"
 BIN_API_KEY = "kEXNklIYqLiLU657swFB1VXE0e4NF21G"
+
+# Store conversation context and state for removebg
+conversation_context = {}
+group_activity = {}
+removebg_state = {}  # To track which chats are expecting an image for /removebg
 
 def initialize_gemini_models(api_key):
     """Initialize Gemini models with the provided API key"""
@@ -61,10 +67,6 @@ if GEMINI_API_KEY:
         logger.error(f"Failed to initialize Gemini API: {message}")
 else:
     logger.warning("GEMINI_API_KEY not set. Use /api command to configure.")
-
-# Store conversation context for each chat
-conversation_context = {}
-group_activity = {}
 
 async def validate_phone_number(phone_number: str, api_key: str, country_code: str = None):
     """
@@ -292,7 +294,7 @@ async def get_weather_info(location: str):
             output_message += f"┃ 💧 Humidity: {current_weather.get('humidity', 'N/A')}% \n"
             output_message += f"┃ 💨 Wind Speed: {current_weather.get('wind_speed', 'N/A')} km/h\n"
             output_message += "┃\n"
-            output_message += "┗━━━ 𝗖�_r𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸 ━━━┛"
+            output_message += "┗━━━ 𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸 ━━━┛"
             return output_message
         else:
             error_info = data.get("error", {}).get("info", "Unknown error")
@@ -300,6 +302,30 @@ async def get_weather_info(location: str):
     except requests.exceptions.RequestException as e:
         logger.error(f"Error fetching weather info: {e}")
         return f"Error fetching weather data: {str(e)}. Please try a different location!"
+
+async def remove_background(image_data: bytes, chat_id: int):
+    """
+    Remove background from an image using remove.bg API
+    :param image_data: Bytes of the image file
+    :param chat_id: Telegram chat ID for logging
+    :return: Tuple of (success, response_content or error_message)
+    """
+    url = 'https://api.remove.bg/v1.0/removebg'
+    try:
+        response = requests.post(
+            url,
+            files={'image_file': ('image.jpg', image_data)},
+            data={'size': 'auto'},
+            headers={'X-Api-Key': REMOVE_BG_API_KEY}
+        )
+        if response.status_code == 200:
+            return True, response.content
+        else:
+            logger.error(f"remove.bg API error for chat {chat_id}: {response.status_code} - {response.text}")
+            return False, f"Error: {response.status_code} - {response.text}"
+    except Exception as e:
+        logger.error(f"Error removing background for chat {chat_id}: {e}")
+        return False, f"Error removing background: {str(e)}"
 
 class TelegramGeminiBot:
     def __init__(self):
@@ -323,8 +349,10 @@ class TelegramGeminiBot:
         self.application.add_handler(CommandHandler("ipinfo", self.ipinfo_command))
         self.application.add_handler(CommandHandler("countryinfo", self.countryinfo_command))
         self.application.add_handler(CommandHandler("weather", self.weather_command))
+        self.application.add_handler(CommandHandler("removebg", self.removebg_command))
         self.application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_message))
         self.application.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, self.handle_new_member))
+        self.application.add_handler(MessageHandler(filters.PHOTO & ~filters.COMMAND, self.handle_photo))
         self.application.add_handler(CallbackQueryHandler(self.button_callback, pattern='^copy_code$'))
         self.application.add_error_handler(self.error_handler)
 
@@ -371,6 +399,7 @@ Available commands:
 - /ipinfo <ip_address>: Fetch IP address information
 - /countryinfo <country_name>: Fetch country information (use English names, e.g., 'Bangladesh')
 - /weather <location>: Fetch current weather information
+- /removebg: Remove the background from an uploaded image
 {'' if user_id != ADMIN_USER_ID else '- /api <key>: Set Gemini API key (admin only)\n- /setadmin: Set yourself as admin (first-time only)\n- /setmodel: Choose a different model (admin only)'}
 
 In groups, mention @I MasterTools or reply to my messages to get a response. I'm excited to chat with you!
@@ -424,6 +453,7 @@ Available commands:
 - /ipinfo <ip_address>: Fetch IP address information
 - /countryinfo <country_name>: Fetch country information (use English names, e.g., 'Bangladesh')
 - /weather <location>: Fetch current weather information
+- /removebg: Remove the background from an uploaded image
 {'' if user_id != ADMIN_USER_ID else '- /api <key>: Set Gemini API key (admin only)\n- /setadmin: Set yourself as admin (first-time only)\n- /setmodel: Choose a different model (admin only)'}
 
 My personality:
@@ -449,6 +479,8 @@ Powered by Google Gemini
         else:
             if chat_id in conversation_context:
                 del conversation_context[chat_id]
+            if chat_id in removebg_state:
+                del removebg_state[chat_id]
             await update.message.reply_text("Conversation history has been cleared. Let's start fresh!")
 
     async def checkmail_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -815,6 +847,69 @@ For security, the command message will be deleted after setting the key.
         location = ' '.join(context.args)
         response_message = await get_weather_info(location)
         await update.message.reply_text(response_message)
+
+    async def removebg_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle /removebg command to initiate background removal"""
+        user_id = update.effective_user.id
+        chat_id = update.effective_chat.id
+        chat_type = update.effective_chat.type
+
+        if chat_type == 'private' and user_id != ADMIN_USER_ID:
+            response, reply_markup = await self.get_private_chat_redirect()
+            await update.message.reply_text(response, reply_markup=reply_markup)
+            return
+
+        # Set state to expect a photo
+        removebg_state[chat_id] = True
+        await update.message.reply_text(
+            "Please upload an image to remove its background. I'll process it and send back the result!"
+        )
+
+    async def handle_photo(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle photo uploads for background removal"""
+        user_id = update.effective_user.id
+        chat_id = update.effective_chat.id
+        chat_type = update.effective_chat.type
+
+        if chat_type == 'private' and user_id != ADMIN_USER_ID:
+            response, reply_markup = await self.get_private_chat_redirect()
+            await update.message.reply_text(response, reply_markup=reply_markup)
+            return
+
+        if chat_id not in removebg_state or not removebg_state[chat_id]:
+            return  # Ignore photos unless /removebg was called
+
+        # Show uploading photo action
+        await context.bot.send_chat_action(chat_id=chat_id, action="upload_photo")
+
+        try:
+            # Get the photo (use the highest resolution available)
+            photo = update.message.photo[-1]
+            file = await photo.get_file()
+            image_data = await file.download_as_bytearray()
+
+            # Call remove.bg API
+            success, result = await remove_background(image_data, chat_id)
+
+            if success:
+                # Send the processed image
+                await context.bot.send_photo(
+                    chat_id=chat_id,
+                    photo=result,
+                    caption="✅ Background removed successfully!\n┗━━━ 𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸 ━━━┛"
+                )
+            else:
+                await update.message.reply_text(f"❌ Failed to remove background: {result}")
+
+            # Clear the removebg state
+            if chat_id in removebg_state:
+                del removebg_state[chat_id]
+
+        except Exception as e:
+            logger.error(f"Error handling photo for chat {chat_id}: {e}")
+            await update.message.reply_text("Something went wrong while processing the image. Please try again!")
+            if chat_id in removebg_state:
+                del removebg_state[chat_id]
 
     async def handle_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle regular text messages"""
