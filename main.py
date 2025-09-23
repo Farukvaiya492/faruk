@@ -259,7 +259,7 @@ async def get_country_info(country_name: str):
             output_message += f"┃ 🌐 Region: {country.get('region', 'N/A')}\n"
             output_message += f"┃ 🗺️ Subregion: {country.get('subregion', 'N/A')}\n"
             output_message += "┃\n"
-            output_message += "┗━━━ 𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸 ━━━┛"
+            output_message += "┗━━━ 𝗖�_r𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸 ━━━┛"
             return output_message
         else:
             return "No information found for this country. Please try a different country name!"
@@ -388,6 +388,52 @@ async def get_binance_ticker(symbol: str):
         logger.error(f"Error fetching Binance ticker data: {e}")
         return f"❌ Error fetching ticker data: {str(e)}"
 
+async def get_free_fire_user_info(uid: str):
+    """
+    Fetch Free Fire user information by UID
+    :param uid: Free Fire user ID
+    :return: Formatted response string with box design
+    """
+    # API URL
+    url = f"https://free-fire-visit-api.vercel.app/BD/{uid}"
+    
+    try:
+        # Sending GET request
+        response = requests.get(url)
+        
+        # Checking the response status
+        if response.status_code == 200:
+            data = response.json()
+
+            # If the response is successful and user data is found
+            if data.get("fail") == 0:
+                nickname = data.get('nickname')  # User's nickname
+                level = data.get('level')  # User's level
+                likes = data.get('likes')  # Current likes count
+                region = data.get('region')  # Region (Country)
+                success = data.get('success')  # Success status
+
+                # Format output with box design
+                output_message = "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓\n"
+                output_message += f"┃ 🌟 Free Fire UID Information ┃\n"
+                output_message += "┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫\n"
+                output_message += f"┃ 👤 Nickname: {nickname}\n"
+                output_message += f"┃ 🏆 Level: {level}\n"
+                output_message += f"┃ ❤️ Current Likes: {likes}\n"
+                output_message += f"┃ 🌍 Region: {region}\n"
+                output_message += f"┃ ✅ Success: {success}\n"
+                output_message += "┃\n"
+                output_message += "┗━━━ 𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸 ━━━┛"
+                return output_message
+            else:
+                return "⚠️ User data not found."
+        else:
+            logger.error(f"Free Fire API error: {response.status_code} - {response.text}")
+            return f"❌ API error: {response.status_code}"
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error fetching Free Fire user info: {e}")
+        return f"❌ Error fetching Free Fire user info: {str(e)}"
+
 class TelegramGeminiBot:
     def __init__(self):
         self.application = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
@@ -413,6 +459,7 @@ class TelegramGeminiBot:
         self.application.add_handler(CommandHandler("removebg", self.removebg_command))
         self.application.add_handler(CommandHandler("gemini", self.gemini_command))
         self.application.add_handler(CommandHandler("binance", self.binance_command))
+        self.application.add_handler(CommandHandler("freefire", self.freefire_command))
         self.application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_message))
         self.application.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, self.handle_new_member))
         self.application.add_handler(MessageHandler(filters.PHOTO & ~filters.COMMAND, self.handle_photo))
@@ -465,6 +512,7 @@ Available commands:
 - /removebg: Remove the background from an uploaded image
 - /gemini: List available trading pairs on Gemini exchange
 - /binance <symbol>: Fetch 24hr ticker data for a Binance trading pair
+- /freefire <uid>: Fetch Free Fire user information by UID
 {'' if user_id != ADMIN_USER_ID else '- /api <key>: Set Gemini AI API key (admin only)\n- /setadmin: Set yourself as admin (first-time only)\n- /setmodel: Choose a different model (admin only)'}
 
 In groups, mention @I MasterTools or reply to my messages to get a response. I'm excited to chat with you!
@@ -521,6 +569,7 @@ Available commands:
 - /removebg: Remove the background from an uploaded image
 - /gemini: List available trading pairs on Gemini exchange
 - /binance <symbol>: Fetch 24hr ticker data for a Binance trading pair
+- /freefire <uid>: Fetch Free Fire user information by UID
 {'' if user_id != ADMIN_USER_ID else '- /api <key>: Set Gemini AI API key (admin only)\n- /setadmin: Set yourself as admin (first-time only)\n- /setmodel: Choose a different model (admin only)'}
 
 My personality:
@@ -963,6 +1012,25 @@ For security, the command message will be deleted after setting the key.
         symbol = context.args[0].upper()  # Ensure symbol is uppercase
         await context.bot.send_chat_action(chat_id=update.effective_chat.id, action="typing")
         response_message = await get_binance_ticker(symbol)
+        await update.message.reply_text(response_message)
+
+    async def freefire_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle /freefire command to fetch Free Fire user information"""
+        user_id = update.effective_user.id
+        chat_type = update.effective_chat.type
+
+        if chat_type == 'private' and user_id != ADMIN_USER_ID:
+            response, reply_markup = await self.get_private_chat_redirect()
+            await update.message.reply_text(response, reply_markup=reply_markup)
+            return
+
+        if not context.args:
+            await update.message.reply_text("Usage: /freefire <uid>\nExample: /freefire 3533918864")
+            return
+
+        uid = context.args[0]
+        await context.bot.send_chat_action(chat_id=update.effective_chat.id, action="typing")
+        response_message = await get_free_fire_user_info(uid)
         await update.message.reply_text(response_message)
 
     async def handle_photo(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
