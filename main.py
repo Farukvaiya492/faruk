@@ -2,8 +2,9 @@ import os
 import logging
 import google.generativeai as genai
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, CallbackQuery
-from telegram.ext import Application, CommandHandler, CallbackQueryHandler, filters, ContextTypes
+from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters, ContextTypes
 import asyncio
+from datetime import datetime
 import random
 import re
 import requests
@@ -35,45 +36,12 @@ current_model = 'gemini-1.5-flash'  # Default model
 # API keys for external services
 PHONE_API_KEY = "num_live_Nf2vjeM19tHdi42qQ2LaVVMg2IGk1ReU2BYBKnvm"
 BIN_API_KEY = "kEXNklIYqLiLU657swFB1VXE0e4NF21G"
-API_URL = "https://free-like-api-aditya-ffm.vercel.app/like"
 
 # ===========================
-# Function to Send Likes
+# লাইক পাঠানোর ফাংশন
 # ===========================
 def send_like(uid: str, server_name: str = "BD"):
-    api_url = f"{API_URL}?uid={uid}&server_name={server_name}&key=@adityaapis"
-    
-    try:
-        response = requests.get(api_url, timeout=10)
-        if response.status_code == 200:
-            data = response.json()
-            before = data.get("LikesbeforeCommand", 0)
-            after = data.get("LikesafterCommand", 0)
-            added = after - before
-            level = data.get("PlayerLevel", "N/A")
-            region = data.get("PlayerRegion", "N/A")
-            nickname = data.get("PlayerNickname", "N/A")
-            
-            return {
-                "uid": uid,
-                "level": level,
-                "region": region,
-                "nickname": nickname,
-                "before": before,
-                "after": after,
-                "added": added,
-                "status": "Success ✅"
-            }
-        else:
-            return {"status": f"Error: {response.status_code}"}
-    except Exception as e:
-        return {"status": f"Error: {e}"}
-
-# ===========================
-# একাউন্ট স্ট্যাটাস দেখানোর ফাংশন
-# ===========================
-def get_account_status(uid: str, server_name: str = "BD"):
-    api_url = f"{API_URL}?uid={uid}&server_name={server_name}&key=@adityaapis"
+    api_url = f"https://free-like-api-aditya-ffm.vercel.app/like?uid={uid}&server_name={server_name}&key=@adityaapis"
     
     try:
         response = requests.get(api_url, timeout=10)
@@ -303,7 +271,7 @@ async def get_ip_info2(ip_address: str):
             output_message += f"┃ 📌 Longitude: {data.get('longitude', 'N/A')}\n"
             output_message += f"┃ 🏢 ISP: {data.get('isp', 'N/A')}\n"
             output_message += "┃\n"
-            output_message += "┗━━━ 𝗖�_r𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸 ━━━┛"
+            output_message += "┗━━━ 𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸 ━━━┛"
             return output_message
         else:
             return "Failed to fetch data"
@@ -351,7 +319,7 @@ async def get_country_info(country_name: str):
             output_message += f"┃ 🌐 Region: {country.get('region', 'N/A')}\n"
             output_message += f"┃ 🗺️ Subregion: {country.get('subregion', 'N/A')}\n"
             output_message += "┃\n"
-            output_message += "┗━━━ 𝗖�_r𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸 ━━━┛"
+            output_message += "┗━━━ 𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸 ━━━┛"
             return output_message
         else:
             return "No information found for this country. Please try a different country name!"
@@ -382,6 +350,7 @@ class TelegramGeminiBot:
         self.application.add_handler(CommandHandler("ipinfo2", self.ipinfo2_command))
         self.application.add_handler(CommandHandler("like", self.like_command))
         self.application.add_handler(CommandHandler("countryinfo", self.countryinfo_command))
+        self.application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_message))
         self.application.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, self.handle_new_member))
         self.application.add_handler(CallbackQueryHandler(self.button_callback, pattern='^copy_code$'))
         self.application.add_error_handler(self.error_handler)
@@ -420,7 +389,7 @@ To chat with me, please join our official Telegram group or mention @I MasterToo
 Available commands:
 - /help: Get help and usage information
 - /clear: Clear conversation history
-- /status <UID>: Check Free Fire account status (admin only)
+- /status: Check bot status
 - /checkmail: Check temporary email inbox
 - /info: Show user profile information
 - /validatephone <number> [country_code]: Validate a phone number
@@ -474,7 +443,7 @@ Available commands:
 - /start: Show welcome message with group link
 - /help: Display this help message
 - /clear: Clear your conversation history
-- /status <UID>: Check Free Fire account status (admin only)
+- /status: Check bot status
 - /checkmail: Check temporary email inbox
 - /info: Show user profile information
 - /validatephone <number> [country_code]: Validate a phone number
@@ -519,63 +488,76 @@ Powered by Google Gemini
         if chat_type == 'private' and user_id != ADMIN_USER_ID:
             response, reply_markup = await self.get_private_chat_redirect()
             await update.message.reply_text(response, reply_markup=reply_markup)
-            return
-
-        try:
-            u = 'txoguqa'
-            d = random.choice(['mailto.plus', 'fexpost.com', 'fexbox.org', 'rover.info'])
-            email = f'{u}@{d}'
-            response = requests.get(
-                'https://tempmail.plus/api/mails',
-                params={'email': email, 'limit': 20, 'epin': ''},
-                cookies={'email': email},
-                headers={'user-agent': 'Mozilla/5.0'}
-            )
-            mail_list = response.json().get('mail_list', [])
-            if not mail_list:
-                await update.message.reply_text(f"No emails found in the inbox for {email}. Want to try again later?")
-                return
-            subjects = [m['subject'] for m in mail_list]
-            response_text = f"Here are the emails in the inbox for {email}:\n\n" + "\n".join(subjects)
-            await update.message.reply_text(response_text)
-        except Exception as e:
-            logger.error(f"Error checking email: {e}")
-            await update.message.reply_text("Something went wrong while checking the email. Shall we try again?")
+        else:
+            try:
+                u = 'txoguqa'
+                d = random.choice(['mailto.plus', 'fexpost.com', 'fexbox.org', 'rover.info'])
+                email = f'{u}@{d}'
+                response = requests.get(
+                    'https://tempmail.plus/api/mails',
+                    params={'email': email, 'limit': 20, 'epin': ''},
+                    cookies={'email': email},
+                    headers={'user-agent': 'Mozilla/5.0'}
+                )
+                mail_list = response.json().get('mail_list', [])
+                if not mail_list:
+                    await update.message.reply_text(f"No emails found in the inbox for {email}. Want to try again later?")
+                    return
+                subjects = [m['subject'] for m in mail_list]
+                response_text = f"Here are the emails in the inbox for {email}:\n\n" + "\n".join(subjects)
+                await update.message.reply_text(response_text)
+            except Exception as e:
+                logger.error(f"Error checking email: {e}")
+                await update.message.reply_text("Something went wrong while checking the email. Shall we try again?")
 
     async def status_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle /status command to check Free Fire account status"""
+        """Handle /status command"""
         user_id = update.effective_user.id
+        chat_id = update.effective_chat.id
         chat_type = update.effective_chat.type
 
         if chat_type == 'private' and user_id != ADMIN_USER_ID:
             response, reply_markup = await self.get_private_chat_redirect()
             await update.message.reply_text(response, reply_markup=reply_markup)
-            return
-
-        if str(user_id) == str(ADMIN_USER_ID):
-            if len(context.args) != 1:
-                await update.message.reply_text("Usage: /status <UID>")
-                return
-            uid = context.args[0]
-            result = get_account_status(uid)
-            
-            if "added" in result:
-                message = (
-                    f"✅ Account Status:\n\n"
-                    f"UID: {result['uid']}\n"
-                    f"Player Level: {result['level']}\n"
-                    f"Player Region: {result['region']}\n"
-                    f"Player Nickname: {result['nickname']}\n"
-                    f"Likes Before: {result['before']}\n"
-                    f"Likes After: {result['after']}\n"
-                    f"Likes Added: {result['added']}"
-                )
-            else:
-                message = f"Failed to retrieve account status.\nStatus: {result.get('status', 'Unknown Error')}"
-            
-            await context.bot.send_message(chat_id="@VPSHUB_BD_CHAT", text=message)
         else:
-            await update.message.reply_text("You are not authorized to use this command.")
+            api_status = "Connected" if current_gemini_api_key and general_model else "Not configured"
+            api_key_display = f"...{current_gemini_api_key[-8:]}" if current_gemini_api_key else "Not set"
+            status_message = f"""
+Here's the I Master Tools status report:
+
+Bot Status: Online and ready
+Model: {current_model}
+API Status: {api_status}
+API Key: {api_key_display}
+Group Responses: Mention or reply only
+Current Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+Active Conversations: {len(conversation_context)}
+Admin ID: {ADMIN_USER_ID if ADMIN_USER_ID != 0 else 'Not set'}
+
+All systems are ready for action. I'm thrilled to assist!
+            """
+            await update.message.reply_text(status_message)
+
+    async def setadmin_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle /setadmin command"""
+        global ADMIN_USER_ID
+        user_id = update.effective_user.id
+        username = update.effective_user.first_name or "User"
+        chat_type = update.effective_chat.type
+
+        if chat_type == 'private' and user_id != ADMIN_USER_ID:
+            response, reply_markup = await self.get_private_chat_redirect()
+            await update.message.reply_text(response, reply_markup=reply_markup)
+        else:
+            if ADMIN_USER_ID == 0:
+                ADMIN_USER_ID = user_id
+                await update.message.reply_text(f"Congratulations {username}, you are now the bot admin! Your user ID: {user_id}")
+                logger.info(f"Admin set to user ID: {user_id}")
+            else:
+                if user_id == ADMIN_USER_ID:
+                    await update.message.reply_text(f"You're already the admin! Your user ID: {user_id}")
+                else:
+                    await update.message.reply_text("Sorry, the admin is already set. Only the current admin can manage the bot.")
 
     async def api_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /api command to set Gemini API key"""
@@ -622,27 +604,6 @@ For security, the command message will be deleted after setting the key.
             else:
                 await update.effective_chat.send_message(f"Failed to set API key: {message}")
                 logger.error(f"Failed to set API key: {message}")
-
-    async def setadmin_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle /setadmin command"""
-        global ADMIN_USER_ID
-        user_id = update.effective_user.id
-        username = update.effective_user.first_name or "User"
-        chat_type = update.effective_chat.type
-
-        if chat_type == 'private' and user_id != ADMIN_USER_ID:
-            response, reply_markup = await self.get_private_chat_redirect()
-            await update.message.reply_text(response, reply_markup=reply_markup)
-        else:
-            if ADMIN_USER_ID == 0:
-                ADMIN_USER_ID = user_id
-                await update.message.reply_text(f"Congratulations {username}, you are now the bot admin! Your user ID: {user_id}")
-                logger.info(f"Admin set to user ID: {user_id}")
-            else:
-                if user_id == ADMIN_USER_ID:
-                    await update.message.reply_text(f"You're already the admin! Your user ID: {user_id}")
-                else:
-                    await update.message.reply_text("Sorry, the admin is already set. Only the current admin can manage the bot.")
 
     async def setmodel_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /setmodel command to choose Gemini model"""
@@ -762,7 +723,7 @@ For security, the command message will be deleted after setting the key.
         except Exception as e:
             logger.error(f"Error sending profile photo: {e}")
             await bot.send_message(
-                chat_id=chat_id,
+                chart_id=chat_id,
                 text=info_text,
                 parse_mode="Markdown",
                 reply_to_message_id=update.message.message_id,
@@ -874,10 +835,10 @@ For security, the command message will be deleted after setting the key.
         if len(context.args) != 1:
             await update.message.reply_text("Usage: /like <UID>")
             return
-        
+    
         uid = context.args[0]
         result = send_like(uid)
-        
+    
         if "added" in result:
             message = (
                 f"✅ Likes Sent!\n\n"
@@ -891,7 +852,7 @@ For security, the command message will be deleted after setting the key.
             )
         else:
             message = f"Failed to send like.\nStatus: {result.get('status', 'Unknown Error')}"
-        
+    
         await update.message.reply_text(message)
 
     async def countryinfo_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -916,6 +877,70 @@ For security, the command message will be deleted after setting the key.
 
         response_message = await get_country_info(country_name)
         await update.message.reply_text(response_message)
+
+    async def handle_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle regular text messages"""
+        try:
+            chat_id = update.effective_chat.id
+            user_id = update.effective_user.id
+            user_message = update.message.text
+            chat_type = update.effective_chat.type
+            
+            if chat_type in ['group', 'supergroup']:
+                bot_username = context.bot.username
+                is_reply_to_bot = (update.message.reply_to_message and 
+                                 update.message.reply_to_message.from_user.id == context.bot.id)
+                is_mentioned = f"@{bot_username}" in user_message
+                if not (is_reply_to_bot or is_mentioned):
+                    return
+            elif chat_type == 'private' and user_id != ADMIN_USER_ID:
+                response, reply_markup = await self.get_private_chat_redirect()
+                await update.message.reply_text(response, reply_markup=reply_markup)
+                return
+            
+            await context.bot.send_chat_action(chat_id=chat_id, action="typing")
+            if chat_id not in conversation_context:
+                conversation_context[chat_id] = []
+            conversation_context[chat_id].append(f"User: {user_message}")
+            if len(conversation_context[chat_id]) > 20:
+                conversation_context[chat_id] = conversation_context[chat_id][-20:]
+            context_text = "\n".join(conversation_context[chat_id])
+            
+            # Check if the message is a 2 or 3 letter lowercase word
+            is_short_word = re.match(r'^[a-z]{2,3}$', user_message.strip().lower())
+            
+            # Detect if message is coding-related
+            coding_keywords = ['code', 'python', 'javascript', 'java', 'c++', 'programming', 'script', 'debug', 'css', 'html']
+            is_coding_query = any(keyword in user_message.lower() for keyword in coding_keywords)
+            
+            model_to_use = coding_model if is_coding_query else general_model
+            if current_gemini_api_key and model_to_use:
+                response = await self.generate_gemini_response(context_text, chat_type, is_coding_query, is_short_word)
+            else:
+                response = "Sorry, the model is not connected yet. The admin can set it using the /api command."
+            
+            conversation_context[chat_id].append(f"I Master Tools: {response}")
+            group_activity[chat_id] = group_activity.get(chat_id, {'auto_mode': False, 'last_response': 0})
+            group_activity[chat_id]['last_response'] = datetime.now().timestamp()
+            
+            # If it's a coding query, add a "Copy Code" button
+            if is_coding_query:
+                code_block_match = re.search(r'```(?:\w+)?\n([\s\S]*?)\n```', response)
+                if code_block_match:
+                    keyboard = [[InlineKeyboardButton("Copy Code", callback_data="copy_code")]]
+                    reply_markup = InlineKeyboardMarkup(keyboard)
+                    await update.message.reply_text(
+                        response,
+                        parse_mode='Markdown',
+                        reply_markup=reply_markup
+                    )
+                else:
+                    await update.message.reply_text(response, parse_mode='Markdown')
+            else:
+                await update.message.reply_text(response)
+        except Exception as e:
+            logger.error(f"Error handling message: {e}")
+            await update.message.reply_text("Something went wrong. Shall we try again?")
 
     async def generate_gemini_response(self, prompt, chat_type="private", is_coding_query=False, is_short_word=False):
         """Generate response using Gemini with personality"""
