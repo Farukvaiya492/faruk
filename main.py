@@ -4,11 +4,10 @@ import google.generativeai as genai
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, CallbackQuery
 from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters, ContextTypes
 import asyncio
-from datetime import datetime, timezone
+from datetime import datetime
 import random
 import re
 import requests
-from tenacity import retry, stop_after_attempt, wait_fixed
 
 # Configure logging
 logging.basicConfig(
@@ -18,11 +17,9 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Configuration
-TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN', 'your_telegram_bot_token')
+TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN', '8380869007:AAGu7e41JJVU8aXG5wqXtCMUVKcCmmrp_gg')
 GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
-PHONE_API_KEY = os.getenv('PHONE_API_KEY', 'num_live_Nf2vjeM19tHdi42qQ2LaVVMg2IGk1ReU2BYBKnvm')
-BIN_API_KEY = os.getenv('BIN_API_KEY', 'kEXNklIYqLiLU657swFB1VXE0e4NF21G')
-ADMIN_USER_ID = int(os.getenv('ADMIN_USER_ID', '0'))  # Default to 0 for safety
+ADMIN_USER_ID = int(os.getenv('ADMIN_USER_ID', '7835226724'))
 PORT = int(os.getenv('PORT', 8000))
 
 # Global variables for dynamic API key and model management
@@ -36,25 +33,16 @@ available_models = [
 ]
 current_model = 'gemini-1.5-flash'  # Default model
 
-# Store conversation context for each chat
-conversation_context = {}
-group_activity = {}
+# API keys for external services
+PHONE_API_KEY = "num_live_Nf2vjeM19tHdi42qQ2LaVVMg2IGk1ReU2BYBKnvm"
+BIN_API_KEY = "kEXNklIYqLiLU657swFB1VXE0e4NF21G"
 
-async def send_long_message(chat_id, text, bot, parse_mode=None, reply_markup=None):
-    """Split and send long messages to avoid Telegram's 4096 character limit."""
-    MAX_LENGTH = 4096
-    for i in range(0, len(text), MAX_LENGTH):
-        await bot.send_message(
-            chat_id=chat_id,
-            text=text[i:i+MAX_LENGTH],
-            parse_mode=parse_mode,
-            reply_markup=reply_markup if i == 0 else None
-        )
-
-@retry(stop=stop_after_attempt(3), wait=wait_fixed(2))
+# ===========================
+# লাইক পাঠানোর ফাংশন
+# ===========================
 def send_like(uid: str, server_name: str = "BD"):
-    """Send likes to a Free Fire UID with retry mechanism."""
     api_url = f"https://free-like-api-aditya-ffm.vercel.app/like?uid={uid}&server_name={server_name}&key=@adityaapis"
+    
     try:
         response = requests.get(api_url, timeout=10)
         if response.status_code == 200:
@@ -65,6 +53,7 @@ def send_like(uid: str, server_name: str = "BD"):
             level = data.get("PlayerLevel", "N/A")
             region = data.get("PlayerRegion", "N/A")
             nickname = data.get("PlayerNickname", "N/A")
+            
             return {
                 "uid": uid,
                 "level": level,
@@ -75,21 +64,18 @@ def send_like(uid: str, server_name: str = "BD"):
                 "added": added,
                 "status": "Success ✅"
             }
-        elif response.status_code == 429:
-            return {"status": "Rate limit exceeded. Please try again later."}
         else:
             return {"status": f"Error: {response.status_code}"}
     except Exception as e:
-        logger.error(f"Error in send_like: {e}")
-        return {"status": f"Error: {str(e)}"}
+        return {"status": f"Error: {e}"}
 
 def initialize_gemini_models(api_key):
-    """Initialize Gemini models with the provided API key."""
+    """Initialize Gemini models with the provided API key"""
     global general_model, coding_model, current_gemini_api_key
     try:
         genai.configure(api_key=api_key)
         general_model = genai.GenerativeModel(current_model)
-        coding_model = genai.GenerativeModel('gemini-1.5-pro')
+        coding_model = genai.GenerativeModel('gemini-1.5-pro')  # Dedicated for coding
         current_gemini_api_key = api_key
         logger.info("Gemini API configured successfully")
         return True, "Gemini API configured successfully!"
@@ -107,13 +93,25 @@ if GEMINI_API_KEY:
 else:
     logger.warning("GEMINI_API_KEY not set. Use /api command to configure.")
 
-async def validate_phone_number(phone_number: str, api_key: str, country_code: str = None) -> str:
-    """Validate a phone number using the NumLookup API."""
-    if not re.match(r'^\+?\d{7,15}$', phone_number):
-        return "Invalid phone number format. Use digits only, optionally starting with '+'. Example: +1234567890"
+# Store conversation context for each chat
+conversation_context = {}
+group_activity = {}
+
+async def validate_phone_number(phone_number: str, api_key: str, country_code: str = None):
+    """
+    Validate a phone number
+    :param phone_number: Phone number to validate (string)
+    :param api_key: Your API key
+    :param country_code: Country code (e.g., BD, US) — optional
+    :return: Formatted response string
+    """
     base_url = "https://api.numlookupapi.com/v1/validate"
-    params = {"apikey": api_key, "country_code": country_code}
+    params = {
+        "apikey": api_key,
+        "country_code": country_code
+    }
     url = f"{base_url}/{phone_number}"
+    
     try:
         response = requests.get(url, params=params)
         if response.status_code == 200:
@@ -130,20 +128,25 @@ async def validate_phone_number(phone_number: str, api_key: str, country_code: s
 """
             else:
                 return "❌ The phone number is not valid."
-        elif response.status_code == 429:
-            return "❌ Rate limit exceeded. Please try again later."
         else:
             return f"❌ Failed to fetch data: Status code {response.status_code}\nError: {response.text}"
     except Exception as e:
         logger.error(f"Error validating phone number: {e}")
         return "There was an issue validating the phone number. Shall we try again?"
 
-async def validate_bin(bin_number: str, api_key: str) -> str:
-    """Validate a BIN or IIN using the IIN API."""
-    if not re.match(r'^\d{6,11}$', bin_number):
-        return "Invalid BIN format. Use 6-11 digits. Example: 324000"
+async def validate_bin(bin_number: str, api_key: str):
+    """
+    Validate a BIN or IIN
+    :param bin_number: First 6-11 digits of the card number
+    :param api_key: Your API key
+    :return: Formatted response string
+    """
     base_url = "https://api.iinapi.com/iin"
-    params = {"key": api_key, "digits": bin_number}
+    params = {
+        "key": api_key,
+        "digits": bin_number
+    }
+    
     try:
         response = requests.get(base_url, params=params)
         response.raise_for_status()
@@ -165,20 +168,30 @@ async def validate_bin(bin_number: str, api_key: str) -> str:
         logger.error(f"Error validating BIN: {e}")
         return f"❌ There was an issue validating the BIN: {str(e)}"
 
-async def search_yts_multiple(query: str, limit: int = 5) -> str:
-    """Search YouTube videos using abhi-api."""
+async def search_yts_multiple(query: str, limit: int = 5):
+    """
+    Search YouTube videos using abhi-api
+    :param query: Search term
+    :param limit: Maximum number of video results to display (default 5)
+    :return: Formatted response string with new box design
+    """
     url = f"https://abhi-api.vercel.app/api/search/yts?text={query.replace(' ', '+')}"
+    
     try:
         response = requests.get(url)
         response.raise_for_status()
         data = response.json()
+        
         if data.get("status") and data.get("result"):
             results = data["result"]
             if not isinstance(results, list):
                 results = [results]
+                
+            # New box design using ┏, ┗, ━, ┃
             output_message = "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓\n"
             output_message += f"┃ 🔍 YouTube Search Results for '{query}' ┃\n"
             output_message += "┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫\n"
+            
             for i, res in enumerate(results[:limit], 1):
                 output_message += f"┃ 🎥 Video {i}:\n"
                 output_message += f"┃ 📌 Title: {res.get('title', 'N/A')}\n"
@@ -190,6 +203,11 @@ async def search_yts_multiple(query: str, limit: int = 5) -> str:
                 output_message += f"┃ 📢 Channel: {res.get('channel', 'N/A')}\n"
                 output_message += f"┃ 🔗 Link: {res.get('url', 'N/A')}\n"
                 output_message += "┃\n"
+            
+            # Get creator and log for debugging
+            creator = data.get('creator', 'Unknown')
+            logger.info(f"Raw creator value: {creator}")
+            # Replace the creator with the new text
             creator = "𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸"
             output_message += f"┗━━━ {creator} ━━━┛"
             return output_message
@@ -199,15 +217,20 @@ async def search_yts_multiple(query: str, limit: int = 5) -> str:
         logger.error(f"Error searching YouTube: {e}")
         return "Something went wrong with the search. Please try again with a different term!"
 
-async def get_ip_info(ip_address: str) -> str:
-    """Fetch IP information using ipinfo.io."""
-    if not re.match(r'^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$', ip_address):
-        return "Invalid IP address format. Example: 203.0.113.123"
+async def get_ip_info(ip_address: str):
+    """
+    Fetch IP information using ipinfo.io
+    :param ip_address: IP address to look up
+    :return: Formatted response string with box design
+    """
     url = f"https://ipinfo.io/{ip_address}/json"
+    
     try:
         response = requests.get(url)
         response.raise_for_status()
         data = response.json()
+        
+        # Box design matching /yts
         output_message = "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓\n"
         output_message += f"┃ 🌐 IP Information for '{ip_address}' ┃\n"
         output_message += "┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫\n"
@@ -225,11 +248,14 @@ async def get_ip_info(ip_address: str) -> str:
         logger.error(f"Error fetching IP info: {e}")
         return "Invalid IP address or error fetching data. Please try a different IP!"
 
-async def get_ip_info2(ip_address: str) -> str:
-    """Fetch IP information using ip2location.io."""
-    if not re.match(r'^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$', ip_address):
-        return "Invalid IP address format. Example: 8.8.8.8"
+async def get_ip_info2(ip_address: str):
+    """
+    Fetch IP information using ip2location.io
+    :param ip_address: IP address to look up
+    :return: Formatted response string
+    """
     url = f"https://api.ip2location.io/?ip={ip_address}"
+    
     try:
         response = requests.get(url)
         if response.status_code == 200:
@@ -245,32 +271,41 @@ async def get_ip_info2(ip_address: str) -> str:
             output_message += f"┃ 📌 Longitude: {data.get('longitude', 'N/A')}\n"
             output_message += f"┃ 🏢 ISP: {data.get('isp', 'N/A')}\n"
             output_message += "┃\n"
-            output_message += "┗━━━ 𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂�_k ━━━┛"
+            output_message += "┗━━━ 𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸 ━━━┛"
             return output_message
         else:
-            return f"Failed to fetch data: Status code {response.status_code}"
+            return "Failed to fetch data"
     except Exception as e:
         logger.error(f"Error fetching IP info from ip2location.io: {e}")
         return f"Error fetching data: {str(e)}"
 
-async def get_country_info(country_name: str) -> str:
-    """Fetch country information using restcountries.com."""
-    if not re.match(r'^[\x00-\x7F]*$', country_name):
-        return "Please enter the country name in English. For example, use 'Bangladesh' instead of 'বাংলাদেশ'."
+async def get_country_info(country_name: str):
+    """
+    Fetch country information using restcountries.com
+    :param country_name: Name of the country to look up
+    :return: Formatted response string with box design
+    """
     url = f"https://restcountries.com/v3.1/name/{country_name}"
+    
     try:
         response = requests.get(url)
         response.raise_for_status()
         country_data = response.json()
+        
         if country_data:
             country = country_data[0]
+            # Handle currency dynamically
             currency_info = "N/A"
             if 'currencies' in country and country['currencies']:
                 first_currency = next(iter(country['currencies']))
                 currency_name = country['currencies'][first_currency].get('name', 'N/A')
                 currency_symbol = country['currencies'][first_currency].get('symbol', '')
                 currency_info = f"{currency_name} ({currency_symbol})"
+            
+            # Handle capital as a list or string
             capital = country.get('capital', ['N/A'])[0] if isinstance(country.get('capital'), list) else country.get('capital', 'N/A')
+            
+            # Format output with box design
             output_message = "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓\n"
             output_message += f"┃ 🌍 Country Information for '{country_name.title()}' ┃\n"
             output_message += "┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫\n"
@@ -298,7 +333,7 @@ class TelegramGeminiBot:
         self.setup_handlers()
 
     def setup_handlers(self):
-        """Set up command and message handlers."""
+        """Set up command and message handlers"""
         self.application.add_handler(CommandHandler("start", self.start_command))
         self.application.add_handler(CommandHandler("help", self.help_command))
         self.application.add_handler(CommandHandler("clear", self.clear_command))
@@ -321,24 +356,25 @@ class TelegramGeminiBot:
         self.application.add_error_handler(self.error_handler)
 
     async def button_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle copy code button callback."""
+        """Handle copy code button callback"""
         query = update.callback_query
-        await query.answer("Code copied!")
+        await query.answer("Code copied!")  # Notify user
         # Telegram automatically handles code block copying
 
     async def get_private_chat_redirect(self):
-        """Return redirect message for non-admin private chats."""
+        """Return redirect message for non-admin private chats"""
         keyboard = [[InlineKeyboardButton("Join VPSHUB_BD_CHAT", url="https://t.me/VPSHUB_BD_CHAT")]]
         reply_markup = InlineKeyboardMarkup(keyboard)
         return """
-Hello, thanks for wanting to chat with me! I'm I Master Tools, your friendly companion. To have fun and helpful conversations with me, please join our official group. Click the button below to join the group and mention @IMasterTools to start chatting. I'm waiting for you there!
+Hello, thanks for wanting to chat with me! I'm I Master Tools, your friendly companion. To have fun and helpful conversations with me, please join our official group. Click the button below to join the group and mention @I MasterTools to start chatting. I'm waiting for you there!
         """, reply_markup
 
     async def start_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle /start command."""
+        """Handle /start command"""
         user_id = update.effective_user.id
         username = update.effective_user.first_name or "User"
         chat_type = update.effective_chat.type
+
         if chat_type == 'private' and user_id != ADMIN_USER_ID:
             response, reply_markup = await self.get_private_chat_redirect()
             await update.message.reply_text(response, reply_markup=reply_markup)
@@ -348,7 +384,7 @@ Hello, thanks for wanting to chat with me! I'm I Master Tools, your friendly com
             welcome_message = f"""
 Hello {username}, welcome to I Master Tools, your friendly companion!
 
-To chat with me, please join our official Telegram group or mention @IMasterTools in the group. Click the button below to join the group!
+To chat with me, please join our official Telegram group or mention @I MasterTools in the group. Click the button below to join the group!
 
 Available commands:
 - /help: Get help and usage information
@@ -365,25 +401,27 @@ Available commands:
 - /countryinfo <country_name>: Fetch country information (use English names, e.g., 'Bangladesh')
 {'' if user_id != ADMIN_USER_ID else '- /api <key>: Set Gemini API key (admin only)\n- /setadmin: Set yourself as admin (first-time only)\n- /setmodel: Choose a different model (admin only)'}
 
-In groups, mention @IMasterTools or reply to my messages to get a response. I'm excited to chat with you!
+In groups, mention @I MasterTools or reply to my messages to get a response. I'm excited to chat with you!
             """
-            await send_long_message(update.effective_chat.id, welcome_message, context.bot, reply_markup=reply_markup)
+            await update.message.reply_text(welcome_message, reply_markup=reply_markup)
 
     async def handle_new_member(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle new members joining the group."""
+        """Handle new members joining the group"""
         for new_member in update.message.new_chat_members:
             username = new_member.first_name or "User"
+            user_id = new_member.id
             user_mention = f"@{new_member.username}" if new_member.username else username
             welcome_message = f"""
-Welcome {user_mention}! We're thrilled to have you in our VPSHUB_BD_CHAT group! I'm I Master Tools, your friendly companion. Here, you'll find fun conversations, helpful answers, and more. Mention @IMasterTools or reply to my messages to start chatting. What do you want to talk about?
+Welcome {user_mention}! We're thrilled to have you in our VPSHUB_BD_CHAT group! I'm I Master Tools, your friendly companion. Here, you'll find fun conversations, helpful answers, and more. Mention @I MasterTools or reply to my messages to start chatting. What do you want to talk about?
             """
-            await send_long_message(update.effective_chat.id, welcome_message, context.bot)
+            await update.message.reply_text(welcome_message)
 
     async def help_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle /help command."""
+        """Handle /help command"""
         user_id = update.effective_user.id
         username = update.effective_user.first_name or "User"
         chat_type = update.effective_chat.type
+
         if chat_type == 'private' and user_id != ADMIN_USER_ID:
             response, reply_markup = await self.get_private_chat_redirect()
             await update.message.reply_text(response, reply_markup=reply_markup)
@@ -394,7 +432,7 @@ Welcome {user_mention}! We're thrilled to have you in our VPSHUB_BD_CHAT group! 
 Hello {username}! I'm I Master Tools, your friendly companion designed to make conversations fun and engaging.
 
 How I work:
-- In groups, mention @IMasterTools or reply to my messages to get a response
+- In groups, mention @I MasterTools or reply to my messages to get a response
 - In private chats, only the admin can access all features; others are redirected to the group
 - For questions in the group, I engage with a fun or surprising comment before answering
 - I remember conversation context until you clear it
@@ -426,13 +464,14 @@ My personality:
 
 Powered by Google Gemini
             """
-            await send_long_message(update.effective_chat.id, help_message, context.bot, reply_markup=reply_markup)
+            await update.message.reply_text(help_message, reply_markup=reply_markup)
 
     async def clear_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle /clear command."""
+        """Handle /clear command"""
         user_id = update.effective_user.id
         chat_id = update.effective_chat.id
         chat_type = update.effective_chat.type
+
         if chat_type == 'private' and user_id != ADMIN_USER_ID:
             response, reply_markup = await self.get_private_chat_redirect()
             await update.message.reply_text(response, reply_markup=reply_markup)
@@ -442,9 +481,10 @@ Powered by Google Gemini
             await update.message.reply_text("Conversation history has been cleared. Let's start fresh!")
 
     async def checkmail_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle /checkmail command to check temporary email inbox."""
+        """Handle /checkmail command to check temporary email inbox"""
         user_id = update.effective_user.id
         chat_type = update.effective_chat.type
+
         if chat_type == 'private' and user_id != ADMIN_USER_ID:
             response, reply_markup = await self.get_private_chat_redirect()
             await update.message.reply_text(response, reply_markup=reply_markup)
@@ -465,16 +505,17 @@ Powered by Google Gemini
                     return
                 subjects = [m['subject'] for m in mail_list]
                 response_text = f"Here are the emails in the inbox for {email}:\n\n" + "\n".join(subjects)
-                await send_long_message(update.effective_chat.id, response_text, context.bot)
+                await update.message.reply_text(response_text)
             except Exception as e:
                 logger.error(f"Error checking email: {e}")
                 await update.message.reply_text("Something went wrong while checking the email. Shall we try again?")
 
     async def status_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle /status command."""
+        """Handle /status command"""
         user_id = update.effective_user.id
         chat_id = update.effective_chat.id
         chat_type = update.effective_chat.type
+
         if chat_type == 'private' and user_id != ADMIN_USER_ID:
             response, reply_markup = await self.get_private_chat_redirect()
             await update.message.reply_text(response, reply_markup=reply_markup)
@@ -489,20 +530,21 @@ Model: {current_model}
 API Status: {api_status}
 API Key: {api_key_display}
 Group Responses: Mention or reply only
-Current Time: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S %Z')}
+Current Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
 Active Conversations: {len(conversation_context)}
 Admin ID: {ADMIN_USER_ID if ADMIN_USER_ID != 0 else 'Not set'}
 
 All systems are ready for action. I'm thrilled to assist!
             """
-            await send_long_message(update.effective_chat.id, status_message, context.bot)
+            await update.message.reply_text(status_message)
 
     async def setadmin_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle /setadmin command."""
+        """Handle /setadmin command"""
         global ADMIN_USER_ID
         user_id = update.effective_user.id
         username = update.effective_user.first_name or "User"
         chat_type = update.effective_chat.type
+
         if chat_type == 'private' and user_id != ADMIN_USER_ID:
             response, reply_markup = await self.get_private_chat_redirect()
             await update.message.reply_text(response, reply_markup=reply_markup)
@@ -518,10 +560,11 @@ All systems are ready for action. I'm thrilled to assist!
                     await update.message.reply_text("Sorry, the admin is already set. Only the current admin can manage the bot.")
 
     async def api_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle /api command to set Gemini API key."""
+        """Handle /api command to set Gemini API key"""
         global current_gemini_api_key, general_model, coding_model
         user_id = update.effective_user.id
         chat_type = update.effective_chat.type
+
         if chat_type == 'private' and user_id != ADMIN_USER_ID:
             response, reply_markup = await self.get_private_chat_redirect()
             await update.message.reply_text(response, reply_markup=reply_markup)
@@ -563,10 +606,11 @@ For security, the command message will be deleted after setting the key.
                 logger.error(f"Failed to set API key: {message}")
 
     async def setmodel_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle /setmodel command to choose Gemini model."""
+        """Handle /setmodel command to choose Gemini model"""
         global general_model, current_model
         user_id = update.effective_user.id
         chat_type = update.effective_chat.type
+
         if chat_type == 'private' and user_id != ADMIN_USER_ID:
             response, reply_markup = await self.get_private_chat_redirect()
             await update.message.reply_text(response, reply_markup=reply_markup)
@@ -595,16 +639,20 @@ For security, the command message will be deleted after setting the key.
                 logger.error(f"Failed to switch model: {str(e)}")
 
     async def info_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle /info command to show user profile information."""
+        """Handle /info command to show user profile information"""
         user_id = update.effective_user.id
         chat_id = update.effective_chat.id
         chat_type = update.effective_chat.type
         user = update.effective_user
+        chat = update.effective_chat
         bot = context.bot
+
         if chat_type == 'private' and user_id != ADMIN_USER_ID:
             response, reply_markup = await self.get_private_chat_redirect()
             await update.message.reply_text(response, reply_markup=reply_markup)
             return
+
+        # User Info
         is_private = chat_type == "private"
         full_name = user.first_name or "No Name"
         if user.last_name:
@@ -618,6 +666,8 @@ For security, the command message will be deleted after setting the key.
         account_age = "Unknown"
         account_frozen = "No"
         last_seen = "Recently"
+
+        # Determine Group Role
         status = "Private Chat" if is_private else "Unknown"
         if not is_private:
             try:
@@ -626,6 +676,8 @@ For security, the command message will be deleted after setting the key.
             except Exception as e:
                 logger.error(f"Error checking group role: {e}")
                 status = "Unknown"
+
+        # Message Body
         info_text = f"""
 🔍 *Showing User's Profile Info* 📋
 ━━━━━━━━━━━━━━━━
@@ -643,7 +695,11 @@ For security, the command message will be deleted after setting the key.
 ━━━━━━━━━━━━━━━━
 👁 *Thank You for Using Our Tool* ✅
 """
+
+        # Inline Button
         keyboard = [[InlineKeyboardButton("View Profile", url=f"tg://user?id={user_id}")]] if user.username else []
+
+        # Try Sending with Profile Photo
         try:
             photos = await bot.get_user_profile_photos(user_id, limit=1)
             if photos.total_count > 0:
@@ -657,116 +713,132 @@ For security, the command message will be deleted after setting the key.
                     reply_markup=InlineKeyboardMarkup(keyboard) if keyboard else None
                 )
             else:
-                await send_long_message(
-                    chat_id,
-                    info_text,
-                    bot,
+                await bot.send_message(
+                    chat_id=chat_id,
+                    text=info_text,
                     parse_mode="Markdown",
+                    reply_to_message_id=update.message.message_id,
                     reply_markup=InlineKeyboardMarkup(keyboard) if keyboard else None
                 )
         except Exception as e:
             logger.error(f"Error sending profile photo: {e}")
-            await send_long_message(
-                chat_id,
-                info_text,
-                bot,
+            await bot.send_message(
+                chart_id=chat_id,
+                text=info_text,
                 parse_mode="Markdown",
+                reply_to_message_id=update.message.message_id,
                 reply_markup=InlineKeyboardMarkup(keyboard) if keyboard else None
             )
 
     async def validatephone_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle /validatephone command to validate a phone number."""
+        """Handle /validatephone command to validate a phone number"""
         user_id = update.effective_user.id
         chat_type = update.effective_chat.type
+
         if chat_type == 'private' and user_id != ADMIN_USER_ID:
             response, reply_markup = await self.get_private_chat_redirect()
             await update.message.reply_text(response, reply_markup=reply_markup)
             return
+
         if not context.args:
             await update.message.reply_text("Usage: /validatephone <phone_number> [country_code]\nExample: /validatephone 01613950781 BD")
             return
+
         phone_number = context.args[0]
         country_code = context.args[1] if len(context.args) > 1 else None
         response_message = await validate_phone_number(phone_number, PHONE_API_KEY, country_code)
-        await send_long_message(update.effective_chat.id, response_message, context.bot)
+        await update.message.reply_text(response_message)
 
     async def validatebin_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle /validatebin command to validate a BIN number."""
+        """Handle /validatebin command to validate a BIN number"""
         user_id = update.effective_user.id
         chat_type = update.effective_chat.type
+
         if chat_type == 'private' and user_id != ADMIN_USER_ID:
             response, reply_markup = await self.get_private_chat_redirect()
             await update.message.reply_text(response, reply_markup=reply_markup)
             return
+
         if not context.args:
             await update.message.reply_text("Usage: /validatebin <bin_number]\nExample: /validatebin 324000")
             return
+
         bin_number = context.args[0]
         response_message = await validate_bin(bin_number, BIN_API_KEY)
-        await send_long_message(update.effective_chat.id, response_message, context.bot)
+        await update.message.reply_text(response_message)
 
     async def yts_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle /yts command to search YouTube videos."""
+        """Handle /yts command to search YouTube videos"""
         user_id = update.effective_user.id
         chat_type = update.effective_chat.type
+
         if chat_type == 'private' and user_id != ADMIN_USER_ID:
             response, reply_markup = await self.get_private_chat_redirect()
             await update.message.reply_text(response, reply_markup=reply_markup)
             return
+
         if not context.args:
             await update.message.reply_text("Usage: /yts <query> [limit]\nExample: /yts heat waves 3")
             return
+
         query = ' '.join(context.args[:-1]) if len(context.args) > 1 and context.args[-1].isdigit() else ' '.join(context.args)
         limit = int(context.args[-1]) if len(context.args) > 1 and context.args[-1].isdigit() else 5
         response_message = await search_yts_multiple(query, limit)
-        await send_long_message(update.effective_chat.id, response_message, context.bot)
+        await update.message.reply_text(response_message)
 
     async def ipinfo_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle /ipinfo command to fetch IP address information."""
+        """Handle /ipinfo command to fetch IP address information"""
         user_id = update.effective_user.id
         chat_type = update.effective_chat.type
+
         if chat_type == 'private' and user_id != ADMIN_USER_ID:
             response, reply_markup = await self.get_private_chat_redirect()
             await update.message.reply_text(response, reply_markup=reply_markup)
             return
+
         if not context.args:
             await update.message.reply_text("Usage: /ipinfo <ip_address>\nExample: /ipinfo 203.0.113.123")
             return
+
         ip_address = context.args[0]
         response_message = await get_ip_info(ip_address)
-        await send_long_message(update.effective_chat.id, response_message, context.bot)
+        await update.message.reply_text(response_message)
 
     async def ipinfo2_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle /ipinfo2 command to fetch IP address information using ip2location.io."""
+        """Handle /ipinfo2 command to fetch IP address information using ip2location.io"""
         user_id = update.effective_user.id
         chat_type = update.effective_chat.type
+
         if chat_type == 'private' and user_id != ADMIN_USER_ID:
             response, reply_markup = await self.get_private_chat_redirect()
             await update.message.reply_text(response, reply_markup=reply_markup)
             return
+
         if not context.args:
             await update.message.reply_text("Usage: /ipinfo2 <ip_address>\nExample: /ipinfo2 8.8.8.8")
             return
+
         ip_address = context.args[0]
         response_message = await get_ip_info2(ip_address)
-        await send_long_message(update.effective_chat.id, response_message, context.bot)
+        await update.message.reply_text(response_message)
 
     async def like_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle /like command to send likes to a Free Fire UID."""
+        """Handle /like command to send likes to a Free Fire UID"""
         user_id = update.effective_user.id
         chat_type = update.effective_chat.type
+
         if chat_type == 'private' and user_id != ADMIN_USER_ID:
             response, reply_markup = await self.get_private_chat_redirect()
             await update.message.reply_text(response, reply_markup=reply_markup)
             return
+
         if len(context.args) != 1:
-            await update.message.reply_text("Usage: /like <UID>\nExample: /like 1234567890")
+            await update.message.reply_text("Usage: /like <UID>")
             return
+    
         uid = context.args[0]
-        if not re.match(r'^\d{9,10}$', uid):
-            await update.message.reply_text("Invalid UID format. Use 9-10 digits. Example: 1234567890")
-            return
         result = send_like(uid)
+    
         if "added" in result:
             message = (
                 f"✅ Likes Sent!\n\n"
@@ -780,30 +852,40 @@ For security, the command message will be deleted after setting the key.
             )
         else:
             message = f"Failed to send like.\nStatus: {result.get('status', 'Unknown Error')}"
-        await send_long_message(update.effective_chat.id, message, context.bot)
+    
+        await update.message.reply_text(message)
 
     async def countryinfo_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle /countryinfo command to fetch country information."""
+        """Handle /countryinfo command to fetch country information"""
         user_id = update.effective_user.id
         chat_type = update.effective_chat.type
+
         if chat_type == 'private' and user_id != ADMIN_USER_ID:
             response, reply_markup = await self.get_private_chat_redirect()
             await update.message.reply_text(response, reply_markup=reply_markup)
             return
+
         if not context.args:
             await update.message.reply_text("Usage: /countryinfo <country_name>\nExample: /countryinfo bangladesh")
             return
+
         country_name = ' '.join(context.args)
+        # Check for non-ASCII characters
+        if not re.match(r'^[\x00-\x7F]*$', country_name):
+            await update.message.reply_text("Please enter the country name in English. For example, use 'Bangladesh' instead of 'বাংলাদেশ'.")
+            return
+
         response_message = await get_country_info(country_name)
-        await send_long_message(update.effective_chat.id, response_message, context.bot)
+        await update.message.reply_text(response_message)
 
     async def handle_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle regular text messages."""
+        """Handle regular text messages"""
         try:
             chat_id = update.effective_chat.id
             user_id = update.effective_user.id
             user_message = update.message.text
             chat_type = update.effective_chat.type
+            
             if chat_type in ['group', 'supergroup']:
                 bot_username = context.bot.username
                 is_reply_to_bot = (update.message.reply_to_message and 
@@ -815,6 +897,7 @@ For security, the command message will be deleted after setting the key.
                 response, reply_markup = await self.get_private_chat_redirect()
                 await update.message.reply_text(response, reply_markup=reply_markup)
                 return
+            
             await context.bot.send_chat_action(chat_id=chat_id, action="typing")
             if chat_id not in conversation_context:
                 conversation_context[chat_id] = []
@@ -822,33 +905,45 @@ For security, the command message will be deleted after setting the key.
             if len(conversation_context[chat_id]) > 20:
                 conversation_context[chat_id] = conversation_context[chat_id][-20:]
             context_text = "\n".join(conversation_context[chat_id])
+            
+            # Check if the message is a 2 or 3 letter lowercase word
             is_short_word = re.match(r'^[a-z]{2,3}$', user_message.strip().lower())
+            
+            # Detect if message is coding-related
             coding_keywords = ['code', 'python', 'javascript', 'java', 'c++', 'programming', 'script', 'debug', 'css', 'html']
             is_coding_query = any(keyword in user_message.lower() for keyword in coding_keywords)
+            
             model_to_use = coding_model if is_coding_query else general_model
             if current_gemini_api_key and model_to_use:
                 response = await self.generate_gemini_response(context_text, chat_type, is_coding_query, is_short_word)
             else:
                 response = "Sorry, the model is not connected yet. The admin can set it using the /api command."
+            
             conversation_context[chat_id].append(f"I Master Tools: {response}")
             group_activity[chat_id] = group_activity.get(chat_id, {'auto_mode': False, 'last_response': 0})
-            group_activity[chat_id]['last_response'] = datetime.now(timezone.utc).timestamp()
+            group_activity[chat_id]['last_response'] = datetime.now().timestamp()
+            
+            # If it's a coding query, add a "Copy Code" button
             if is_coding_query:
                 code_block_match = re.search(r'```(?:\w+)?\n([\s\S]*?)\n```', response)
                 if code_block_match:
                     keyboard = [[InlineKeyboardButton("Copy Code", callback_data="copy_code")]]
                     reply_markup = InlineKeyboardMarkup(keyboard)
-                    await send_long_message(chat_id, response, context.bot, parse_mode='Markdown', reply_markup=reply_markup)
+                    await update.message.reply_text(
+                        response,
+                        parse_mode='Markdown',
+                        reply_markup=reply_markup
+                    )
                 else:
-                    await send_long_message(chat_id, response, context.bot, parse_mode='Markdown')
+                    await update.message.reply_text(response, parse_mode='Markdown')
             else:
-                await send_long_message(chat_id, response, context.bot)
+                await update.message.reply_text(response)
         except Exception as e:
             logger.error(f"Error handling message: {e}")
             await update.message.reply_text("Something went wrong. Shall we try again?")
 
     async def generate_gemini_response(self, prompt, chat_type="private", is_coding_query=False, is_short_word=False):
-        """Generate response using Gemini with personality."""
+        """Generate response using Gemini with personality"""
         try:
             system_prompt = f"""
 You are I Master Tools, a friendly and engaging companion who loves chatting and making friends. You are in a Telegram {'group chat' if chat_type in ['group', 'supergroup'] else 'private chat'}.
@@ -924,13 +1019,13 @@ Respond as I Master Tools. Keep it natural, engaging, surprising, and match the 
             return "Got a bit tangled up. What do you want to talk about?"
 
     async def error_handler(self, update: object, context: ContextTypes.DEFAULT_TYPE):
-        """Handle errors."""
+        """Handle errors"""
         logger.error(f"Exception while handling an update: {context.error}")
         if update and hasattr(update, 'effective_chat') and hasattr(update, 'message'):
             await update.message.reply_text("Something went wrong. Shall we try again?")
 
     def run(self):
-        """Start the bot."""
+        """Start the bot"""
         logger.info("Starting Telegram Bot...")
         self.application.run_polling(
             allowed_updates=Update.ALL_TYPES,
@@ -938,7 +1033,7 @@ Respond as I Master Tools. Keep it natural, engaging, surprising, and match the 
         )
 
 def main():
-    """Main function."""
+    """Main function"""
     if not TELEGRAM_BOT_TOKEN:
         logger.error("TELEGRAM_BOT_TOKEN not provided!")
         return
