@@ -356,6 +356,38 @@ async def get_gemini_trading_pairs():
         logger.error(f"Error fetching Gemini trading pairs: {e}")
         return f"❌ Error fetching trading pairs: {str(e)}"
 
+async def get_binance_ticker(symbol: str):
+    """
+    Fetch 24hr ticker data for a specific symbol from Binance API
+    :param symbol: Trading pair symbol (e.g., BTCUSDT)
+    :return: Formatted response string with box design
+    """
+    url = 'https://api4.binance.com/api/v3/ticker/24hr'
+    full_url = f"{url}?symbol={symbol}"
+    
+    try:
+        response = requests.get(full_url)
+        if response.status_code == 200:
+            data = response.json()
+            output_message = "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓\n"
+            output_message += f"┃ 💹 24hr Ticker Data for {data['symbol']} ┃\n"
+            output_message += "┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫\n"
+            output_message += f"┃ 💰 Last Price: {data.get('lastPrice', 'N/A')}\n"
+            output_message += f"┃ 📈 Price Change (24h): {data.get('priceChange', 'N/A')}\n"
+            output_message += f"┃ 📊 Price Change Percent: {data.get('priceChangePercent', 'N/A')}% \n"
+            output_message += f"┃ 🔺 24h High Price: {data.get('highPrice', 'N/A')}\n"
+            output_message += f"┃ 🔻 24h Low Price: {data.get('lowPrice', 'N/A')}\n"
+            output_message += f"┃ 📉 24h Volume: {data.get('volume', 'N/A')}\n"
+            output_message += "┃\n"
+            output_message += "┗━━━ 𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸 ━━━┛"
+            return output_message
+        else:
+            logger.error(f"Binance API error: {response.status_code} - {response.text}")
+            return f"❌ Error fetching ticker data: {response.status_code} - {response.text}"
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error fetching Binance ticker data: {e}")
+        return f"❌ Error fetching ticker data: {str(e)}"
+
 class TelegramGeminiBot:
     def __init__(self):
         self.application = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
@@ -380,6 +412,7 @@ class TelegramGeminiBot:
         self.application.add_handler(CommandHandler("weather", self.weather_command))
         self.application.add_handler(CommandHandler("removebg", self.removebg_command))
         self.application.add_handler(CommandHandler("gemini", self.gemini_command))
+        self.application.add_handler(CommandHandler("binance", self.binance_command))
         self.application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_message))
         self.application.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, self.handle_new_member))
         self.application.add_handler(MessageHandler(filters.PHOTO & ~filters.COMMAND, self.handle_photo))
@@ -431,6 +464,7 @@ Available commands:
 - /weather <location>: Fetch current weather information
 - /removebg: Remove the background from an uploaded image
 - /gemini: List available trading pairs on Gemini exchange
+- /binance <symbol>: Fetch 24hr ticker data for a Binance trading pair
 {'' if user_id != ADMIN_USER_ID else '- /api <key>: Set Gemini AI API key (admin only)\n- /setadmin: Set yourself as admin (first-time only)\n- /setmodel: Choose a different model (admin only)'}
 
 In groups, mention @I MasterTools or reply to my messages to get a response. I'm excited to chat with you!
@@ -486,6 +520,7 @@ Available commands:
 - /weather <location>: Fetch current weather information
 - /removebg: Remove the background from an uploaded image
 - /gemini: List available trading pairs on Gemini exchange
+- /binance <symbol>: Fetch 24hr ticker data for a Binance trading pair
 {'' if user_id != ADMIN_USER_ID else '- /api <key>: Set Gemini AI API key (admin only)\n- /setadmin: Set yourself as admin (first-time only)\n- /setmodel: Choose a different model (admin only)'}
 
 My personality:
@@ -909,6 +944,25 @@ For security, the command message will be deleted after setting the key.
 
         await context.bot.send_chat_action(chat_id=update.effective_chat.id, action="typing")
         response_message = await get_gemini_trading_pairs()
+        await update.message.reply_text(response_message)
+
+    async def binance_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle /binance command to fetch 24hr ticker data"""
+        user_id = update.effective_user.id
+        chat_type = update.effective_chat.type
+
+        if chat_type == 'private' and user_id != ADMIN_USER_ID:
+            response, reply_markup = await self.get_private_chat_redirect()
+            await update.message.reply_text(response, reply_markup=reply_markup)
+            return
+
+        if not context.args:
+            await update.message.reply_text("Usage: /binance <symbol>\nExample: /binance BTCUSDT")
+            return
+
+        symbol = context.args[0].upper()  # Ensure symbol is uppercase
+        await context.bot.send_chat_action(chat_id=update.effective_chat.id, action="typing")
+        response_message = await get_binance_ticker(symbol)
         await update.message.reply_text(response_message)
 
     async def handle_photo(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
