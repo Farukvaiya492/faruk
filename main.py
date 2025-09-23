@@ -8,6 +8,7 @@ from datetime import datetime
 import random
 import re
 import requests
+from pytube import YouTube
 
 # Configure logging
 logging.basicConfig(
@@ -37,19 +38,16 @@ current_model = 'gemini-1.5-flash'  # Default model
 PHONE_API_KEY = "num_live_Nf2vjeM19tHdi42qQ2LaVVMg2IGk1ReU2BYBKnvm"
 BIN_API_KEY = "kEXNklIYqLiLU657swFB1VXE0e4NF21G"
 
-# ইউটিউব অটো-কাম্পলিট API রিকোয়েস্ট ফাংশন
-def get_youtube_suggestions(query):
-    url = f"https://youtube138.p.rapidapi.com/auto-complete/?q={query}&hl=en&gl=US"
-    headers = {
-        "x-rapidapi-key": "5633c46ecdmsha727a36c28c8858p1a79ecjsn4a77463bd01b",  # RapidAPI Key
-        "x-rapidapi-host": "youtube138.p.rapidapi.com"  # RapidAPI Host
-    }
-    
-    response = requests.get(url, headers=headers)
-    if response.status_code == 200:
-        return response.json()['result']
-    else:
-        return None
+# ইউটিউব ভিডিও ডাউনলোড করার ফাংশন
+def download_video(url):
+    try:
+        yt = YouTube(url)
+        stream = yt.streams.filter(progressive=True, file_extension="mp4").first()  # Video quality
+        os.makedirs("./downloads", exist_ok=True)  # Ensure downloads folder exists
+        video_path = stream.download(output_path="./downloads")  # Store in downloads folder
+        return video_path
+    except Exception as e:
+        return str(e)
 
 def initialize_gemini_models(api_key):
     """Initialize Gemini models with the provided API key"""
@@ -330,7 +328,7 @@ class TelegramGeminiBot:
         self.application.add_handler(CommandHandler("yts", self.yts_command))
         self.application.add_handler(CommandHandler("ipinfo", self.ipinfo_command))
         self.application.add_handler(CommandHandler("ipinfo2", self.ipinfo2_command))
-        self.application.add_handler(CommandHandler("search", self.search_command))  # New command
+        self.application.add_handler(CommandHandler("download", self.download_command))
         self.application.add_handler(CommandHandler("countryinfo", self.countryinfo_command))
         self.application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_message))
         self.application.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, self.handle_new_member))
@@ -379,7 +377,7 @@ Available commands:
 - /yts <query> [limit]: Search YouTube videos
 - /ipinfo <ip_address>: Fetch IP address information
 - /ipinfo2 <ip_address>: Fetch IP address information (IP2Location)
-- /search <query>: Get YouTube search suggestions
+- /download <video_url>: Download and upload a YouTube video
 - /countryinfo <country_name>: Fetch country information (use English names, e.g., 'Bangladesh')
 {'' if user_id != ADMIN_USER_ID else '- /api <key>: Set Gemini API key (admin only)\n- /setadmin: Set yourself as admin (first-time only)\n- /setmodel: Choose a different model (admin only)'}
 
@@ -433,7 +431,7 @@ Available commands:
 - /yts <query> [limit]: Search YouTube videos
 - /ipinfo <ip_address>: Fetch IP address information
 - /ipinfo2 <ip_address>: Fetch IP address information (IP2Location)
-- /search <query>: Get YouTube search suggestions
+- /download <video_url>: Download and upload a YouTube video
 - /countryinfo <country_name>: Fetch country information (use English names, e.g., 'Bangladesh')
 {'' if user_id != ADMIN_USER_ID else '- /api <key>: Set Gemini API key (admin only)\n- /setadmin: Set yourself as admin (first-time only)\n- /setmodel: Choose a different model (admin only)'}
 
@@ -539,7 +537,7 @@ All systems are ready for action. I'm thrilled to assist!
                 if user_id == ADMIN_USER_ID:
                     await update.message.reply_text(f"You're already the admin! Your user ID: {user_id}")
                 else:
-                    await update.message.reply_text("Sorry, the admin is already set. Only the current admin can manage the bot.")
+                    update.message.reply_text("Sorry, the admin is already set. Only the current admin can manage the bot.")
 
     async def api_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /api command to set Gemini API key"""
@@ -742,7 +740,7 @@ For security, the command message will be deleted after setting the key.
             return
 
         if not context.args:
-            update.message.reply_text("Usage: /validatebin <bin_number]\nExample: /validatebin 324000")
+            await update.message.reply_text("Usage: /validatebin <bin_number]\nExample: /validatebin 324000")
             return
 
         bin_number = context.args[0]
@@ -804,8 +802,8 @@ For security, the command message will be deleted after setting the key.
         response_message = await get_ip_info2(ip_address)
         await update.message.reply_text(response_message)
 
-    async def search_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle /search command to get YouTube search suggestions"""
+    async def download_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle /download command to download and upload a YouTube video"""
         user_id = update.effective_user.id
         chat_type = update.effective_chat.type
 
@@ -815,24 +813,20 @@ For security, the command message will be deleted after setting the key.
             return
 
         if not context.args:
-            await update.message.reply_text("Please provide a search query. Example: /search desp")
+            await update.message.reply_text("Please provide a valid YouTube video URL.\nExample: /download https://www.youtube.com/watch?v=dQw4w9WgXcQ")
             return
 
-        query = " ".join(context.args)
-        suggestions = get_youtube_suggestions(query)
-        if suggestions:
-            # সেরা তিনটি সাজেশন প্রিন্ট করা
-            message = "🎥 YouTube Suggestions:\n"
-            keyboard = []
-            for suggestion in suggestions[:3]:
-                title = suggestion['title']
-                url = suggestion['url']
-                keyboard.append([InlineKeyboardButton(title, url=url)])
-
-            reply_markup = InlineKeyboardMarkup(keyboard)
-            await update.message.reply_text(message, reply_markup=reply_markup)
+        video_url = " ".join(context.args)
+        await update.message.reply_text("Downloading video...")
+        video_path = download_video(video_url)
+        
+        if os.path.exists(video_path):
+            # ভিডিও আপলোড করার পর
+            await update.message.reply_text("Video downloaded successfully. Uploading to Telegram...")
+            await update.message.reply_video(video=open(video_path, "rb"))
+            os.remove(video_path)  # ভিডিও আপলোডের পর ডিলিট
         else:
-            await update.message.reply_text("Sorry, no suggestions found!")
+            await update.message.reply_text(f"Error: {video_path}")
 
     async def countryinfo_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /countryinfo command to fetch country information"""
