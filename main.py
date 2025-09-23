@@ -1,3 +1,4 @@
+
 import os
 import logging
 import google.generativeai as genai
@@ -22,7 +23,6 @@ TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN', '8380869007:AAGu7e41JJVU8aX
 GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
 ADMIN_USER_ID = int(os.getenv('ADMIN_USER_ID', '7835226724'))
 PORT = int(os.getenv('PORT', 8000))
-GROUP_CHAT_ID = "@VPSHUB_BD_CHAT"  # Group chat ID for status command
 
 # Global variables for dynamic API key and model management
 current_gemini_api_key = GEMINI_API_KEY
@@ -40,14 +40,13 @@ PHONE_API_KEY = "num_live_Nf2vjeM19tHdi42qQ2LaVVMg2IGk1ReU2BYBKnvm"
 BIN_API_KEY = "kEXNklIYqLiLU657swFB1VXE0e4NF21G"
 API_URL = "https://free-like-api-aditya-ffm.vercel.app/like"
 
-# Rate Limit
-USER_LIKE_LIMIT = 2  # One user can use /like twice per day
+# User Likes Tracking Database or Dictionary
 user_likes = {}
 
 # ===========================
-# একাউন্ট স্ট্যাটাস দেখানোর ফাংশন
+# Function to Send Likes
 # ===========================
-def get_account_status(uid: str, server_name: str = "BD"):
+def send_like(uid: str, server_name: str = "BD"):
     api_url = f"{API_URL}?uid={uid}&server_name={server_name}&key=@adityaapis"
     
     try:
@@ -77,9 +76,9 @@ def get_account_status(uid: str, server_name: str = "BD"):
         return {"status": f"Error: {e}"}
 
 # ===========================
-# লাইক পাঠানোর ফাংশন
+# একাউন্ট স্ট্যাটাস দেখানোর ফাংশন
 # ===========================
-def send_like(uid: str, server_name: str = "BD"):
+def get_account_status(uid: str, server_name: str = "BD"):
     api_url = f"{API_URL}?uid={uid}&server_name={server_name}&key=@adityaapis"
     
     try:
@@ -388,6 +387,8 @@ class TelegramGeminiBot:
         self.application.add_handler(CommandHandler("ipinfo", self.ipinfo_command))
         self.application.add_handler(CommandHandler("ipinfo2", self.ipinfo2_command))
         self.application.add_handler(CommandHandler("like", self.like_command))
+        self.application.add_handler(CommandHandler("ban", self.ban_user))
+        self.application.add_handler(CommandHandler("unban", self.unban_user))
         self.application.add_handler(CommandHandler("countryinfo", self.countryinfo_command))
         self.application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_message))
         self.application.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, self.handle_new_member))
@@ -437,6 +438,8 @@ Available commands:
 - /ipinfo <ip_address>: Fetch IP address information
 - /ipinfo2 <ip_address>: Fetch IP address information (IP2Location)
 - /like <UID>: Send likes to a Free Fire UID
+- /ban <USER_ID>: Ban a user (admin only)
+- /unban <USER_ID>: Unban a user (admin only)
 - /countryinfo <country_name>: Fetch country information (use English names, e.g., 'Bangladesh')
 {'' if user_id != ADMIN_USER_ID else '- /api <key>: Set Gemini API key (admin only)\n- /setadmin: Set yourself as admin (first-time only)\n- /setmodel: Choose a different model (admin only)'}
 
@@ -491,6 +494,8 @@ Available commands:
 - /ipinfo <ip_address>: Fetch IP address information
 - /ipinfo2 <ip_address>: Fetch IP address information (IP2Location)
 - /like <UID>: Send likes to a Free Fire UID
+- /ban <USER_ID>: Ban a user (admin only)
+- /unban <USER_ID>: Unban a user (admin only)
 - /countryinfo <country_name>: Fetch country information (use English names, e.g., 'Bangladesh')
 {'' if user_id != ADMIN_USER_ID else '- /api <key>: Set Gemini API key (admin only)\n- /setadmin: Set yourself as admin (first-time only)\n- /setmodel: Choose a different model (admin only)'}
 
@@ -527,27 +532,28 @@ Powered by Google Gemini
         if chat_type == 'private' and user_id != ADMIN_USER_ID:
             response, reply_markup = await self.get_private_chat_redirect()
             await update.message.reply_text(response, reply_markup=reply_markup)
-        else:
-            try:
-                u = 'txoguqa'
-                d = random.choice(['mailto.plus', 'fexpost.com', 'fexbox.org', 'rover.info'])
-                email = f'{u}@{d}'
-                response = requests.get(
-                    'https://tempmail.plus/api/mails',
-                    params={'email': email, 'limit': 20, 'epin': ''},
-                    cookies={'email': email},
-                    headers={'user-agent': 'Mozilla/5.0'}
-                )
-                mail_list = response.json().get('mail_list', [])
-                if not mail_list:
-                    await update.message.reply_text(f"No emails found in the inbox for {email}. Want to try again later?")
-                    return
-                subjects = [m['subject'] for m in mail_list]
-                response_text = f"Here are the emails in the inbox for {email}:\n\n" + "\n".join(subjects)
-                await update.message.reply_text(response_text)
-            except Exception as e:
-                logger.error(f"Error checking email: {e}")
-                await update.message.reply_text("Something went wrong while checking the email. Shall we try again?")
+            return
+
+        try:
+            u = 'txoguqa'
+            d = random.choice(['mailto.plus', 'fexpost.com', 'fexbox.org', 'rover.info'])
+            email = f'{u}@{d}'
+            response = requests.get(
+                'https://tempmail.plus/api/mails',
+                params={'email': email, 'limit': 20, 'epin': ''},
+                cookies={'email': email},
+                headers={'user-agent': 'Mozilla/5.0'}
+            )
+            mail_list = response.json().get('mail_list', [])
+            if not mail_list:
+                await update.message.reply_text(f"No emails found in the inbox for {email}. Want to try again later?")
+                return
+            subjects = [m['subject'] for m in mail_list]
+            response_text = f"Here are the emails in the inbox for {email}:\n\n" + "\n".join(subjects)
+            await update.message.reply_text(response_text)
+        except Exception as e:
+            logger.error(f"Error checking email: {e}")
+            await update.message.reply_text("Something went wrong while checking the email. Shall we try again?")
 
     async def status_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /status command to check Free Fire account status"""
@@ -580,7 +586,7 @@ Powered by Google Gemini
             else:
                 message = f"Failed to retrieve account status.\nStatus: {result.get('status', 'Unknown Error')}"
             
-            await context.bot.send_message(chat_id=GROUP_CHAT_ID, text=message)
+            await context.bot.send_message(chat_id="@VPSHUB_BD_CHAT", text=message)
         else:
             await update.message.reply_text("You are not authorized to use this command.")
 
@@ -878,30 +884,28 @@ For security, the command message will be deleted after setting the key.
             await update.message.reply_text(response, reply_markup=reply_markup)
             return
 
+        current_time = time.time()
+        
+        # If user has previous like data
+        if user_id in user_likes:
+            last_time, likes_count = user_likes[user_id]
+            time_diff = current_time - last_time
+            
+            # If the user tries to send more than 2 likes within 24 hours
+            if likes_count >= 2 and time_diff < 86400:  # 86400 seconds = 24 hours
+                await update.message.reply_text("You have already sent two likes in the last 24 hours. Please try again after 24 hours.")
+                return
+
         if len(context.args) != 1:
             await update.message.reply_text("Usage: /like <UID>")
             return
-
-        user_id_str = str(user_id)
-        current_date = datetime.now().date().isoformat()
-
-        # Check rate limit
-        if user_id_str not in user_likes:
-            user_likes[user_id_str] = {}
-        if current_date not in user_likes[user_id_str]:
-            user_likes[user_id_str][current_date] = 0
-
-        if user_likes[user_id_str][current_date] >= USER_LIKE_LIMIT:
-            await update.message.reply_text(f"You have reached the daily limit of {USER_LIKE_LIMIT} likes. Try again tomorrow!")
-            return
-
+        
         uid = context.args[0]
         result = send_like(uid)
         
         if "added" in result:
-            user_likes[user_id_str][current_date] += 1
             message = (
-                f"✅ Likes Sent!\n\n"
+                f"✅ Like Sent!\n\n"
                 f"UID: {result['uid']}\n"
                 f"Player Level: {result['level']}\n"
                 f"Player Region: {result['region']}\n"
@@ -910,10 +914,62 @@ For security, the command message will be deleted after setting the key.
                 f"Likes After: {result['after']}\n"
                 f"Likes Added: {result['added']}"
             )
+            # Update user data
+            user_likes[user_id] = (current_time, user_likes.get(user_id, (0, 0))[1] + 1)
         else:
             message = f"Failed to send like.\nStatus: {result.get('status', 'Unknown Error')}"
         
         await update.message.reply_text(message)
+
+    async def ban_user(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle /ban command to ban a user"""
+        user_id = update.effective_user.id
+        chat_type = update.effective_chat.type
+
+        if chat_type == 'private' and user_id != ADMIN_USER_ID:
+            response, reply_markup = await self.get_private_chat_redirect()
+            await update.message.reply_text(response, reply_markup=reply_markup)
+            return
+
+        if user_id != ADMIN_USER_ID:
+            await update.message.reply_text("Sorry, you do not have permission to use this command.")
+            return
+
+        if len(context.args) != 1:
+            await update.message.reply_text("Usage: /ban <USER_ID>")
+            return
+
+        try:
+            banned_user_id = int(context.args[0])
+            await update.message.reply_text(f"User {banned_user_id} has been banned.")
+            # You can add logic to store or act upon banning the user
+        except ValueError:
+            await update.message.reply_text("Invalid USER_ID. Please provide a numeric user ID.")
+
+    async def unban_user(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle /unban command to unban a user"""
+        user_id = update.effective_user.id
+        chat_type = update.effective_chat.type
+
+        if chat_type == 'private' and user_id != ADMIN_USER_ID:
+            response, reply_markup = await self.get_private_chat_redirect()
+            await update.message.reply_text(response, reply_markup=reply_markup)
+            return
+
+        if user_id != ADMIN_USER_ID:
+            await update.message.reply_text("Sorry, you do not have permission to use this command.")
+            return
+
+        if len(context.args) != 1:
+            await update.message.reply_text("Usage: /unban <USER_ID>")
+            return
+
+        try:
+            unbanned_user_id = int(context.args[0])
+            await update.message.reply_text(f"User {unbanned_user_id} has been unbanned.")
+            # You can add logic to restore access for the unbanned user
+        except ValueError:
+            await update.message.reply_text("Invalid USER_ID. Please provide a numeric user ID.")
 
     async def countryinfo_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /countryinfo command to fetch country information"""
@@ -940,67 +996,19 @@ For security, the command message will be deleted after setting the key.
 
     async def handle_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle regular text messages"""
-        try:
-            chat_id = update.effective_chat.id
-            user_id = update.effective_user.id
-            user_message = update.message.text
-            chat_type = update.effective_chat.type
-            
-            if chat_type in ['group', 'supergroup']:
-                bot_username = context.bot.username
-                is_reply_to_bot = (update.message.reply_to_message and 
-                                 update.message.reply_to_message.from_user.id == context.bot.id)
-                is_mentioned = f"@{bot_username}" in user_message
-                if not (is_reply_to_bot or is_mentioned):
-                    return
-            elif chat_type == 'private' and user_id != ADMIN_USER_ID:
-                response, reply_markup = await self.get_private_chat_redirect()
-                await update.message.reply_text(response, reply_markup=reply_markup)
-                return
-            
-            await context.bot.send_chat_action(chat_id=chat_id, action="typing")
-            if chat_id not in conversation_context:
-                conversation_context[chat_id] = []
-            conversation_context[chat_id].append(f"User: {user_message}")
-            if len(conversation_context[chat_id]) > 20:
-                conversation_context[chat_id] = conversation_context[chat_id][-20:]
-            context_text = "\n".join(conversation_context[chat_id])
-            
-            # Check if the message is a 2 or 3 letter lowercase word
-            is_short_word = re.match(r'^[a-z]{2,3}$', user_message.strip().lower())
-            
-            # Detect if message is coding-related
-            coding_keywords = ['code', 'python', 'javascript', 'java', 'c++', 'programming', 'script', 'debug', 'css', 'html']
-            is_coding_query = any(keyword in user_message.lower() for keyword in coding_keywords)
-            
-            model_to_use = coding_model if is_coding_query else general_model
-            if current_gemini_api_key and model_to_use:
-                response = await self.generate_gemini_response(context_text, chat_type, is_coding_query, is_short_word)
-            else:
-                response = "Sorry, the model is not connected yet. The admin can set it using the /api command."
-            
-            conversation_context[chat_id].append(f"I Master Tools: {response}")
-            group_activity[chat_id] = group_activity.get(chat_id, {'auto_mode': False, 'last_response': 0})
-            group_activity[chat_id]['last_response'] = datetime.now().timestamp()
-            
-            # If it's a coding query, add a "Copy Code" button
-            if is_coding_query:
-                code_block_match = re.search(r'```(?:\w+)?\n([\s\S]*?)\n```', response)
-                if code_block_match:
-                    keyboard = [[InlineKeyboardButton("Copy Code", callback_data="copy_code")]]
-                    reply_markup = InlineKeyboardMarkup(keyboard)
-                    await update.message.reply_text(
-                        response,
-                        parse_mode='Markdown',
-                        reply_markup=reply_markup
-                    )
-                else:
-                    await update.message.reply_text(response, parse_mode='Markdown')
-            else:
-                await update.message.reply_text(response)
-        except Exception as e:
-            logger.error(f"Error handling message: {e}")
-            await update.message.reply_text("Something went wrong. Shall we try again?")
+        chat_type = update.effective_chat.type
+        if chat_type not in ['group', 'supergroup']:
+            return
+
+        message = update.message.text.lower()
+        
+        # Responding to specific messages
+        if 'hello' in message:
+            await update.message.reply_text("Hello, welcome to the group! 😊")
+        elif 'help' in message:
+            await update.message.reply_text("Here are some commands:\n- /like <UID> : Send a like to a player.\n- /ban <USER_ID> : Ban a user.\n- /unban <USER_ID> : Unban a user.")
+        else:
+            await update.message.reply_text("I am here to help! Type 'help' to see the available commands.")
 
     async def generate_gemini_response(self, prompt, chat_type="private", is_coding_query=False, is_short_word=False):
         """Generate response using Gemini with personality"""
