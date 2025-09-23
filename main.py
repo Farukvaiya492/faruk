@@ -2,7 +2,7 @@ import os
 import logging
 import google.generativeai as genai
 import requests
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, CallbackQuery
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters, ContextTypes
 import asyncio
 from datetime import datetime
@@ -23,6 +23,7 @@ REMOVE_BG_API_KEY = '15smbepCfMYoHh7D7Cnzj9Z6'  # remove.bg API key
 ADMIN_USER_ID = int(os.getenv('ADMIN_USER_ID', '7835226724'))
 PORT = int(os.getenv('PORT', 8000))
 WEATHER_API_KEY = "c1794a3c9faa01e4b5142313d4191ef8"  # Weatherstack API key
+GROUP_CHAT_ID = "@VPSHUB_BD_CHAT"  # Group chat ID for /like command
 
 # Global variables for dynamic API key and model management
 current_gemini_api_key = GEMINI_API_KEY
@@ -158,7 +159,6 @@ async def search_yts_multiple(query: str, limit: int = 5):
             if not isinstance(results, list):
                 results = [results]
                 
-            # New box design using ┏, ┗, ━, ┃
             output_message = "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓\n"
             output_message += f"┃ 🔍 YouTube Search Results for '{query}' ┃\n"
             output_message += "┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫\n"
@@ -175,10 +175,6 @@ async def search_yts_multiple(query: str, limit: int = 5):
                 output_message += f"┃ 🔗 Link: {res.get('url', 'N/A')}\n"
                 output_message += "┃\n"
             
-            # Get creator and log for debugging
-            creator = data.get('creator', 'Unknown')
-            logger.info(f"Raw creator value: {creator}")
-            # Replace the creator with the new text
             creator = "𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸"
             output_message += f"┗━━━ {creator} ━━━┛"
             return output_message
@@ -201,7 +197,6 @@ async def get_ip_info(ip_address: str):
         response.raise_for_status()
         data = response.json()
         
-        # Box design matching /yts
         output_message = "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓\n"
         output_message += f"┃ 🌐 IP Information for '{ip_address}' ┃\n"
         output_message += "┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫\n"
@@ -234,7 +229,6 @@ async def get_country_info(country_name: str):
         
         if country_data:
             country = country_data[0]
-            # Handle currency dynamically
             currency_info = "N/A"
             if 'currencies' in country and country['currencies']:
                 first_currency = next(iter(country['currencies']))
@@ -242,10 +236,8 @@ async def get_country_info(country_name: str):
                 currency_symbol = country['currencies'][first_currency].get('symbol', '')
                 currency_info = f"{currency_name} ({currency_symbol})"
             
-            # Handle capital as a list or string
             capital = country.get('capital', ['N/A'])[0] if isinstance(country.get('capital'), list) else country.get('capital', 'N/A')
             
-            # Format output with box design
             output_message = "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓\n"
             output_message += f"┃ 🌍 Country Information for '{country_name.title()}' ┃\n"
             output_message += "┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫\n"
@@ -388,12 +380,15 @@ async def get_binance_ticker(symbol: str):
         logger.error(f"Error fetching Binance ticker data: {e}")
         return f"❌ Error fetching ticker data: {str(e)}"
 
+# ===========================
+# New send_like Function
+# ===========================
 async def send_like(uid: str, server_name: str = "BD"):
     """
     Send likes to a Free Fire UID
     :param uid: Free Fire user ID
     :param server_name: Server name (default: BD)
-    :return: Formatted response string with box design
+    :return: Dictionary with response data
     """
     api_url = f"https://free-like-api-aditya-ffm.vercel.app/like?uid={uid}&server_name={server_name}&key=@adityaapis"
     
@@ -408,25 +403,20 @@ async def send_like(uid: str, server_name: str = "BD"):
             region = data.get("PlayerRegion", "N/A")
             nickname = data.get("PlayerNickname", "N/A")
             
-            output_message = "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓\n"
-            output_message += f"┃ ✅ Likes Sent to Free Fire UID {uid} ┃\n"
-            output_message += "┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫\n"
-            output_message += f"┃ 👤 Player Nickname: {nickname}\n"
-            output_message += f"┃ 🏆 Player Level: {level}\n"
-            output_message += f"┃ 🌍 Player Region: {region}\n"
-            output_message += f"┃ ❤️ Likes Before: {before}\n"
-            output_message += f"┃ ❤️ Likes After: {after}\n"
-            output_message += f"┃ ➕ Likes Added: {added}\n"
-            output_message += f"┃ 🟢 Status: Success ✅\n"
-            output_message += "┃\n"
-            output_message += "┗━━━ 𝗖�_r𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸 ━━━┛"
-            return output_message
+            return {
+                "uid": uid,
+                "level": level,
+                "region": region,
+                "nickname": nickname,
+                "before": before,
+                "after": after,
+                "added": added,
+                "status": "Success ✅"
+            }
         else:
-            logger.error(f"Free Fire Like API error: {response.status_code} - {response.text}")
-            return f"❌ Failed to send like.\nStatus: Error {response.status_code}"
+            return {"status": f"Error: {response.status_code}"}
     except Exception as e:
-        logger.error(f"Error sending Free Fire like: {e}")
-        return f"❌ Failed to send like.\nStatus: Error: {str(e)}"
+        return {"status": f"Error: {str(e)}"}
 
 class TelegramGeminiBot:
     def __init__(self):
@@ -765,7 +755,6 @@ For security, the command message will be deleted after setting the key.
             await update.message.reply_text(response, reply_markup=reply_markup)
             return
 
-        # User Info
         is_private = chat_type == "private"
         full_name = user.first_name or "No Name"
         if user.last_name:
@@ -780,7 +769,6 @@ For security, the command message will be deleted after setting the key.
         account_frozen = "No"
         last_seen = "Recently"
 
-        # Determine Group Role
         status = "Private Chat" if is_private else "Unknown"
         if not is_private:
             try:
@@ -790,7 +778,6 @@ For security, the command message will be deleted after setting the key.
                 logger.error(f"Error checking group role: {e}")
                 status = "Unknown"
 
-        # Message Body
         info_text = f"""
 🔍 *Showing User's Profile Info* 📋
 ━━━━━━━━━━━━━━━━
@@ -809,10 +796,8 @@ For security, the command message will be deleted after setting the key.
 👁 *Thank You for Using Our Tool* ✅
 """
 
-        # Inline Button
         keyboard = [[InlineKeyboardButton("View Profile", url=f"tg://user?id={user_id}")]] if user.username else []
 
-        # Try Sending with Profile Photo
         try:
             photos = await bot.get_user_profile_photos(user_id, limit=1)
             if photos.total_count > 0:
@@ -932,7 +917,6 @@ For security, the command message will be deleted after setting the key.
             return
 
         country_name = ' '.join(context.args)
-        # Check for non-ASCII characters
         if not re.match(r'^[\x00-\x7F]*$', country_name):
             await update.message.reply_text("Please enter the country name in English. For example, use 'Bangladesh' instead of 'বাংলাদেশ'.")
             return
@@ -969,7 +953,6 @@ For security, the command message will be deleted after setting the key.
             await update.message.reply_text(response, reply_markup=reply_markup)
             return
 
-        # Set state to expect a photo
         removebg_state[chat_id] = True
         await update.message.reply_text(
             "Please upload an image to remove its background. I'll process it and send back the result!"
@@ -1003,11 +986,14 @@ For security, the command message will be deleted after setting the key.
             await update.message.reply_text("Usage: /binance <symbol>\nExample: /binance BTCUSDT")
             return
 
-        symbol = context.args[0].upper()  # Ensure symbol is uppercase
+        symbol = context.args[0].upper()
         await context.bot.send_chat_action(chat_id=update.effective_chat.id, action="typing")
         response_message = await get_binance_ticker(symbol)
         await update.message.reply_text(response_message)
 
+    # ===========================
+    # New like_command Handler
+    # ===========================
     async def like_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /like command to send likes to a Free Fire UID"""
         user_id = update.effective_user.id
@@ -1018,14 +1004,34 @@ For security, the command message will be deleted after setting the key.
             await update.message.reply_text(response, reply_markup=reply_markup)
             return
 
+        # Check if the command is coming from the correct group
+        if chat_type in ['group', 'supergroup'] and update.message.chat.username != GROUP_CHAT_ID:
+            await update.message.reply_text("This command can only be used in the specific group.")
+            return
+
         if len(context.args) != 1:
-            await update.message.reply_text("Usage: /like <UID>\nExample: /like 3533918864")
+            await update.message.reply_text("Usage: /like <UID>")
             return
 
         uid = context.args[0]
         await context.bot.send_chat_action(chat_id=update.effective_chat.id, action="typing")
-        response_message = await send_like(uid)
-        await update.message.reply_text(response_message)
+        result = await send_like(uid)
+        
+        if "added" in result:
+            message = (
+                f"✅ Likes Sent!\n\n"
+                f"UID: {result['uid']}\n"
+                f"Player Level: {result['level']}\n"
+                f"Player Region: {result['region']}\n"
+                f"Player Nickname: {result['nickname']}\n"
+                f"Likes Before: {result['before']}\n"
+                f"Likes After: {result['after']}\n"
+                f"Likes Added: {result['added']}"
+            )
+        else:
+            message = f"Failed to send like.\nStatus: {result.get('status', 'Unknown Error')}"
+        
+        await update.message.reply_text(message)
 
     async def handle_photo(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle photo uploads for background removal"""
@@ -1039,22 +1045,17 @@ For security, the command message will be deleted after setting the key.
             return
 
         if chat_id not in removebg_state or not removebg_state[chat_id]:
-            return  # Ignore photos unless /removebg was called
+            return
 
-        # Show uploading photo action
         await context.bot.send_chat_action(chat_id=chat_id, action="upload_photo")
 
         try:
-            # Get the photo (use the highest resolution available)
             photo = update.message.photo[-1]
             file = await photo.get_file()
             image_data = await file.download_as_bytearray()
-
-            # Call remove.bg API
             success, result = await remove_background(image_data, chat_id)
 
             if success:
-                # Send the processed image
                 await context.bot.send_photo(
                     chat_id=chat_id,
                     photo=result,
@@ -1063,7 +1064,6 @@ For security, the command message will be deleted after setting the key.
             else:
                 await update.message.reply_text(f"❌ Failed to remove background: {result}")
 
-            # Clear the removebg state
             if chat_id in removebg_state:
                 del removebg_state[chat_id]
 
@@ -1101,10 +1101,7 @@ For security, the command message will be deleted after setting the key.
                 conversation_context[chat_id] = conversation_context[chat_id][-20:]
             context_text = "\n".join(conversation_context[chat_id])
             
-            # Check if the message is a 2 or 3 letter lowercase word
             is_short_word = re.match(r'^[a-z]{2,3}$', user_message.strip().lower())
-            
-            # Detect if message is coding-related
             coding_keywords = ['code', 'python', 'javascript', 'java', 'c++', 'programming', 'script', 'debug', 'css', 'html']
             is_coding_query = any(keyword in user_message.lower() for keyword in coding_keywords)
             
@@ -1118,7 +1115,6 @@ For security, the command message will be deleted after setting the key.
             group_activity[chat_id] = group_activity.get(chat_id, {'auto_mode': False, 'last_response': 0})
             group_activity[chat_id]['last_response'] = datetime.now().timestamp()
             
-            # If it's a coding query, add a "Copy Code" button
             if is_coding_query:
                 code_block_match = re.search(r'```(?:\w+)?\n([\s\S]*?)\n```', response)
                 if code_block_match:
