@@ -8,6 +8,7 @@ from datetime import datetime
 import random
 import re
 import requests
+import time
 
 # Configure logging
 logging.basicConfig(
@@ -21,6 +22,7 @@ TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN', '8380869007:AAGu7e41JJVU8aX
 GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
 ADMIN_USER_ID = int(os.getenv('ADMIN_USER_ID', '7835226724'))
 PORT = int(os.getenv('PORT', 8000))
+GROUP_CHAT_ID = "@VPSHUB_BD_CHAT"  # Group chat ID for status command
 
 # Global variables for dynamic API key and model management
 current_gemini_api_key = GEMINI_API_KEY
@@ -36,12 +38,49 @@ current_model = 'gemini-1.5-flash'  # Default model
 # API keys for external services
 PHONE_API_KEY = "num_live_Nf2vjeM19tHdi42qQ2LaVVMg2IGk1ReU2BYBKnvm"
 BIN_API_KEY = "kEXNklIYqLiLU657swFB1VXE0e4NF21G"
+API_URL = "https://free-like-api-aditya-ffm.vercel.app/like"
+
+# Rate Limit
+USER_LIKE_LIMIT = 2  # One user can use /like twice per day
+user_likes = {}
+
+# ===========================
+# একাউন্ট স্ট্যাটাস দেখানোর ফাংশন
+# ===========================
+def get_account_status(uid: str, server_name: str = "BD"):
+    api_url = f"{API_URL}?uid={uid}&server_name={server_name}&key=@adityaapis"
+    
+    try:
+        response = requests.get(api_url, timeout=10)
+        if response.status_code == 200:
+            data = response.json()
+            before = data.get("LikesbeforeCommand", 0)
+            after = data.get("LikesafterCommand", 0)
+            added = after - before
+            level = data.get("PlayerLevel", "N/A")
+            region = data.get("PlayerRegion", "N/A")
+            nickname = data.get("PlayerNickname", "N/A")
+            
+            return {
+                "uid": uid,
+                "level": level,
+                "region": region,
+                "nickname": nickname,
+                "before": before,
+                "after": after,
+                "added": added,
+                "status": "Success ✅"
+            }
+        else:
+            return {"status": f"Error: {response.status_code}"}
+    except Exception as e:
+        return {"status": f"Error: {e}"}
 
 # ===========================
 # লাইক পাঠানোর ফাংশন
 # ===========================
 def send_like(uid: str, server_name: str = "BD"):
-    api_url = f"https://free-like-api-aditya-ffm.vercel.app/like?uid={uid}&server_name={server_name}&key=@adityaapis"
+    api_url = f"{API_URL}?uid={uid}&server_name={server_name}&key=@adityaapis"
     
     try:
         response = requests.get(api_url, timeout=10)
@@ -389,7 +428,7 @@ To chat with me, please join our official Telegram group or mention @I MasterToo
 Available commands:
 - /help: Get help and usage information
 - /clear: Clear conversation history
-- /status: Check bot status
+- /status <UID>: Check Free Fire account status (admin only)
 - /checkmail: Check temporary email inbox
 - /info: Show user profile information
 - /validatephone <number> [country_code]: Validate a phone number
@@ -443,7 +482,7 @@ Available commands:
 - /start: Show welcome message with group link
 - /help: Display this help message
 - /clear: Clear your conversation history
-- /status: Check bot status
+- /status <UID>: Check Free Fire account status (admin only)
 - /checkmail: Check temporary email inbox
 - /info: Show user profile information
 - /validatephone <number> [country_code]: Validate a phone number
@@ -511,53 +550,39 @@ Powered by Google Gemini
                 await update.message.reply_text("Something went wrong while checking the email. Shall we try again?")
 
     async def status_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle /status command"""
+        """Handle /status command to check Free Fire account status"""
         user_id = update.effective_user.id
-        chat_id = update.effective_chat.id
         chat_type = update.effective_chat.type
 
         if chat_type == 'private' and user_id != ADMIN_USER_ID:
             response, reply_markup = await self.get_private_chat_redirect()
             await update.message.reply_text(response, reply_markup=reply_markup)
-        else:
-            api_status = "Connected" if current_gemini_api_key and general_model else "Not configured"
-            api_key_display = f"...{current_gemini_api_key[-8:]}" if current_gemini_api_key else "Not set"
-            status_message = f"""
-Here's the I Master Tools status report:
+            return
 
-Bot Status: Online and ready
-Model: {current_model}
-API Status: {api_status}
-API Key: {api_key_display}
-Group Responses: Mention or reply only
-Current Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
-Active Conversations: {len(conversation_context)}
-Admin ID: {ADMIN_USER_ID if ADMIN_USER_ID != 0 else 'Not set'}
-
-All systems are ready for action. I'm thrilled to assist!
-            """
-            await update.message.reply_text(status_message)
-
-    async def setadmin_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle /setadmin command"""
-        global ADMIN_USER_ID
-        user_id = update.effective_user.id
-        username = update.effective_user.first_name or "User"
-        chat_type = update.effective_chat.type
-
-        if chat_type == 'private' and user_id != ADMIN_USER_ID:
-            response, reply_markup = await self.get_private_chat_redirect()
-            await update.message.reply_text(response, reply_markup=reply_markup)
-        else:
-            if ADMIN_USER_ID == 0:
-                ADMIN_USER_ID = user_id
-                await update.message.reply_text(f"Congratulations {username}, you are now the bot admin! Your user ID: {user_id}")
-                logger.info(f"Admin set to user ID: {user_id}")
+        if str(user_id) == str(ADMIN_USER_ID):
+            if len(context.args) != 1:
+                await update.message.reply_text("Usage: /status <UID>")
+                return
+            uid = context.args[0]
+            result = get_account_status(uid)
+            
+            if "added" in result:
+                message = (
+                    f"✅ Account Status:\n\n"
+                    f"UID: {result['uid']}\n"
+                    f"Player Level: {result['level']}\n"
+                    f"Player Region: {result['region']}\n"
+                    f"Player Nickname: {result['nickname']}\n"
+                    f"Likes Before: {result['before']}\n"
+                    f"Likes After: {result['after']}\n"
+                    f"Likes Added: {result['added']}"
+                )
             else:
-                if user_id == ADMIN_USER_ID:
-                    await update.message.reply_text(f"You're already the admin! Your user ID: {user_id}")
-                else:
-                    await update.message.reply_text("Sorry, the admin is already set. Only the current admin can manage the bot.")
+                message = f"Failed to retrieve account status.\nStatus: {result.get('status', 'Unknown Error')}"
+            
+            await context.bot.send_message(chat_id=GROUP_CHAT_ID, text=message)
+        else:
+            await update.message.reply_text("You are not authorized to use this command.")
 
     async def api_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /api command to set Gemini API key"""
@@ -604,6 +629,27 @@ For security, the command message will be deleted after setting the key.
             else:
                 await update.effective_chat.send_message(f"Failed to set API key: {message}")
                 logger.error(f"Failed to set API key: {message}")
+
+    async def setadmin_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle /setadmin command"""
+        global ADMIN_USER_ID
+        user_id = update.effective_user.id
+        username = update.effective_user.first_name or "User"
+        chat_type = update.effective_chat.type
+
+        if chat_type == 'private' and user_id != ADMIN_USER_ID:
+            response, reply_markup = await self.get_private_chat_redirect()
+            await update.message.reply_text(response, reply_markup=reply_markup)
+        else:
+            if ADMIN_USER_ID == 0:
+                ADMIN_USER_ID = user_id
+                await update.message.reply_text(f"Congratulations {username}, you are now the bot admin! Your user ID: {user_id}")
+                logger.info(f"Admin set to user ID: {user_id}")
+            else:
+                if user_id == ADMIN_USER_ID:
+                    await update.message.reply_text(f"You're already the admin! Your user ID: {user_id}")
+                else:
+                    await update.message.reply_text("Sorry, the admin is already set. Only the current admin can manage the bot.")
 
     async def setmodel_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /setmodel command to choose Gemini model"""
@@ -723,7 +769,7 @@ For security, the command message will be deleted after setting the key.
         except Exception as e:
             logger.error(f"Error sending profile photo: {e}")
             await bot.send_message(
-                chart_id=chat_id,
+                chat_id=chat_id,
                 text=info_text,
                 parse_mode="Markdown",
                 reply_to_message_id=update.message.message_id,
@@ -835,11 +881,25 @@ For security, the command message will be deleted after setting the key.
         if len(context.args) != 1:
             await update.message.reply_text("Usage: /like <UID>")
             return
-    
+
+        user_id_str = str(user_id)
+        current_date = datetime.now().date().isoformat()
+
+        # Check rate limit
+        if user_id_str not in user_likes:
+            user_likes[user_id_str] = {}
+        if current_date not in user_likes[user_id_str]:
+            user_likes[user_id_str][current_date] = 0
+
+        if user_likes[user_id_str][current_date] >= USER_LIKE_LIMIT:
+            await update.message.reply_text(f"You have reached the daily limit of {USER_LIKE_LIMIT} likes. Try again tomorrow!")
+            return
+
         uid = context.args[0]
         result = send_like(uid)
-    
+        
         if "added" in result:
+            user_likes[user_id_str][current_date] += 1
             message = (
                 f"✅ Likes Sent!\n\n"
                 f"UID: {result['uid']}\n"
@@ -852,7 +912,7 @@ For security, the command message will be deleted after setting the key.
             )
         else:
             message = f"Failed to send like.\nStatus: {result.get('status', 'Unknown Error')}"
-    
+        
         await update.message.reply_text(message)
 
     async def countryinfo_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
