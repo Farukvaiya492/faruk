@@ -286,7 +286,7 @@ async def get_weather_info(location: str):
             output_message += f"┃ 💧 Humidity: {current_weather.get('humidity', 'N/A')}% \n"
             output_message += f"┃ 💨 Wind Speed: {current_weather.get('wind_speed', 'N/A')} km/h\n"
             output_message += "┃\n"
-            output_message += "┗━━━ 𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸 ━━━┛"
+            output_message += "┗━━━ 𝗖�_r_e_a_t_e_ _B_y_ _F_a_r_u_k ━━━┛"
             return output_message
         else:
             error_info = data.get("error", {}).get("info", "Unknown error")
@@ -380,9 +380,6 @@ async def get_binance_ticker(symbol: str):
         logger.error(f"Error fetching Binance ticker data: {e}")
         return f"❌ Error fetching ticker data: {str(e)}"
 
-# ===========================
-# New send_like Function
-# ===========================
 async def send_like(uid: str, server_name: str = "BD"):
     """
     Send likes to a Free Fire UID
@@ -424,9 +421,6 @@ async def send_like(uid: str, server_name: str = "BD"):
     except Exception as e:
         return {"status": f"Error: {str(e)}"}
 
-# ===========================
-# New YouTube Downloader Function
-# ===========================
 async def download_youtube_video(video_url: str):
     """
     Download YouTube video using VidFly API
@@ -440,8 +434,7 @@ async def download_youtube_video(video_url: str):
         
         if response.status_code == 200:
             video_data = response.json()
-            # Assuming the API returns a direct download link under 'download_url'
-            download_link = video_data.get("download_url", "Link not found")
+            download_link = video_data.get("download_link", "No link provided")
             title = video_data.get("title", "Unknown Title")
             
             output_message = "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓\n"
@@ -477,6 +470,7 @@ class TelegramGeminiBot:
         self.application.add_handler(CommandHandler("validatephone", self.validatephone_command))
         self.application.add_handler(CommandHandler("validatebin", self.validatebin_command))
         self.application.add_handler(CommandHandler("yts", self.yts_command))
+        self.application.add_handler(CommandHandler("ytdl", self.ytdl_command))
         self.application.add_handler(CommandHandler("ipinfo", self.ipinfo_command))
         self.application.add_handler(CommandHandler("countryinfo", self.countryinfo_command))
         self.application.add_handler(CommandHandler("weather", self.weather_command))
@@ -484,7 +478,6 @@ class TelegramGeminiBot:
         self.application.add_handler(CommandHandler("gemini", self.gemini_command))
         self.application.add_handler(CommandHandler("binance", self.binance_command))
         self.application.add_handler(CommandHandler("like", self.like_command))
-        self.application.add_handler(CommandHandler("ytdl", self.ytdl_command))  # New command
         self.application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_message))
         self.application.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, self.handle_new_member))
         self.application.add_handler(MessageHandler(filters.PHOTO & ~filters.COMMAND, self.handle_photo))
@@ -531,7 +524,7 @@ Available commands:
 - /validatephone <number> [country_code]: Validate a phone number
 - /validatebin <bin_number>: Validate a BIN number
 - /yts <query> [limit]: Search YouTube videos
-- /ytdl <url>: Download YouTube video (new!)
+- /ytdl <url>: Download YouTube video
 - /ipinfo <ip_address>: Fetch IP address information
 - /countryinfo <country_name>: Fetch country information (use English names, e.g., 'Bangladesh')
 - /weather <location>: Fetch current weather information
@@ -1053,9 +1046,6 @@ For security, the command message will be deleted after setting the key.
         response_message = await get_binance_ticker(symbol)
         await update.message.reply_text(response_message)
 
-    # ===========================
-    # New like_command Handler
-    # ===========================
     async def like_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /like command to send likes to a Free Fire UID"""
         user_id = update.effective_user.id
@@ -1066,7 +1056,6 @@ For security, the command message will be deleted after setting the key.
             await update.message.reply_text(response, reply_markup=reply_markup)
             return
 
-        # Check if the command is coming from the correct group
         if chat_type in ['group', 'supergroup'] and update.message.chat.username != GROUP_CHAT_USERNAME.strip('@VPSHUB_BD_CHAT'):
             await update.message.reply_text("এই কমান্ডটি শুধুমাত্র নির্দিষ্ট গ্রুপে ব্যবহার করা যাবে।")
             return
