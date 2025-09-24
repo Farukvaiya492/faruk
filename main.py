@@ -286,7 +286,7 @@ async def get_weather_info(location: str):
             output_message += f"┃ 💧 Humidity: {current_weather.get('humidity', 'N/A')}% \n"
             output_message += f"┃ 💨 Wind Speed: {current_weather.get('wind_speed', 'N/A')} km/h\n"
             output_message += "┃\n"
-            output_message += "┗━━━ 𝗖�_r_e_a_t_e_ _B_y_ _F_a_r_u_k ━━━┛"
+            output_message += "┗━━━ 𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸 ━━━┛"
             return output_message
         else:
             error_info = data.get("error", {}).get("info", "Unknown error")
@@ -1056,8 +1056,9 @@ For security, the command message will be deleted after setting the key.
             await update.message.reply_text(response, reply_markup=reply_markup)
             return
 
-        if chat_type in ['group', 'supergroup'] and update.message.chat.username != GROUP_CHAT_USERNAME.strip('@VPSHUB_BD_CHAT'):
-            await update.message.reply_text("এই কমান্ডটি শুধুমাত্র নির্দিষ্ট গ্রুপে ব্যবহার করা যাবে।")
+        # Check if the command is coming from the correct group
+        if chat_type in ['group', 'supergroup'] and update.message.chat.link != 'https://t.me/VPSHUB_BD_CHAT':
+            await update.message.reply_text("এই কমান্ডটি শুধুমাত্র @VPSHUB_BD_CHAT গ্রুপে ব্যবহার করা যাবে।")
             return
 
         if len(context.args) != 1:
