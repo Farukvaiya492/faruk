@@ -5,7 +5,7 @@ import requests
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters, ContextTypes
 import asyncio
-from datetime import datetime
+from datetime import datetime, timedelta
 import random
 import re
 
@@ -40,10 +40,11 @@ current_model = 'gemini-1.5-flash'  # Default model
 PHONE_API_KEY = "num_live_Nf2vjeM19tHdi42qQ2LaVVMg2IGk1ReU2BYBKnvm"
 BIN_API_KEY = "kEXNklIYqLiLU657swFB1VXE0e4NF21G"
 
-# Store conversation context and state for removebg
+# Store conversation context, group activity, removebg state, and user likes
 conversation_context = {}
 group_activity = {}
 removebg_state = {}  # To track which chats are expecting an image for /removebg
+user_likes = {}  # To track user /like command usage with timestamps
 
 def initialize_gemini_models(api_key):
     """Initialize Gemini models with the provided API key"""
@@ -1047,7 +1048,7 @@ For security, the command message will be deleted after setting the key.
         await update.message.reply_text(response_message)
 
     async def like_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle /like command to send likes to a Free Fire UID"""
+        """Handle /like command to send likes to a Free Fire UID with rate limiting"""
         user_id = update.effective_user.id
         chat_type = update.effective_chat.type
 
@@ -1065,21 +1066,42 @@ For security, the command message will be deleted after setting the key.
             await update.message.reply_text("ব্যবহার: /like <UID>")
             return
 
+        # Rate limiting for non-admin users
+        if user_id != ADMIN_USER_ID:
+            last_like_time = user_likes.get(user_id)
+            current_time = datetime.now()
+            if last_like_time and (current_time - last_like_time).total_seconds() < 24 * 60 * 60:
+                time_left = 24 * 60 * 60 - (current_time - last_like_time).total_seconds()
+                hours_left = int(time_left // 3600)
+                minutes_left = int((time_left % 3600) // 60)
+                await update.message.reply_text(
+                    f"আপনি প্রতি ২৪ ঘণ্টায় একবার /like কমান্ড ব্যবহার করতে পারেন। "
+                    f"পরবর্তী চেষ্টার জন্য অপেক্ষা করুন {hours_left} ঘণ্টা {minutes_left} মিনিট।"
+                )
+                return
+
         uid = context.args[0]
         await context.bot.send_chat_action(chat_id=update.effective_chat.id, action="typing")
         result = await send_like(uid)
         
         if "added" in result:
             message = (
-                f"✅ Likes Sent!\n\n"
-                f"UID: {result['uid']}\n"
-                f"Player Level: {result['level']}\n"
-                f"Player Region: {result['region']}\n"
-                f"Player Nickname: {result['nickname']}\n"
-                f"Likes Before: {result['before']}\n"
-                f"Likes After: {result['after']}\n"
-                f"Likes Added: {result['added']}"
+                "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓\n"
+                f"┃ 🎉 FREEFARE YOU ACCOUNT STATUS┃\n"
+                "┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫\n"
+                f"┃ 🆔 UID: {result['uid']}\n"
+                f"┃ 🎮 Player Level: {result['level']}\n"
+                f"┃ 🌍 Player Region: {result['region']}\n"
+                f"┃ 👤 Player Nickname: {result['nickname']}\n"
+                f"┃ 📊 Likes Before: {result['before']}\n"
+                f"┃ 📈 Likes After: {result['after']}\n"
+                f"┃ ➕ Likes Added: {result['added']}\n"
+                "┃\n"
+                "┗━━━ 𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸 ━━━┛"
             )
+            # Update the user's last like time (only for non-admins)
+            if user_id != ADMIN_USER_ID:
+                user_likes[user_id] = datetime.now()
         else:
             message = f"Likes পাঠানোতে ব্যর্থ।\nস্ট্যাটাস: {result.get('status', 'অজানা ত্রুটি')}"
         
