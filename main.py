@@ -160,9 +160,9 @@ async def search_yts_multiple(query: str, limit: int = 5):
             if not isinstance(results, list):
                 results = [results]
                 
-            output_message = "┏━━━━━━━━━━━━━━━━━━━━━┓\n"
+            output_message = "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓\n"
             output_message += f"┃ 🔍 YouTube Search Results for '{query}' ┃\n"
-            output_message += "┣━━━━━━━━━━━━━━━━━━━━━┫\n"
+            output_message += "┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫\n"
             
             for i, res in enumerate(results[:limit], 1):
                 output_message += f"┃ 🎥 Video {i}:\n"
@@ -198,9 +198,9 @@ async def get_ip_info(ip_address: str):
         response.raise_for_status()
         data = response.json()
         
-        output_message = "┏━━━━━━━━━━━━━━━━━━━━━━┓\n"
+        output_message = "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓\n"
         output_message += f"┃ 🌐 IP Information for '{ip_address}' ┃\n"
-        output_message += "┣━━━━━━━━━━━━━━━━━━━━━━┫\n"
+        output_message += "┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫\n"
         output_message += f"┃ 📍 IP: {data.get('ip', 'N/A')}\n"
         output_message += f"┃ 🖥️ Hostname: {data.get('hostname', 'N/A')}\n"
         output_message += f"┃ 🏙️ City: {data.get('city', 'N/A')}\n"
@@ -239,9 +239,9 @@ async def get_country_info(country_name: str):
             
             capital = country.get('capital', ['N/A'])[0] if isinstance(country.get('capital'), list) else country.get('capital', 'N/A')
             
-            output_message = "┏━━━━━━━━━━━━━━━━━━━━━━━┓\n"
+            output_message = "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓\n"
             output_message += f"┃ 🌍 Country Information for '{country_name.title()}' ┃\n"
-            output_message += "┣━━━━━━━━━━━━━━━━━━━━━━━┫\n"
+            output_message += "┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫\n"
             output_message += f"┃ 🏳️ Name: {country.get('name', {}).get('common', 'N/A')}\n"
             output_message += f"┃ 🏛️ Capital: {capital}\n"
             output_message += f"┃ 👨‍👩‍👧‍👦 Population: {country.get('population', 'N/A')}\n"
@@ -279,9 +279,9 @@ async def get_weather_info(location: str):
         
         if response.status_code == 200 and 'current' in data:
             current_weather = data['current']
-            output_message = "┏━━━━━━━━━━━━━━━━━━━┓\n"
+            output_message = "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓\n"
             output_message += f"┃ ☁ Weather Information for '{location.title()}' ┃\n"
-            output_message += "┣━━━━━━━━━━━━━━━━━━━┫\n"
+            output_message += "┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫\n"
             output_message += f"┃ 🌡️ Temperature: {current_weather.get('temperature', 'N/A')}°C\n"
             output_message += f"┃ ☁ Weather: {current_weather.get('weather_descriptions', ['N/A'])[0]}\n"
             output_message += f"┃ 💧 Humidity: {current_weather.get('humidity', 'N/A')}% \n"
@@ -334,9 +334,9 @@ async def get_gemini_trading_pairs():
         response = requests.get(url, headers=headers)
         if response.status_code == 200:
             symbols = response.json()
-            output_message = "┏━━━━━━━━━━━━━━━━━━━━━┓\n"
+            output_message = "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓\n"
             output_message += "┃ 💹 Available Trading Pairs on Gemini ┃\n"
-            output_message += "┣━━━━━━━━━━━━━━━━━━━━━┫\n"
+            output_message += "┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫\n"
             for i, symbol in enumerate(symbols[:10], 1):  # Limit to 10 pairs for brevity
                 output_message += f"┃ 💱 Pair {i}: {symbol.upper()}\n"
             output_message += "┃\n"
@@ -362,9 +362,9 @@ async def get_binance_ticker(symbol: str):
         response = requests.get(full_url)
         if response.status_code == 200:
             data = response.json()
-            output_message = "┏━━━━━━━━━━━━━━━━━━━━━━━┓\n"
+            output_message = "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓\n"
             output_message += f"┃ 💹 24hr Ticker Data for {data['symbol']} ┃\n"
-            output_message += "┣━━━━━━━━━━━━━━━━━━━━━━━┫\n"
+            output_message += "┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫\n"
             output_message += f"┃ 💰 Last Price: {data.get('lastPrice', 'N/A')}\n"
             output_message += f"┃ 📈 Price Change (24h): {data.get('priceChange', 'N/A')}\n"
             output_message += f"┃ 📊 Price Change Percent: {data.get('priceChangePercent', 'N/A')}% \n"
@@ -438,10 +438,9 @@ async def download_youtube_video(video_url: str):
             download_link = video_data.get("download_link", "No link provided")
             title = video_data.get("title", "Unknown Title")
             
-            output_message = "┏━━━━━━━━━━━━━━━
-━━━━━┓\n"
+            output_message = "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓\n"
             output_message += f"┃ 🎬 YouTube Video Downloader ┃\n"
-            output_message += "┣━━━━━━━━━━━━━━━━━━┫\n"
+            output_message += "┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫\n"
             output_message += f"┃ 📹 Title: {title}\n"
             output_message += f"┃ 🔗 Download Link: {download_link}\n"
             output_message += "┃\n"
@@ -1088,7 +1087,7 @@ For security, the command message will be deleted after setting the key.
         if "added" in result:
             message = (
                 "┏━━━━━━━━━━━━━━━━━━━┓\n"
-                f"┃𝗙𝗥𝗘𝗘𝗙𝗜𝗥𝗘 𝗬𝗢𝗨 𝗜𝗗 𝗦𝗧𝗔𝗧𝗨𝗦\n"
+                f"┃ 🎉 𝗙𝗥𝗘𝗘𝗙𝗔𝗥𝗘 𝗬𝗢𝗨 𝗜𝗗 𝗦𝗧𝗔𝗧𝗨𝗦\n"
                 "┣━━━━━━━━━━━━━━━━━━━┫\n"
                 f"┃ 🆔 UID: {result['uid']}\n"
                 f"┃ 🎮 Player Level: {result['level']}\n"
