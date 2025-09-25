@@ -422,20 +422,26 @@ async def send_like(uid: str, server_name: str = "BD"):
     except Exception as e:
         return {"status": f"Error: {str(e)}"}
 
-def download_youtube_video(url, bot, chat_id):
-    # ইউটিউব ভিডিও ডাউনলোড করার জন্য API URL (এই URL আপনার নির্দিষ্ট API এর সাথে বদলাতে হবে)
+def download_youtube_video(url):
+    # API URL for downloading the video
     api_url = f"https://ytdl.hideme.eu.org/{url}"
 
-    # API কল করা
+    # Sending GET request to the API
     response = requests.get(api_url)
 
+    # Checking if the request was successful
     if response.status_code == 200:
-        # ভিডিও সফলভাবে ডাউনলোড হলে, ভিডিও পাঠানো
+        # Video downloaded successfully, get the video content
         video_file = response.content
-        bot.send_video(chat_id=chat_id, video=video_file)
+        # Saving the video to a file
+        with open("downloaded_video.mp4", "wb") as video:
+            video.write(video_file)
+        print("Video downloaded successfully.")
+        return True, "Video downloaded successfully to downloaded_video.mp4"
     else:
-        # যদি কোনো সমস্যা হয়
-        bot.send_message(chat_id=chat_id, text="❌ Error downloading video.")
+        # If something went wrong, print error message
+        print("❌ Error downloading the video.")
+        return False, f"❌ Error downloading the video: Status {response.status_code}"
 
 class TelegramGeminiBot:
     def __init__(self):
@@ -923,7 +929,15 @@ For security, the command message will be deleted after setting the key.
 
         video_url = ' '.join(context.args)
         await context.bot.send_chat_action(chat_id=chat_id, action="upload_video")
-        download_youtube_video(video_url, context.bot, chat_id)
+        success, message = download_youtube_video(video_url)
+        output_message = "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓\n"
+        output_message += f"┃ 🎬 YouTube Video Downloader ┃\n"
+        output_message += "┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫\n"
+        output_message += f"┃ 📹 Video URL: {video_url}\n"
+        output_message += f"┃ {message}\n"
+        output_message += "┃\n"
+        output_message += "┗━━━ 𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸 ━━━┛"
+        await context.bot.send_message(chat_id=chat_id, text=output_message)
 
     async def ipinfo_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /ipinfo command to fetch IP address information"""
