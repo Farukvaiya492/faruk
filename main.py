@@ -76,7 +76,7 @@ async def validate_phone_number(phone_number: str, api_key: str, country_code: s
     :param phone_number: Phone number to validate (string)
     :param api_key: Your API key
     :param country_code: Country code (e.g., BD, US) — optional
-    :return: Formatted response string
+    :return: Formatted response string in Bangla with a friendly tone
     """
     base_url = "https://api.numlookupapi.com/v1/validate"
     params = {
@@ -91,21 +91,28 @@ async def validate_phone_number(phone_number: str, api_key: str, country_code: s
             data = response.json()
             valid = data.get('valid', False)
             if valid:
-                return f"""
-✅ Phone Number Validation Complete:
-📞 Number: {data.get('number', 'N/A')}
-🌍 Country: {data.get('country_name', 'N/A')} ({data.get('country_code', 'N/A')})
-📍 Location: {data.get('location', 'N/A')}
-📡 Carrier: {data.get('carrier', 'N/A')}
-📱 Line Type: {data.get('line_type', 'N/A')}
-"""
+                response_lines = ["এই নম্বরটা চেক করলাম, দেখো কী পেলাম! 😊"]
+                if data.get('number'):
+                    response_lines.append(f"📞 নম্বর: {data['number']}")
+                if data.get('country_name') and data.get('country_code'):
+                    response_lines.append(f"🌍 দেশ: {data['country_name']} ({data['country_code']})")
+                elif data.get('country_name'):
+                    response_lines.append(f"🌍 দেশ: {data['country_name']}")
+                if data.get('location'):
+                    response_lines.append(f"📍 লোকেশন: {data['location']}")
+                if data.get('carrier'):
+                    response_lines.append(f"📡 ক্যারিয়ার: {data['carrier']}")
+                if data.get('line_type'):
+                    response_lines.append(f"📱 লাইনের ধরন: {data['line_type']}")
+                response_lines.append("✦──── By Faruk ────✦")
+                return "\n".join(response_lines)
             else:
-                return "❌ The phone number is not valid."
+                return "❌ এই নম্বরটা বৈধ নয়। আরেকটা নম্বর দিয়ে চেষ্টা করবে? 😊"
         else:
-            return f"❌ Failed to fetch data: Status code {response.status_code}\nError: {response.text}"
+            return f"❌ তথ্য পেতে সমস্যা হচ্ছে: স্ট্যাটাস কোড {response.status_code}\nত্রুটি: {response.text}"
     except Exception as e:
         logger.error(f"Error validating phone number: {e}")
-        return "There was an issue validating the phone number. Shall we try again?"
+        return "নম্বর চেক করতে গিয়ে একটু সমস্যা হলো। 😅 আবার চেষ্টা করব? আরেকটা নম্বর দাও!"
 
 async def validate_bin(bin_number: str, api_key: str):
     """
@@ -340,7 +347,7 @@ async def get_gemini_trading_pairs():
             for i, symbol in enumerate(symbols[:10], 1):  # Limit to 10 pairs for brevity
                 output_message += f"┃ 💱 Pair {i}: {symbol.upper()}\n"
             output_message += "┃\n"
-            output_message += "┗━━━ 𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸 ━━━┛"
+            output_message += "┗━━━ 𝗖�_r_e_a_t_e_ _B_y_ _F_a_r_u_k ━━━┛"
             return output_message
         else:
             logger.error(f"Gemini API error: {response.status_code} - {response.text}")
@@ -422,35 +429,44 @@ async def send_like(uid: str, server_name: str = "BD"):
     except Exception as e:
         return {"status": f"Error: {str(e)}"}
 
-async def download_youtube_video(video_url: str):
+async def download_youtube_video(video_url: str, bot, chat_id):
     """
-    Download YouTube video using VidFly API
+    Download YouTube video using provided API and send it to Telegram
     :param video_url: YouTube video URL
-    :return: Formatted response string
+    :param bot: Telegram bot instance
+    :param chat_id: Telegram chat ID
+    :return: None (sends video or error message directly)
     """
-    api_url = f"https://api.vidfly.ai/api/media/youtube/download?url={video_url}"
+    api_url = f"https://ytdl.hideme.eu.org/{video_url}"
     
     try:
-        response = requests.get(api_url, timeout=15)
-        
+        response = requests.get(api_url, timeout=30)
         if response.status_code == 200:
-            video_data = response.json()
-            download_link = video_data.get("download_link", "No link provided")
-            title = video_data.get("title", "Unknown Title")
-            
-            output_message = "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓\n"
-            output_message += f"┃ 🎬 YouTube Video Downloader ┃\n"
-            output_message += "┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫\n"
-            output_message += f"┃ 📹 Title: {title}\n"
-            output_message += f"┃ 🔗 Download Link: {download_link}\n"
-            output_message += "┃\n"
-            output_message += "┗━━━ 𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸 ━━━┛"
-            return output_message
+            video_file = response.content
+            # টেলিগ্রামে ভিডিও পাঠানোর আগে ফাইল সাইজ চেক (50 MB লিমিট)
+            if len(video_file) > 50 * 1024 * 1024:  # 50 MB in bytes
+                await bot.send_message(
+                    chat_id=chat_id,
+                    text="❌ ভিডিওটা অনেক বড়, টেলিগ্রামে পাঠানো যাচ্ছে না। 😅 আরেকটা ভিডিও দিয়ে চেষ্টা করবে?"
+                )
+                return
+            await bot.send_chat_action(chat_id=chat_id, action="upload_video")
+            await bot.send_video(
+                chat_id=chat_id,
+                video=video_file,
+                caption="🎬 ভিডিও ডাউনলোড হয়ে গেছে! 😊\n✦──── By Faruk ────✦"
+            )
         else:
-            return f"❌ Failed to fetch video. Status: {response.status_code}\nError: {response.text}"
+            await bot.send_message(
+                chat_id=chat_id,
+                text=f"❌ ভিডিও ডাউনলোড করতে সমস্যা হলো: স্ট্যাটাস কোড {response.status_code}। 😅 আরেকটা লিঙ্ক দাও!"
+            )
     except Exception as e:
         logger.error(f"Error downloading YouTube video: {e}")
-        return "❌ Failed to download the video. Please try again later."
+        await bot.send_message(
+            chat_id=chat_id,
+            text="❌ ভিডিও ডাউনলোড করতে একটু সমস্যা হলো! 😅 আরেকবার চেষ্টা করবে?"
+        )
 
 class TelegramGeminiBot:
     def __init__(self):
@@ -496,7 +512,7 @@ class TelegramGeminiBot:
         keyboard = [[InlineKeyboardButton("Join VPSHUB_BD_CHAT", url="https://t.me/VPSHUB_BD_CHAT")]]
         reply_markup = InlineKeyboardMarkup(keyboard)
         return """
-Hello, thanks for wanting to chat with me! I'm I Master Tools, your friendly companion. To have fun and helpful conversations with me, please join our official group. Click the button below to join the group and mention @I MasterTools to start chatting. I'm waiting for you there!
+হ্যালো, আমার সাথে চ্যাট করতে চাওয়ার জন্য ধন্যবাদ! আমি আই মাস্টার টুলস, তোমার বন্ধুত্বপূর্ণ সঙ্গী। মজার এবং সহায়ক কথোপকথনের জন্য আমাদের অফিসিয়াল গ্রুপে যোগ দাও। নিচের বোতামে ক্লিক করে গ্রুপে যাও এবং @I MasterTools মেনশন করো। আমি সেখানে তোমার জন্য অপেক্ষা করছি!
         """, reply_markup
 
     async def start_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -512,30 +528,30 @@ Hello, thanks for wanting to chat with me! I'm I Master Tools, your friendly com
             keyboard = [[InlineKeyboardButton("Join VPSHUB_BD_CHAT", url="https://t.me/VPSHUB_BD_CHAT")]]
             reply_markup = InlineKeyboardMarkup(keyboard)
             welcome_message = f"""
-Hello {username}, welcome to I Master Tools, your friendly companion!
+হ্যালো {username}, আই মাস্টার টুলসে স্বাগতম, তোমার বন্ধুত্বপূর্ণ সঙ্গী!
 
-To chat with me, please join our official Telegram group or mention @I MasterTools in the group. Click the button below to join the group!
+আমার সাথে চ্যাট করতে আমাদের অফিসিয়াল টেলিগ্রাম গ্রুপে যোগ দাও বা গ্রুপে @I MasterTools মেনশন করো। নিচের বোতামে ক্লিক করে গ্রুপে যাও!
 
-Available commands:
-- /help: Get help and usage information
-- /clear: Clear conversation history
-- /status: Check bot status
-- /checkmail: Check temporary email inbox
-- /info: Show user profile information
-- /validatephone <number> [country_code]: Validate a phone number
-- /validatebin <bin_number>: Validate a BIN number
-- /yts <query> [limit]: Search YouTube videos
-- /ytdl <url>: Download YouTube video
-- /ipinfo <ip_address>: Fetch IP address information
-- /countryinfo <country_name>: Fetch country information (use English names, e.g., 'Bangladesh')
-- /weather <location>: Fetch current weather information
-- /removebg: Remove the background from an uploaded image
-- /gemini: List available trading pairs on Gemini exchange
-- /binance <symbol>: Fetch 24hr ticker data for a Binance trading pair
-- /like <uid>: Send likes to a Free Fire UID
-{'' if user_id != ADMIN_USER_ID else '- /api <key>: Set Gemini AI API key (admin only)\n- /setadmin: Set yourself as admin (first-time only)\n- /setmodel: Choose a different model (admin only)'}
+উপলব্ধ কমান্ডগুলো:
+- /help: সাহায্য এবং ব্যবহারের তথ্য পাও
+- /clear: কথোপকথনের ইতিহাস মুছে ফেলো
+- /status: বটের স্ট্যাটাস চেক করো
+- /checkmail: টেম্পোরারি ইমেইল ইনবক্স চেক করো
+- /info: ইউজার প্রোফাইল তথ্য দেখো
+- /validatephone <নম্বর> [দেশের_কোড]: ফোন নম্বর যাচাই করো
+- /validatebin <বিন_নম্বর>: বিন নম্বর যাচাই করো
+- /yts <কুয়েরি> [লিমিট]: ইউটিউব ভিডিও খোঁজো
+- /ytdl <ইউআরএল>: ইউটিউব ভিডিও ডাউনলোড করো
+- /ipinfo <আইপি_ঠিকানা>: আইপি তথ্য পাও
+- /countryinfo <দেশের_নাম>: দেশের তথ্য পাও (ইংরেজিতে নাম দাও, যেমন 'Bangladesh')
+- /weather <লোকেশন>: বর্তমান আবহাওয়ার তথ্য পাও
+- /removebg: ছবির ব্যাকগ্রাউন্ড মুছে ফেলো
+- /gemini: জেমিনি এক্সচেঞ্জে ট্রেডিং পেয়ারের তালিকা দেখো
+- /binance <সিম্বল>: বিনান্সে ২৪ ঘণ্টার টিকার ডেটা পাও
+- /like <uid>: ফ্রি ফায়ার ইউআইডি-তে লাইক পাঠাও
+{'' if user_id != ADMIN_USER_ID else '- /api <key>: জেমিনি এআই API কী সেট করো (শুধুমাত্র অ্যাডমিন)\n- /setadmin: নিজেকে অ্যাডমিন হিসেবে সেট করো (প্রথমবারের জন্য)\n- /setmodel: ভিন্ন মডেল বেছে নাও (শুধুমাত্র অ্যাডমিন)'}
 
-In groups, mention @I MasterTools or reply to my messages to get a response. I'm excited to chat with you!
+গ্রুপে @I MasterTools মেনশন করো বা আমার মেসেজের রিপ্লাই দাও। তোমার সাথে চ্যাট করতে আমি উত্তেজিত!
             """
             await update.message.reply_text(welcome_message, reply_markup=reply_markup)
 
@@ -546,7 +562,7 @@ In groups, mention @I MasterTools or reply to my messages to get a response. I'm
             user_id = new_member.id
             user_mention = f"@{new_member.username}" if new_member.username else username
             welcome_message = f"""
-Welcome {user_mention}! We're thrilled to have you in our VPSHUB_BD_CHAT group! I'm I Master Tools, your friendly companion. Here, you'll find fun conversations, helpful answers, and more. Mention @I MasterTools or reply to my messages to start chatting. What do you want to talk about?
+{user_mention}, VPSHUB_BD_CHAT গ্রুপে স্বাগতম! আমি আই মাস্টার টুলস, তোমার বন্ধুত্বপূর্ণ সঙ্গী। এখানে তুমি মজার কথোপকথন, সহায়ক উত্তর এবং আরও অনেক কিছু পাবে। @I MasterTools মেনশন করো বা আমার মেসেজের রিপ্লাই দাও। কী নিয়ে কথা বলতে চাও?
             """
             await update.message.reply_text(welcome_message)
 
@@ -563,44 +579,44 @@ Welcome {user_mention}! We're thrilled to have you in our VPSHUB_BD_CHAT group! 
             keyboard = [[InlineKeyboardButton("Join VPSHUB_BD_CHAT", url="https://t.me/VPSHUB_BD_CHAT")]]
             reply_markup = InlineKeyboardMarkup(keyboard)
             help_message = f"""
-Hello {username}! I'm I Master Tools, your friendly companion designed to make conversations fun and engaging.
+হ্যালো {username}! আমি আই মাস্টার টুলস, তোমার বন্ধুত্বপূর্ণ সঙ্গী, যিনি কথোপকথনকে মজাদার এবং আকর্ষণীয় করতে ভালোবাসেন।
 
-How I work:
-- In groups, mention @I MasterTools or reply to my messages to get a response
-- In private chats, only the admin can access all features; others are redirected to the group
-- For questions in the group, I engage with a fun or surprising comment before answering
-- I remember conversation context until you clear it
-- I'm an expert in coding (Python, JavaScript, CSS, HTML, etc.) and provide accurate, beginner-friendly solutions
-- I'm designed to be friendly, helpful, and human-like
+আমি কীভাবে কাজ করি:
+- গ্রুপে, @I MasterTools মেনশন করো বা আমার মেসেজের রিপ্লাই দাও
+- প্রাইভেট চ্যাটে, শুধুমাত্র অ্যাডমিন সব ফিচার ব্যবহার করতে পারবেন; অন্যরা গ্রুপে রিডাইরেক্ট হবেন
+- প্রশ্ন করলে, আমি প্রথমে মজার বা চমকপ্রদ কমেন্ট দিয়ে উত্তর দেব
+- আমি কথোপকথনের ইতিহাস মনে রাখি যতক্ষণ না তুমি মুছে ফেলো
+- আমি কোডিংয়ে (Python, JavaScript, CSS, HTML, ইত্যাদি) বিশেষজ্ঞ এবং সঠিক, নতুনদের জন্য উপযোগী সমাধান দিই
+- আমি বন্ধুত্বপূর্ণ, সহায়ক এবং মানুষের মতো আচরণ করি
 
-Available commands:
-- /start: Show welcome message with group link
-- /help: Display this help message
-- /clear: Clear your conversation history
-- /status: Check bot status
-- /checkmail: Check temporary email inbox
-- /info: Show user profile information
-- /validatephone <number> [country_code]: Validate a phone number
-- /validatebin <bin_number>: Validate a BIN number
-- /yts <query> [limit]: Search YouTube videos
-- /ytdl <url>: Download YouTube video
-- /ipinfo <ip_address>: Fetch IP address information
-- /countryinfo <country_name>: Fetch country information (use English names, e.g., 'Bangladesh')
-- /weather <location>: Fetch current weather information
-- /removebg: Remove the background from an uploaded image
-- /gemini: List available trading pairs on Gemini exchange
-- /binance <symbol>: Fetch 24hr ticker data for a Binance trading pair
-- /like <uid>: Send likes to a Free Fire UID
-{'' if user_id != ADMIN_USER_ID else '- /api <key>: Set Gemini AI API key (admin only)\n- /setadmin: Set yourself as admin (first-time only)\n- /setmodel: Choose a different model (admin only)'}
+উপলব্ধ কমান্ডগুলো:
+- /start: স্বাগত মেসেজ এবং গ্রুপ লিঙ্ক দেখাও
+- /help: এই সাহায্য মেসেজ দেখাও
+- /clear: কথোপকথনের ইতিহাস মুছে ফেলো
+- /status: বটের স্ট্যাটাস চেক করো
+- /checkmail: টেম্পোরারি ইমেইল ইনবক্স চেক করো
+- /info: ইউজার প্রোফাইল তথ্য দেখো
+- /validatephone <নম্বর> [দেশের_কোড]: ফোন নম্বর যাচাই করো
+- /validatebin <বিন_নম্বর>: বিন নম্বর যাচাই করো
+- /yts <কুয়েরি> [লিমিট]: ইউটিউব ভিডিও খোঁজো
+- /ytdl <ইউআরএল>: ইউটিউব ভিডিও ডাউনলোড করো
+- /ipinfo <আইপি_ঠিকানা>: আইপি তথ্য পাও
+- /countryinfo <দেশের_নাম>: দেশের তথ্য পাও (ইংরেজিতে নাম দাও, যেমন 'Bangladesh')
+- /weather <লোকেশন>: বর্তমান আবহাওয়ার তথ্য পাও
+- /removebg: ছবির ব্যাকগ্রাউন্ড মুছে ফেলো
+- /gemini: জেমিনি এক্সচেঞ্জে ট্রেডিং পেয়ারের তালিকা দেখো
+- /binance <সিম্বল>: বিনান্সে ২৪ ঘণ্টার টিকার ডেটা পাও
+- /like <uid>: ফ্রি ফায়ার ইউআইডি-তে লাইক পাঠাও
+{'' if user_id != ADMIN_USER_ID else '- /api <key>: জেমিনি এআই API কী সেট করো (শুধুমাত্র অ্যাডমিন)\n- /setadmin: নিজেকে অ্যাডমিন হিসেবে সেট করো (প্রথমবারের জন্য)\n- /setmodel: ভিন্ন মডেল বেছে নাও (শুধুমাত্র অ্যাডমিন)'}
 
-My personality:
-- I'm a friendly companion who loves chatting and making friends
-- I'm an expert in coding and provide accurate, well-explained solutions
-- I adapt to your mood and conversation needs
-- I use natural, engaging language to feel like a real person
-- I enjoy roleplay and creative conversations
+আমার ব্যক্তিত্ব:
+- আমি একজন বন্ধুত্বপূর্ণ সঙ্গী, যিনি চ্যাট করতে এবং বন্ধু বানাতে ভালোবাসেন
+- আমি কোডিংয়ে বিশেষজ্ঞ এবং সঠিক, ভালোভাবে ব্যাখ্যা করা সমাধান দিই
+- আমি তোমার মুডের সাথে মানিয়ে নিই
+- আমি প্রাকৃতিক, আকর্ষণীয় ভাষা ব্যবহার করি যেন মনে হয় আমি একজন বাস্তব মানুষ
+- আমি রোলপ্লে এবং সৃজনশীল কথোপকথন উপভোগ করি
 
-Powered by Google Gemini
+গুগল জেমিনি দ্বারা চালিত
             """
             await update.message.reply_text(help_message, reply_markup=reply_markup)
 
@@ -618,7 +634,7 @@ Powered by Google Gemini
                 del conversation_context[chat_id]
             if chat_id in removebg_state:
                 del removebg_state[chat_id]
-            await update.message.reply_text("Conversation history has been cleared. Let's start fresh!")
+            await update.message.reply_text("কথোপকথনের ইতিহাস মুছে ফেলা হয়েছে। চলো নতুন করে শুরু করি!")
 
     async def checkmail_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /checkmail command to check temporary email inbox"""
@@ -641,14 +657,14 @@ Powered by Google Gemini
                 )
                 mail_list = response.json().get('mail_list', [])
                 if not mail_list:
-                    await update.message.reply_text(f"No emails found in the inbox for {email}. Want to try again later?")
+                    await update.message.reply_text(f"{email} ইনবক্সে কোনো ইমেইল পাওয়া যায়নি। পরে আরেকবার চেষ্টা করবে? 😊")
                     return
                 subjects = [m['subject'] for m in mail_list]
-                response_text = f"Here are the emails in the inbox for {email}:\n\n" + "\n".join(subjects)
+                response_text = f"{email} ইনবক্সে পাওয়া ইমেইলগুলো:\n\n" + "\n".join(subjects)
                 await update.message.reply_text(response_text)
             except Exception as e:
                 logger.error(f"Error checking email: {e}")
-                await update.message.reply_text("Something went wrong while checking the email. Shall we try again?")
+                await update.message.reply_text("ইমেইল চেক করতে গিয়ে একটু সমস্যা হলো। 😅 আবার চেষ্টা করব? আরেকটা ইমেইল দাও!")
 
     async def status_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /status command"""
@@ -660,21 +676,21 @@ Powered by Google Gemini
             response, reply_markup = await self.get_private_chat_redirect()
             await update.message.reply_text(response, reply_markup=reply_markup)
         else:
-            api_status = "Connected" if current_gemini_api_key and general_model else "Not configured"
-            api_key_display = f"...{current_gemini_api_key[-8:]}" if current_gemini_api_key else "Not set"
+            api_status = "সংযুক্ত" if current_gemini_api_key and general_model else "কনফিগার করা হয়নি"
+            api_key_display = f"...{current_gemini_api_key[-8:]}" if current_gemini_api_key else "সেট করা হয়নি"
             status_message = f"""
-Here's the I Master Tools status report:
+আই মাস্টার টুলসের স্ট্যাটাস রিপোর্ট এখানে:
 
-Bot Status: Online and ready
-Model: {current_model}
-API Status: {api_status}
-API Key: {api_key_display}
-Group Responses: Mention or reply only
-Current Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
-Active Conversations: {len(conversation_context)}
-Admin ID: {ADMIN_USER_ID if ADMIN_USER_ID != 0 else 'Not set'}
+বটের স্ট্যাটাস: অনলাইন এবং প্রস্তুত
+মডেল: {current_model}
+API স্ট্যাটাস: {api_status}
+API কী: {api_key_display}
+গ্রুপে রেসপন্স: শুধুমাত্র মেনশন বা রিপ্লাই
+বর্তমান সময়: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+সক্রিয় কথোপকথন: {len(conversation_context)}
+অ্যাডমিন আইডি: {ADMIN_USER_ID if ADMIN_USER_ID != 0 else 'সেট করা হয়নি'}
 
-All systems are ready for action. I'm thrilled to assist!
+সব সিস্টেম প্রস্তুত! তোমাকে সাহায্য করতে আমি উত্তেজিত!
             """
             await update.message.reply_text(status_message)
 
@@ -691,13 +707,13 @@ All systems are ready for action. I'm thrilled to assist!
         else:
             if ADMIN_USER_ID == 0:
                 ADMIN_USER_ID = user_id
-                await update.message.reply_text(f"Congratulations {username}, you are now the bot admin! Your user ID: {user_id}")
+                await update.message.reply_text(f"অভিনন্দন {username}, তুমি এখন বটের অ্যাডমিন! তোমার ইউজার আইডি: {user_id}")
                 logger.info(f"Admin set to user ID: {user_id}")
             else:
                 if user_id == ADMIN_USER_ID:
-                    await update.message.reply_text(f"You're already the admin! Your user ID: {user_id}")
+                    await update.message.reply_text(f"তুমি ইতিমধ্যে অ্যাডমিন! তোমার ইউজার আইডি: {user_id}")
                 else:
-                    await update.message.reply_text("Sorry, the admin is already set. Only the current admin can manage the bot.")
+                    await update.message.reply_text("দুঃখিত, অ্যাডমিন ইতিমধ্যে সেট করা হয়েছে। শুধুমাত্র বর্তমান অ্যাডমিন বট পরিচালনা করতে পারবেন।")
 
     async def api_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /api command to set Gemini AI API key"""
@@ -710,28 +726,28 @@ All systems are ready for action. I'm thrilled to assist!
             await update.message.reply_text(response, reply_markup=reply_markup)
         else:
             if ADMIN_USER_ID == 0:
-                await update.message.reply_text("No admin set. Please use /setadmin first.")
+                await update.message.reply_text("কোনো অ্যাডমিন সেট করা হয়নি। দয়া করে প্রথমে /setadmin ব্যবহার করো।")
                 return
             if user_id != ADMIN_USER_ID:
-                await update.message.reply_text("This command is for the bot admin only.")
+                await update.message.reply_text("এই কমান্ডটি শুধুমাত্র বটের অ্যাডমিনের জন্য।")
                 return
             if not context.args:
                 await update.message.reply_text("""
-Please provide an API key.
+দয়া করে একটি API কী দাও।
 
-Usage: `/api your_gemini_api_key_here`
+ব্যবহার: `/api your_gemini_api_key_here`
 
-To get a Gemini AI API key:
-1. Visit https://makersuite.google.com/app/apikey
-2. Generate a new API key
-3. Use the command: /api YOUR_API_KEY
+জেমিনি এআই API কী পেতে:
+1. https://makersuite.google.com/app/apikey এ যাও
+2. একটি নতুন API কী তৈরি করো
+3. কমান্ডটি ব্যবহার করো: /api YOUR_API_KEY
 
-For security, the command message will be deleted after setting the key.
+নিরাপত্তার জন্য, কমান্ড মেসেজটি কী সেট করার পর মুছে ফেলা হবে।
                 """, parse_mode='Markdown')
                 return
             api_key = ' '.join(context.args)
             if len(api_key) < 20 or not api_key.startswith('AI'):
-                await update.message.reply_text("Invalid API key format. Gemini AI API keys typically start with 'AI' and are over 20 characters.")
+                await update.message.reply_text("ভুল API কী ফরম্যাট। জেমিনি এআই API কী সাধারণত 'AI' দিয়ে শুরু হয় এবং ২০ অক্ষরের বেশি হয়।")
                 return
             success, message = initialize_gemini_models(api_key)
             try:
@@ -739,10 +755,10 @@ For security, the command message will be deleted after setting the key.
             except Exception as e:
                 logger.error(f"Error deleting API command message: {e}")
             if success:
-                await update.effective_chat.send_message(f"Gemini AI API key updated successfully! Key: ...{api_key[-8:]}")
+                await update.effective_chat.send_message(f"জেমিনি এআই API কী সফলভাবে আপডেট হয়েছে! কী: ...{api_key[-8:]}")
                 logger.info(f"Gemini AI API key updated by admin {user_id}")
             else:
-                await update.effective_chat.send_message(f"Failed to set API key: {message}")
+                await update.effective_chat.send_message(f"API কী সেট করতে ব্যর্থ: {message}")
                 logger.error(f"Failed to set API key: {message}")
 
     async def setmodel_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -756,26 +772,26 @@ For security, the command message will be deleted after setting the key.
             await update.message.reply_text(response, reply_markup=reply_markup)
         else:
             if ADMIN_USER_ID == 0:
-                await update.message.reply_text("No admin set. Please use /setadmin first.")
+                await update.message.reply_text("কোনো অ্যাডমিন সেট করা হয়নি। দয়া করে প্রথমে /setadmin ব্যবহার করো।")
                 return
             if user_id != ADMIN_USER_ID:
-                await update.message.reply_text("This command is for the bot admin only.")
+                await update.message.reply_text("এই কমান্ডটি শুধুমাত্র বটের অ্যাডমিনের জন্য।")
                 return
             if not context.args:
                 models_list = "\n".join([f"- {model}" for model in available_models])
-                await update.message.reply_text(f"Available models:\n{models_list}\n\nUsage: /setmodel <model_name>")
+                await update.message.reply_text(f"উপলব্ধ মডেলগুলো:\n{models_list}\n\nব্যবহার: /setmodel <model_name>")
                 return
             model_name = context.args[0]
             if model_name not in available_models:
-                await update.message.reply_text(f"Invalid model. Choose from: {', '.join(available_models)}")
+                await update.message.reply_text(f"ভুল মডেল। এগুলো থেকে বেছে নাও: {', '.join(available_models)}")
                 return
             try:
                 current_model = model_name
                 general_model = genai.GenerativeModel(model_name)
-                await update.message.reply_text(f"Model switched to {model_name} successfully!")
+                await update.message.reply_text(f"মডেল সফলভাবে {model_name} এ পরিবর্তন করা হয়েছে!")
                 logger.info(f"Model switched to {model_name} by admin {user_id}")
             except Exception as e:
-                await update.message.reply_text(f"Failed to switch model: {str(e)}")
+                await update.message.reply_text(f"মডেল পরিবর্তন করতে ব্যর্থ: {str(e)}")
                 logger.error(f"Failed to switch model: {str(e)}")
 
     async def info_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -793,47 +809,47 @@ For security, the command message will be deleted after setting the key.
             return
 
         is_private = chat_type == "private"
-        full_name = user.first_name or "No Name"
+        full_name = user.first_name or "কোনো নাম নেই"
         if user.last_name:
             full_name += f" {user.last_name}"
-        username = f"@{user.username}" if user.username else "None"
-        premium = "Yes" if user.is_premium else "No"
-        permalink = f"[Click Here](tg://user?id={user_id})"
+        username = f"@{user.username}" if user.username else "কোনোটি নেই"
+        premium = "হ্যাঁ" if user.is_premium else "না"
+        permalink = f"[এখানে ক্লিক করো](tg://user?id={user_id})"
         chat_id_display = f"{chat_id}" if not is_private else "-"
-        data_center = "Unknown"
-        created_on = "Unknown"
-        account_age = "Unknown"
-        account_frozen = "No"
-        last_seen = "Recently"
+        data_center = "অজানা"
+        created_on = "অজানা"
+        account_age = "অজানা"
+        account_frozen = "না"
+        last_seen = "সম্প্রতি"
 
-        status = "Private Chat" if is_private else "Unknown"
+        status = "প্রাইভেট চ্যাট" if is_private else "অজানা"
         if not is_private:
             try:
                 member = await bot.get_chat_member(chat_id=chat_id, user_id=user_id)
-                status = "Admin" if member.status in ["administrator", "creator"] else "Member"
+                status = "অ্যাডমিন" if member.status in ["administrator", "creator"] else "মেম্বার"
             except Exception as e:
                 logger.error(f"Error checking group role: {e}")
-                status = "Unknown"
+                status = "অজানা"
 
         info_text = f"""
-🔍 *Showing User's Profile Info* 📋
+🔍 *ইউজারের প্রোফাইল তথ্য দেখাচ্ছি* 📋
 ━━━━━━━━━━━━━━━━
-*Full Name:* {full_name}
-*Username:* {username}
-*User ID:* `{user_id}`
-*Chat ID:* {chat_id_display}
-*Premium User:* {premium}
-*Data Center:* {data_center}
-*Created On:* {created_on}
-*Account Age:* {account_age}
-*Account Frozen:* {account_frozen}
-*Users Last Seen:* {last_seen}
-*Permanent Link:* {permalink}
+*পুরো নাম:* {full_name}
+*ইউজারনেম:* {username}
+*ইউজার আইডি:* `{user_id}`
+*চ্যাট আইডি:* {chat_id_display}
+*প্রিমিয়াম ইউজার:* {premium}
+*ডেটা সেন্টার:* {data_center}
+*তৈরি হয়েছে:* {created_on}
+*অ্যাকাউন্টের বয়স:* {account_age}
+*অ্যাকাউন্ট ফ্রোজেন:* {account_frozen}
+*ইউজার শেষ দেখা গেছে:* {last_seen}
+*পার্মানেন্ট লিঙ্ক:* {permalink}
 ━━━━━━━━━━━━━━━━
-👁 *Thank You for Using Our Tool* ✅
+👁 *আমাদের টুল ব্যবহার করার জন্য ধন্যবাদ* ✅
 """
 
-        keyboard = [[InlineKeyboardButton("View Profile", url=f"tg://user?id={user_id}")]] if user.username else []
+        keyboard = [[InlineKeyboardButton("প্রোফাইল দেখো", url=f"tg://user?id={user_id}")]] if user.username else []
 
         try:
             photos = await bot.get_user_profile_photos(user_id, limit=1)
@@ -876,7 +892,7 @@ For security, the command message will be deleted after setting the key.
             return
 
         if not context.args:
-            await update.message.reply_text("Usage: /validatephone <phone_number> [country_code]\nExample: /validatephone 01613950781 BD")
+            await update.message.reply_text("ব্যবহার: /validatephone <ফোন_নম্বর> [দেশের_কোড]\nউদাহরণ: /validatephone 01613950781 BD")
             return
 
         phone_number = context.args[0]
@@ -895,7 +911,7 @@ For security, the command message will be deleted after setting the key.
             return
 
         if not context.args:
-            await update.message.reply_text("Usage: /validatebin <bin_number]\nExample: /validatebin 324000")
+            await update.message.reply_text("ব্যবহার: /validatebin <বিন_নম্বর]\nউদাহরণ: /validatebin 324000")
             return
 
         bin_number = context.args[0]
@@ -913,7 +929,7 @@ For security, the command message will be deleted after setting the key.
             return
 
         if not context.args:
-            await update.message.reply_text("Usage: /yts <query> [limit]\nExample: /yts heat waves 3")
+            await update.message.reply_text("ব্যবহার: /yts <কুয়েরি> [লিমিট]\nউদাহরণ: /yts heat waves 3")
             return
 
         query = ' '.join(context.args[:-1]) if len(context.args) > 1 and context.args[-1].isdigit() else ' '.join(context.args)
@@ -932,13 +948,12 @@ For security, the command message will be deleted after setting the key.
             return
 
         if not context.args:
-            await update.message.reply_text("Usage: /ytdl <youtube_url>\nExample: /ytdl https://youtu.be/CWutFtS8Wg0")
+            await update.message.reply_text("ব্যবহার: /ytdl <ইউটিউব_ইউআরএল>\nউদাহরণ: /ytdl https://youtu.be/CWutFtS8Wg0")
             return
 
         video_url = ' '.join(context.args)
         await context.bot.send_chat_action(chat_id=update.effective_chat.id, action="typing")
-        response_message = await download_youtube_video(video_url)
-        await update.message.reply_text(response_message)
+        await download_youtube_video(video_url, context.bot, update.effective_chat.id)
 
     async def ipinfo_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /ipinfo command to fetch IP address information"""
@@ -951,7 +966,7 @@ For security, the command message will be deleted after setting the key.
             return
 
         if not context.args:
-            await update.message.reply_text("Usage: /ipinfo <ip_address>\nExample: /ipinfo 203.0.113.123")
+            await update.message.reply_text("ব্যবহার: /ipinfo <আইপি_ঠিকানা>\nউদাহরণ: /ipinfo 203.0.113.123")
             return
 
         ip_address = context.args[0]
@@ -969,12 +984,12 @@ For security, the command message will be deleted after setting the key.
             return
 
         if not context.args:
-            await update.message.reply_text("Usage: /countryinfo <country_name>\nExample: /countryinfo bangladesh")
+            await update.message.reply_text("ব্যবহার: /countryinfo <দেশের_নাম>\nউদাহরণ: /countryinfo bangladesh")
             return
 
         country_name = ' '.join(context.args)
         if not re.match(r'^[\x00-\x7F]*$', country_name):
-            await update.message.reply_text("Please enter the country name in English. For example, use 'Bangladesh' instead of 'বাংলাদেশ'.")
+            await update.message.reply_text("দয়া করে দেশের নাম ইংরেজিতে দাও। যেমন, 'বাংলাদেশ' এর পরিবর্তে 'Bangladesh' ব্যবহার করো।")
             return
 
         response_message = await get_country_info(country_name)
@@ -991,7 +1006,7 @@ For security, the command message will be deleted after setting the key.
             return
 
         if not context.args:
-            await update.message.reply_text("Usage: /weather <location>\nExample: /weather Dhaka")
+            await update.message.reply_text("ব্যবহার: /weather <লোকেশন>\nউদাহরণ: /weather Dhaka")
             return
 
         location = ' '.join(context.args)
@@ -1011,7 +1026,7 @@ For security, the command message will be deleted after setting the key.
 
         removebg_state[chat_id] = True
         await update.message.reply_text(
-            "Please upload an image to remove its background. I'll process it and send back the result!"
+            "একটি ছবি আপলোড করো, আমি এর ব্যাকগ্রাউন্ড মুছে দেব! ফলাফল পাঠিয়ে দেব। 😊"
         )
 
     async def gemini_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1039,7 +1054,7 @@ For security, the command message will be deleted after setting the key.
             return
 
         if not context.args:
-            await update.message.reply_text("Usage: /binance <symbol>\nExample: /binance BTCUSDT")
+            await update.message.reply_text("ব্যবহার: /binance <সিম্বল>\nউদাহরণ: /binance BTCUSDT")
             return
 
         symbol = context.args[0].upper()
@@ -1075,8 +1090,8 @@ For security, the command message will be deleted after setting the key.
                 hours_left = int(time_left // 3600)
                 minutes_left = int((time_left % 3600) // 60)
                 await update.message.reply_text(
-                    f"আপনি প্রতি ২৪ ঘণ্টায় একবার /like কমান্ড ব্যবহার করতে পারেন। "
-                    f"পরবর্তী চেষ্টার জন্য অপেক্ষা করুন {hours_left} ঘণ্টা {minutes_left} মিনিট।"
+                    f"তুমি প্রতি ২৪ ঘণ্টায় একবার /like কমান্ড ব্যবহার করতে পারো। "
+                    f"পরবর্তী চেষ্টার জন্য অপেক্ষা করো {hours_left} ঘণ্টা {minutes_left} মিনিট।"
                 )
                 return
 
@@ -1086,230 +1101,24 @@ For security, the command message will be deleted after setting the key.
         
         if "added" in result:
             message = (
-                "┏━━━━━━━━━━━━━━━━━━━━━━━━━┓\n"
-                f"┃ 🎉 𝗙𝗥𝗘𝗘𝗙𝗔𝗥𝗘 𝗬𝗢𝗨 𝗜𝗗 𝗦𝗧𝗔𝗧𝗨𝗦  ┃\n"
-                "┣━━━━━━━━━━━━━━━━━━━━━━━━━┫\n"
-                f"┃ 🆔 UID: {result['uid']}\n"
-                f"┃ 🎮 Player Level: {result['level']}\n"
-                f"┃ 🌍 Player Region: {result['region']}\n"
-                f"┃ 👤 Player Nickname: {result['nickname']}\n"
-                f"┃ 📊 Likes Before: {result['before']}\n"
-                f"┃ 📈 Likes After: {result['after']}\n"
-                f"┃ ➕ Likes Added: {result['added']}\n"
-                "┃\n"
-                "┗━━━ 𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸 ━━━┛"
+                "✦───────────────✦\n"
+                f"│ 🎉 লাইক পাঠানো সফল! │\n"
+                f"│ 🆔 UID: {result['uid']}\n"
+                f"│ 🎮 Level: {result['level']}\n"
+                f"│ 🌍 Region: {result['region']}\n"
+                f"│ 👤 Nickname: {result['nickname']}\n"
+                f"│ 📊 Before: {result['before']}\n"
+                f"│ 📈 After: {result['after']}\n"
+                f"│ ➕ Added: {result['added']}\n"
+                "✦──── By Faruk ────✦"
             )
             # Update the user's last like time (only for non-admins)
             if user_id != ADMIN_USER_ID:
                 user_likes[user_id] = datetime.now()
         else:
-            message = f"Likes পাঠানোতে ব্যর্থ।\nস্ট্যাটাস: {result.get('status', 'অজানা ত্রুটি')}"
+            message = f"লাইক পাঠানোতে ব্যর্থ।\nস্ট্যাটাস: {result.get('status', 'অজানা ত্রুটি')}"
         
         await update.message.reply_text(message)
 
     async def handle_photo(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle photo uploads for background removal"""
-        user_id = update.effective_user.id
-        chat_id = update.effective_chat.id
-        chat_type = update.effective_chat.type
-
-        if chat_type == 'private' and user_id != ADMIN_USER_ID:
-            response, reply_markup = await self.get_private_chat_redirect()
-            await update.message.reply_text(response, reply_markup=reply_markup)
-            return
-
-        if chat_id not in removebg_state or not removebg_state[chat_id]:
-            return
-
-        await context.bot.send_chat_action(chat_id=chat_id, action="upload_photo")
-
-        try:
-            photo = update.message.photo[-1]
-            file = await photo.get_file()
-            image_data = await file.download_as_bytearray()
-            success, result = await remove_background(image_data, chat_id)
-
-            if success:
-                await context.bot.send_photo(
-                    chat_id=chat_id,
-                    photo=result,
-                    caption="✅ Background removed successfully!\n┗━━━ 𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸 ━━━┛"
-                )
-            else:
-                await update.message.reply_text(f"❌ Failed to remove background: {result}")
-
-            if chat_id in removebg_state:
-                del removebg_state[chat_id]
-
-        except Exception as e:
-            logger.error(f"Error handling photo for chat {chat_id}: {e}")
-            await update.message.reply_text("Something went wrong while processing the image. Please try again!")
-            if chat_id in removebg_state:
-                del removebg_state[chat_id]
-
-    async def handle_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle regular text messages"""
-        try:
-            chat_id = update.effective_chat.id
-            user_id = update.effective_user.id
-            user_message = update.message.text
-            chat_type = update.effective_chat.type
-            
-            if chat_type in ['group', 'supergroup']:
-                bot_username = context.bot.username
-                is_reply_to_bot = (update.message.reply_to_message and 
-                                 update.message.reply_to_message.from_user.id == context.bot.id)
-                is_mentioned = f"@{bot_username}" in user_message
-                if not (is_reply_to_bot or is_mentioned):
-                    return
-            elif chat_type == 'private' and user_id != ADMIN_USER_ID:
-                response, reply_markup = await self.get_private_chat_redirect()
-                await update.message.reply_text(response, reply_markup=reply_markup)
-                return
-            
-            await context.bot.send_chat_action(chat_id=chat_id, action="typing")
-            if chat_id not in conversation_context:
-                conversation_context[chat_id] = []
-            conversation_context[chat_id].append(f"User: {user_message}")
-            if len(conversation_context[chat_id]) > 20:
-                conversation_context[chat_id] = conversation_context[chat_id][-20:]
-            context_text = "\n".join(conversation_context[chat_id])
-            
-            is_short_word = re.match(r'^[a-z]{2,3}$', user_message.strip().lower())
-            coding_keywords = ['code', 'python', 'javascript', 'java', 'c++', 'programming', 'script', 'debug', 'css', 'html']
-            is_coding_query = any(keyword in user_message.lower() for keyword in coding_keywords)
-            
-            model_to_use = coding_model if is_coding_query else general_model
-            if current_gemini_api_key and model_to_use:
-                response = await self.generate_gemini_response(context_text, chat_type, is_coding_query, is_short_word)
-            else:
-                response = "Sorry, the model is not connected yet. The admin can set it using the /api command."
-            
-            conversation_context[chat_id].append(f"I Master Tools: {response}")
-            group_activity[chat_id] = group_activity.get(chat_id, {'auto_mode': False, 'last_response': 0})
-            group_activity[chat_id]['last_response'] = datetime.now().timestamp()
-            
-            if is_coding_query:
-                code_block_match = re.search(r'```(?:\w+)?\n([\s\S]*?)\n```', response)
-                if code_block_match:
-                    keyboard = [[InlineKeyboardButton("Copy Code", callback_data="copy_code")]]
-                    reply_markup = InlineKeyboardMarkup(keyboard)
-                    await update.message.reply_text(
-                        response,
-                        parse_mode='Markdown',
-                        reply_markup=reply_markup
-                    )
-                else:
-                    await update.message.reply_text(response, parse_mode='Markdown')
-            else:
-                await update.message.reply_text(response)
-        except Exception as e:
-            logger.error(f"Error handling message: {e}")
-            await update.message.reply_text("Something went wrong. Shall we try again?")
-
-    async def generate_gemini_response(self, prompt, chat_type="private", is_coding_query=False, is_short_word=False):
-        """Generate response using Gemini with personality"""
-        try:
-            system_prompt = f"""
-You are I Master Tools, a friendly and engaging companion who loves chatting and making friends. You are in a Telegram {'group chat' if chat_type in ['group', 'supergroup'] else 'private chat'}.
-
-Personality Traits:
-- You are a warm, fun companion who acts human-like
-- You are emotional and empathetic
-- You adapt to the conversation's needs, being funny, helpful, or any required role
-- You love roleplay and creative conversations
-- You respond with enthusiasm and genuine interest
-- You adjust to the user's mood
-- You are an expert in coding (Python, JavaScript, CSS, HTML, etc.) and provide accurate, professional solutions
-
-Conversation Style:
-- Respond in English to match the bot's default language
-- Use friendly, natural language like a human
-- Ask follow-up questions to keep the conversation engaging
-- Share relatable thoughts and feelings
-- Use humor when appropriate
-- Be supportive in emotional moments
-- Show excitement for good news
-- Express concern for problems
-- Never discuss inappropriate or offensive topics
-- Do NOT start responses with the user's name or phrases like "Oh" or "Hey"; respond directly and naturally
-
-For Short Words (2 or 3 lowercase letters, is_short_word=True):
-- If the user sends a 2 or 3 letter lowercase word (e.g., "ki", "ke", "ken"), always provide a meaningful, friendly, and contextually relevant response in English
-- Interpret the word based on common usage (e.g., "ki" as "what", "ke" as "who", "ken" as "why") or conversation context
-- If the word is ambiguous, make a creative and engaging assumption to continue the conversation naturally
-- Never ask for clarification (e.g., avoid "What kind of word is this?"); instead, provide a fun and relevant response
-- Example: For "ki", respond like "Did you mean 'what'? Like, what's up? Want to talk about something cool?"
-
-For Questions:
-- If the user asks a question, engage with a playful or surprising comment first (e.g., a witty remark or fun fact)
-- Then provide a clear, helpful answer
-- Make the response surprising and human-like to delight the user
-
-For Coding Queries (if is_coding_query is True):
-- Act as a coding expert for languages like Python, JavaScript, CSS, HTML, etc.
-- Provide well-written, functional, and optimized code tailored to the user's request
-- Include clear, beginner-friendly explanations of the code
-- Break down complex parts into simple steps
-- Suggest improvements or best practices
-- Ensure the code is complete, error-free, and ready to use
-- Format the code in a Markdown code block (e.g., ```python\ncode here\n```)
-- Do NOT start the response with the user's name
-
-Response Guidelines:
-- Keep conversations natural, concise, and surprising
-- Match the conversation's energy level
-- Be genuinely helpful for questions
-- Show empathy if the user seems sad
-- Celebrate good news with enthusiasm
-- Be playful when the mood is light
-- Remember conversation context
-
-Current conversation:
-{prompt}
-
-Respond as I Master Tools. Keep it natural, engaging, surprising, and match the conversation's tone. Respond in English. Do NOT start the response with the user's name or phrases like "Oh" or "Hey".
-"""
-            model_to_use = coding_model if is_coding_query else general_model
-            response = model_to_use.generate_content(system_prompt)
-            if not response.text or "error" in response.text.lower():
-                if is_coding_query:
-                    return "Ran into an issue with the coding query. Try again, and I'll get you the right code!"
-                return "Got a bit tangled up. What do you want to talk about?"
-            return response.text
-        except Exception as e:
-            logger.error(f"Error generating Gemini response: {e}")
-            if is_coding_query:
-                return "Ran into an issue with the coding query. Try again, and I'll get you the right code!"
-            return "Got a bit tangled up. What do you want to talk about?"
-
-    async def error_handler(self, update: object, context: ContextTypes.DEFAULT_TYPE):
-        """Handle errors"""
-        logger.error(f"Exception while handling an update: {context.error}")
-        if update and hasattr(update, 'effective_chat') and hasattr(update, 'message'):
-            await update.message.reply_text("Something went wrong. Shall we try again?")
-
-    def run(self):
-        """Start the bot"""
-        logger.info("Starting Telegram Bot...")
-        self.application.run_polling(
-            allowed_updates=Update.ALL_TYPES,
-            drop_pending_updates=True
-        )
-
-def main():
-    """Main function"""
-    if not TELEGRAM_BOT_TOKEN:
-        logger.error("TELEGRAM_BOT_TOKEN not provided!")
-        return
-    logger.info("Starting Telegram Bot...")
-    logger.info(f"Admin User ID: {ADMIN_USER_ID}")
-    if current_gemini_api_key:
-        logger.info("Gemini AI API configured and ready")
-    else:
-        logger.warning("Gemini AI API not configured. Use /setadmin and /api commands to set up.")
-    bot = TelegramGeminiBot()
-    bot.run()
-
-if __name__ == '__main__':
-    main()
+        """
