@@ -8,6 +8,7 @@ import asyncio
 from datetime import datetime, timedelta
 import random
 import re
+from urllib.parse import quote_plus
 
 # Configure logging
 logging.basicConfig(
@@ -37,7 +38,7 @@ available_models = [
 current_model = 'gemini-1.5-flash'  # Default model
 
 # API keys for external services
-PHONE_API_KEY = "aadaaa983c9b4b418ee194aa78fd25b3"  # Abstract API key for phone validation
+PHONE_API_KEY = "num_live_Nf2vjeM19tHdi42qQ2LaVVMg2IGk1ReU2BYBKnvm"
 BIN_API_KEY = "kEXNklIYqLiLU657swFB1VXE0e4NF21G"
 
 # Store conversation context, group activity, removebg state, and user likes
@@ -72,66 +73,40 @@ else:
 
 async def validate_phone_number(phone_number: str, api_key: str, country_code: str = None):
     """
-    Validate a phone number using Abstract API
-    :param phone_number: Phone number to validate (string, preferably in +880xxxxxxxxx format)
-    :param api_key: Abstract API key
-    :param country_code: Not used in Abstract API but kept for compatibility
-    :return: Formatted response string with box design
+    Validate a phone number
+    :param phone_number: Phone number to validate (string)
+    :param api_key: Your API key
+    :param country_code: Country code (e.g., BD, US) — optional
+    :return: Formatted response string
     """
-    api_url = "https://phonevalidation.abstractapi.com/v1/"
+    base_url = "https://api.numlookupapi.com/v1/validate"
     params = {
-        "api_key": api_key,
-        "phone": phone_number
+        "apikey": api_key,
+        "country_code": country_code
     }
+    url = f"{base_url}/{phone_number}"
     
     try:
-        response = requests.get(api_url, params=params)
+        response = requests.get(url, params=params)
         if response.status_code == 200:
             data = response.json()
-            if data['valid']:
-                output_message = "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓\n"
-                output_message += f"┃ 📞 Phone Number Validation for '{phone_number}' ┃\n"
-                output_message += "┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫\n"
-                output_message += f"┃ ✅ Status: Valid\n"
-                output_message += f"┃ 📞 Number: {phone_number}\n"
-                output_message += f"┃ 🌍 Country: {data.get('country_name', 'N/A')}\n"
-                output_message += f"┃ 📍 Location: {data.get('location', 'N/A')}\n"
-                output_message += f"┃ 📡 Carrier: {data.get('carrier', 'N/A')}\n"
-                output_message += f"┃ 📱 Line Type: {data.get('line_type', 'N/A')}\n"
-                output_message += "┃\n"
-                output_message += "┗━━━ 𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸 ━━━┛"
-                return output_message
+            valid = data.get('valid', False)
+            if valid:
+                return f"""
+✅ Phone Number Validation Complete:
+📞 Number: {data.get('number', 'N/A')}
+🌍 Country: {data.get('country_name', 'N/A')} ({data.get('country_code', 'N/A')})
+📍 Location: {data.get('location', 'N/A')}
+📡 Carrier: {data.get('carrier', 'N/A')}
+📱 Line Type: {data.get('line_type', 'N/A')}
+"""
             else:
-                return (
-                    "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓\n"
-                    f"┃ 📞 Phone Number Validation for '{phone_number}' ┃\n"
-                    "┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫\n"
-                    f"┃ ❌ Status: Invalid\n"
-                    f"┃ 📞 Number: {phone_number}\n"
-                    "┃\n"
-                    "┗━━━ 𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸 ━━━┛"
-                )
+                return "❌ The phone number is not valid."
         else:
-            return (
-                "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓\n"
-                f"┃ 📞 Phone Number Validation Error ┃\n"
-                "┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫\n"
-                f"┃ ❌ Failed to fetch data: Status code {response.status_code}\n"
-                f"┃ Error: {response.text}\n"
-                "┃\n"
-                "┗━━━ 𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸 ━━━┛"
-            )
+            return f"❌ Failed to fetch data: Status code {response.status_code}\nError: {response.text}"
     except Exception as e:
         logger.error(f"Error validating phone number: {e}")
-        return (
-            "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓\n"
-            f"┃ 📞 Phone Number Validation Error ┃\n"
-            "┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫\n"
-            f"┃ ❌ Error: There was an issue validating the phone number\n"
-            f"┃ Details: {str(e)}\n"
-            "┃\n"
-            "┗━━━ 𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸 ━━━┛"
-        )
+        return "There was an issue validating the phone number. Shall we try again?"
 
 async def validate_bin(bin_number: str, api_key: str):
     """
@@ -278,7 +253,7 @@ async def get_country_info(country_name: str):
             output_message += f"┃ 🌐 Region: {country.get('region', 'N/A')}\n"
             output_message += f"┃ 🗺️ Subregion: {country.get('subregion', 'N/A')}\n"
             output_message += "┃\n"
-            output_message += "┗━━━ 𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮�_ruk ━━━┛"
+            output_message += "┗━━━ 𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸 ━━━┛"
             return output_message
         else:
             return "No information found for this country. Please try a different country name!"
@@ -448,26 +423,56 @@ async def send_like(uid: str, server_name: str = "BD"):
     except Exception as e:
         return {"status": f"Error: {str(e)}"}
 
-def download_youtube_video(url):
-    # API URL for downloading the video
-    api_url = f"https://ytdl.hideme.eu.org/{url}"
+async def download_youtube_video(video_url: str):
+    """
+    Download YouTube video using VidFly API
+    :param video_url: YouTube video URL
+    :return: Formatted response string
+    """
+    api_url = f"https://api.vidfly.ai/api/media/youtube/download?url={video_url}"
+    
+    try:
+        response = requests.get(api_url, timeout=15)
+        
+        if response.status_code == 200:
+            video_data = response.json()
+            download_link = video_data.get("download_link", "No link provided")
+            title = video_data.get("title", "Unknown Title")
+            
+            output_message = "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓\n"
+            output_message += f"┃ 🎬 YouTube Video Downloader ┃\n"
+            output_message += "┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫\n"
+            output_message += f"┃ 📹 Title: {title}\n"
+            output_message += f"┃ 🔗 Download Link: {download_link}\n"
+            output_message += "┃\n"
+            output_message += "┗━━━ 𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸 ━━━┛"
+            return output_message
+        else:
+            return f"❌ Failed to fetch video. Status: {response.status_code}\nError: {response.text}"
+    except Exception as e:
+        logger.error(f"Error downloading YouTube video: {e}")
+        return "❌ Failed to download the video. Please try again later."
 
-    # Sending GET request to the API
-    response = requests.get(api_url)
-
-    # Checking if the request was successful
-    if response.status_code == 200:
-        # Video downloaded successfully, get the video content
-        video_file = response.content
-        # Saving the video to a file
-        with open("downloaded_video.mp4", "wb") as video:
-            video.write(video_file)
-        print("Video downloaded successfully.")
-        return True, "Video downloaded successfully to downloaded_video.mp4"
-    else:
-        # If something went wrong, print error message
-        print("❌ Error downloading the video.")
-        return False, f"❌ Error downloading the video: Status {response.status_code}"
+def call_gpt_api(original_text, unique_id):
+    """
+    Call the GPT API with the provided text and unique ID
+    :param original_text: Text to send to the API
+    :param unique_id: Unique identifier for the request
+    :return: API response data or error message
+    """
+    encoded_text = quote_plus(original_text)
+    url = f"https://api.teleservices.io/gpt.php?text={encoded_text}&id={unique_id}"
+    
+    try:
+        response = requests.get(url)
+        if response.status_code == 200:
+            data = response.json()
+            return True, data
+        else:
+            return False, f"Error: {response.status_code} - {response.text}"
+    except Exception as e:
+        logger.error(f"Error calling GPT API: {e}")
+        return False, f"Error: {str(e)}"
 
 class TelegramGeminiBot:
     def __init__(self):
@@ -496,9 +501,11 @@ class TelegramGeminiBot:
         self.application.add_handler(CommandHandler("gemini", self.gemini_command))
         self.application.add_handler(CommandHandler("binance", self.binance_command))
         self.application.add_handler(CommandHandler("like", self.like_command))
+        self.application.add_handler(CommandHandler("gpt", self.gpt_command))
         self.application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_message))
         self.application.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, self.handle_new_member))
         self.application.add_handler(MessageHandler(filters.PHOTO & ~filters.COMMAND, self.handle_photo))
+        self.application.add_handler(CallbackQueryHandler(self.button_callback, pattern='^copy_code$'))
         self.application.add_handler(CallbackQueryHandler(self.button_callback, pattern='^copy_code$'))
         self.application.add_error_handler(self.error_handler)
 
@@ -550,6 +557,7 @@ Available commands:
 - /gemini: List available trading pairs on Gemini exchange
 - /binance <symbol>: Fetch 24hr ticker data for a Binance trading pair
 - /like <uid>: Send likes to a Free Fire UID
+- /gpt <text> <id>: Call the GPT API with text and unique ID
 {'' if user_id != ADMIN_USER_ID else '- /api <key>: Set Gemini AI API key (admin only)\n- /setadmin: Set yourself as admin (first-time only)\n- /setmodel: Choose a different model (admin only)'}
 
 In groups, mention @I MasterTools or reply to my messages to get a response. I'm excited to chat with you!
@@ -608,6 +616,7 @@ Available commands:
 - /gemini: List available trading pairs on Gemini exchange
 - /binance <symbol>: Fetch 24hr ticker data for a Binance trading pair
 - /like <uid>: Send likes to a Free Fire UID
+- /gpt <text> <id>: Call the GPT API with text and unique ID
 {'' if user_id != ADMIN_USER_ID else '- /api <key>: Set Gemini AI API key (admin only)\n- /setadmin: Set yourself as admin (first-time only)\n- /setmodel: Choose a different model (admin only)'}
 
 My personality:
@@ -893,7 +902,7 @@ For security, the command message will be deleted after setting the key.
             return
 
         if not context.args:
-            await update.message.reply_text("Usage: /validatephone <phone_number> [country_code]\nExample: /validatephone +8801712345678 BD")
+            await update.message.reply_text("Usage: /validatephone <phone_number> [country_code]\nExample: /validatephone 01613950781 BD")
             return
 
         phone_number = context.args[0]
@@ -942,7 +951,6 @@ For security, the command message will be deleted after setting the key.
         """Handle /ytdl command to download YouTube video"""
         user_id = update.effective_user.id
         chat_type = update.effective_chat.type
-        chat_id = update.effective_chat.id
 
         if chat_type == 'private' and user_id != ADMIN_USER_ID:
             response, reply_markup = await self.get_private_chat_redirect()
@@ -954,16 +962,9 @@ For security, the command message will be deleted after setting the key.
             return
 
         video_url = ' '.join(context.args)
-        await context.bot.send_chat_action(chat_id=chat_id, action="upload_video")
-        success, message = download_youtube_video(video_url)
-        output_message = "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓\n"
-        output_message += f"┃ 🎬 YouTube Video Downloader ┃\n"
-        output_message += "┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫\n"
-        output_message += f"┃ 📹 Video URL: {video_url}\n"
-        output_message += f"┃ {message}\n"
-        output_message += "┃\n"
-        output_message += "┗━━━ 𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸 ━━━┛"
-        await context.bot.send_message(chat_id=chat_id, text=output_message)
+        await context.bot.send_chat_action(chat_id=update.effective_chat.id, action="typing")
+        response_message = await download_youtube_video(video_url)
+        await update.message.reply_text(response_message)
 
     async def ipinfo_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /ipinfo command to fetch IP address information"""
@@ -1132,6 +1133,44 @@ For security, the command message will be deleted after setting the key.
         
         await update.message.reply_text(message)
 
+    async def gpt_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle /gpt command to call the GPT API"""
+        user_id = update.effective_user.id
+        chat_type = update.effective_chat.type
+
+        if chat_type == 'private' and user_id != ADMIN_USER_ID:
+            response, reply_markup = await self.get_private_chat_redirect()
+            await update.message.reply_text(response, reply_markup=reply_markup)
+            return
+
+        if len(context.args) < 2:
+            await update.message.reply_text("Usage: /gpt <text> <id>\nExample: /gpt Hey what's up 123456")
+            return
+
+        original_text = ' '.join(context.args[:-1])
+        unique_id = context.args[-1]
+        await context.bot.send_chat_action(chat_id=update.effective_chat.id, action="typing")
+        
+        success, result = call_gpt_api(original_text, unique_id)
+        if success:
+            # Format the response based on the API's JSON structure
+            # Adjust this based on the actual response structure of the GPT API
+            response_text = result.get('response', 'No response provided')
+            message = (
+                "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓\n"
+                f"┃ 🤖 GPT API Response ┃\n"
+                "┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫\n"
+                f"┃ 📝 Input Text: {original_text}\n"
+                f"┃ 🆔 Unique ID: {unique_id}\n"
+                f"┃ 📬 Response: {response_text}\n"
+                "┃\n"
+                "┗━━━ 𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸 ━━━┛"
+            )
+        else:
+            message = f"❌ Failed to call GPT API: {result}"
+        
+        await update.message.reply_text(message)
+
     async def handle_photo(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle photo uploads for background removal"""
         user_id = update.effective_user.id
@@ -1158,7 +1197,7 @@ For security, the command message will be deleted after setting the key.
                 await context.bot.send_photo(
                     chat_id=chat_id,
                     photo=result,
-                    caption="✅ Background removed successfully!\n┗━━━ 𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸 ━━━┛"
+                    caption="✅ Background removed successfully!\n┗━━━ 𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂�_k ━━━┛"
                 )
             else:
                 await update.message.reply_text(f"❌ Failed to remove background: {result}")
