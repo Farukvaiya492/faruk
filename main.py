@@ -1100,7 +1100,7 @@ For security, the command message will be deleted after setting the key.
                 "┗━━━ 𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸 ━━━┛"
             )
             # Update the user's last like time (only for non-admins)
-            if user_id != ADMIN_USER_ID: "7835226724"
+            if user_id != ADMIN_USER_ID:
                 user_likes[user_id] = datetime.now()
         else:
             message = f"Likes পাঠানোতে ব্যর্থ।\nস্ট্যাটাস: {result.get('status', 'অজানা ত্রুটি')}"
