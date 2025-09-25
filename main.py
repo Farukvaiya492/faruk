@@ -8,7 +8,6 @@ import asyncio
 from datetime import datetime, timedelta
 import random
 import re
-from urllib.parse import quote_plus
 
 # Configure logging
 logging.basicConfig(
@@ -161,9 +160,9 @@ async def search_yts_multiple(query: str, limit: int = 5):
             if not isinstance(results, list):
                 results = [results]
                 
-            output_message = "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓\n"
+            output_message = "┏━━━━━━━━━━━━━━━━━━━━━┓\n"
             output_message += f"┃ 🔍 YouTube Search Results for '{query}' ┃\n"
-            output_message += "┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫\n"
+            output_message += "┣━━━━━━━━━━━━━━━━━━━━━┫\n"
             
             for i, res in enumerate(results[:limit], 1):
                 output_message += f"┃ 🎥 Video {i}:\n"
@@ -199,9 +198,9 @@ async def get_ip_info(ip_address: str):
         response.raise_for_status()
         data = response.json()
         
-        output_message = "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓\n"
+        output_message = "┏━━━━━━━━━━━━━━━━━━━━━━┓\n"
         output_message += f"┃ 🌐 IP Information for '{ip_address}' ┃\n"
-        output_message += "┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫\n"
+        output_message += "┣━━━━━━━━━━━━━━━━━━━━━━┫\n"
         output_message += f"┃ 📍 IP: {data.get('ip', 'N/A')}\n"
         output_message += f"┃ 🖥️ Hostname: {data.get('hostname', 'N/A')}\n"
         output_message += f"┃ 🏙️ City: {data.get('city', 'N/A')}\n"
@@ -240,9 +239,9 @@ async def get_country_info(country_name: str):
             
             capital = country.get('capital', ['N/A'])[0] if isinstance(country.get('capital'), list) else country.get('capital', 'N/A')
             
-            output_message = "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓\n"
+            output_message = "┏━━━━━━━━━━━━━━━━━━━━━━━┓\n"
             output_message += f"┃ 🌍 Country Information for '{country_name.title()}' ┃\n"
-            output_message += "┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫\n"
+            output_message += "┣━━━━━━━━━━━━━━━━━━━━━━━┫\n"
             output_message += f"┃ 🏳️ Name: {country.get('name', {}).get('common', 'N/A')}\n"
             output_message += f"┃ 🏛️ Capital: {capital}\n"
             output_message += f"┃ 👨‍👩‍👧‍👦 Population: {country.get('population', 'N/A')}\n"
@@ -280,9 +279,9 @@ async def get_weather_info(location: str):
         
         if response.status_code == 200 and 'current' in data:
             current_weather = data['current']
-            output_message = "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓\n"
+            output_message = "┏━━━━━━━━━━━━━━━━━━━┓\n"
             output_message += f"┃ ☁ Weather Information for '{location.title()}' ┃\n"
-            output_message += "┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫\n"
+            output_message += "┣━━━━━━━━━━━━━━━━━━━┫\n"
             output_message += f"┃ 🌡️ Temperature: {current_weather.get('temperature', 'N/A')}°C\n"
             output_message += f"┃ ☁ Weather: {current_weather.get('weather_descriptions', ['N/A'])[0]}\n"
             output_message += f"┃ 💧 Humidity: {current_weather.get('humidity', 'N/A')}% \n"
@@ -335,9 +334,9 @@ async def get_gemini_trading_pairs():
         response = requests.get(url, headers=headers)
         if response.status_code == 200:
             symbols = response.json()
-            output_message = "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓\n"
+            output_message = "┏━━━━━━━━━━━━━━━━━━━━━┓\n"
             output_message += "┃ 💹 Available Trading Pairs on Gemini ┃\n"
-            output_message += "┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫\n"
+            output_message += "┣━━━━━━━━━━━━━━━━━━━━━┫\n"
             for i, symbol in enumerate(symbols[:10], 1):  # Limit to 10 pairs for brevity
                 output_message += f"┃ 💱 Pair {i}: {symbol.upper()}\n"
             output_message += "┃\n"
@@ -363,9 +362,9 @@ async def get_binance_ticker(symbol: str):
         response = requests.get(full_url)
         if response.status_code == 200:
             data = response.json()
-            output_message = "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓\n"
+            output_message = "┏━━━━━━━━━━━━━━━━━━━━━━━┓\n"
             output_message += f"┃ 💹 24hr Ticker Data for {data['symbol']} ┃\n"
-            output_message += "┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫\n"
+            output_message += "┣━━━━━━━━━━━━━━━━━━━━━━━┫\n"
             output_message += f"┃ 💰 Last Price: {data.get('lastPrice', 'N/A')}\n"
             output_message += f"┃ 📈 Price Change (24h): {data.get('priceChange', 'N/A')}\n"
             output_message += f"┃ 📊 Price Change Percent: {data.get('priceChangePercent', 'N/A')}% \n"
@@ -439,9 +438,10 @@ async def download_youtube_video(video_url: str):
             download_link = video_data.get("download_link", "No link provided")
             title = video_data.get("title", "Unknown Title")
             
-            output_message = "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓\n"
+            output_message = "┏━━━━━━━━━━━━━━━
+━━━━━┓\n"
             output_message += f"┃ 🎬 YouTube Video Downloader ┃\n"
-            output_message += "┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫\n"
+            output_message += "┣━━━━━━━━━━━━━━━━━━┫\n"
             output_message += f"┃ 📹 Title: {title}\n"
             output_message += f"┃ 🔗 Download Link: {download_link}\n"
             output_message += "┃\n"
@@ -452,27 +452,6 @@ async def download_youtube_video(video_url: str):
     except Exception as e:
         logger.error(f"Error downloading YouTube video: {e}")
         return "❌ Failed to download the video. Please try again later."
-
-def call_gpt_api(original_text, unique_id):
-    """
-    Call the GPT API with the provided text and unique ID
-    :param original_text: Text to send to the API
-    :param unique_id: Unique identifier for the request
-    :return: API response data or error message
-    """
-    encoded_text = quote_plus(original_text)
-    url = f"https://api.teleservices.io/gpt.php?text={encoded_text}&id={unique_id}"
-    
-    try:
-        response = requests.get(url)
-        if response.status_code == 200:
-            data = response.json()
-            return True, data
-        else:
-            return False, f"Error: {response.status_code} - {response.text}"
-    except Exception as e:
-        logger.error(f"Error calling GPT API: {e}")
-        return False, f"Error: {str(e)}"
 
 class TelegramGeminiBot:
     def __init__(self):
@@ -501,11 +480,9 @@ class TelegramGeminiBot:
         self.application.add_handler(CommandHandler("gemini", self.gemini_command))
         self.application.add_handler(CommandHandler("binance", self.binance_command))
         self.application.add_handler(CommandHandler("like", self.like_command))
-        self.application.add_handler(CommandHandler("gpt", self.gpt_command))
         self.application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_message))
         self.application.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, self.handle_new_member))
         self.application.add_handler(MessageHandler(filters.PHOTO & ~filters.COMMAND, self.handle_photo))
-        self.application.add_handler(CallbackQueryHandler(self.button_callback, pattern='^copy_code$'))
         self.application.add_handler(CallbackQueryHandler(self.button_callback, pattern='^copy_code$'))
         self.application.add_error_handler(self.error_handler)
 
@@ -557,7 +534,6 @@ Available commands:
 - /gemini: List available trading pairs on Gemini exchange
 - /binance <symbol>: Fetch 24hr ticker data for a Binance trading pair
 - /like <uid>: Send likes to a Free Fire UID
-- /gpt <text> <id>: Call the GPT API with text and unique ID
 {'' if user_id != ADMIN_USER_ID else '- /api <key>: Set Gemini AI API key (admin only)\n- /setadmin: Set yourself as admin (first-time only)\n- /setmodel: Choose a different model (admin only)'}
 
 In groups, mention @I MasterTools or reply to my messages to get a response. I'm excited to chat with you!
@@ -616,7 +592,6 @@ Available commands:
 - /gemini: List available trading pairs on Gemini exchange
 - /binance <symbol>: Fetch 24hr ticker data for a Binance trading pair
 - /like <uid>: Send likes to a Free Fire UID
-- /gpt <text> <id>: Call the GPT API with text and unique ID
 {'' if user_id != ADMIN_USER_ID else '- /api <key>: Set Gemini AI API key (admin only)\n- /setadmin: Set yourself as admin (first-time only)\n- /setmodel: Choose a different model (admin only)'}
 
 My personality:
@@ -1113,7 +1088,7 @@ For security, the command message will be deleted after setting the key.
         if "added" in result:
             message = (
                 "┏━━━━━━━━━━━━━━━━━━━┓\n"
-                f"┃ 🎉 𝗙𝗥𝗘𝗘𝗙𝗔𝗥𝗘 𝗬𝗢𝗨 𝗜𝗗 𝗦𝗧𝗔𝗧𝗨𝗦\n"
+                f"┃𝗙𝗥𝗘𝗘𝗙𝗜𝗥𝗘 𝗬𝗢𝗨 𝗜𝗗 𝗦𝗧𝗔𝗧𝗨𝗦\n"
                 "┣━━━━━━━━━━━━━━━━━━━┫\n"
                 f"┃ 🆔 UID: {result['uid']}\n"
                 f"┃ 🎮 Player Level: {result['level']}\n"
@@ -1130,44 +1105,6 @@ For security, the command message will be deleted after setting the key.
                 user_likes[user_id] = datetime.now()
         else:
             message = f"Likes পাঠানোতে ব্যর্থ।\nস্ট্যাটাস: {result.get('status', 'অজানা ত্রুটি')}"
-        
-        await update.message.reply_text(message)
-
-    async def gpt_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle /gpt command to call the GPT API"""
-        user_id = update.effective_user.id
-        chat_type = update.effective_chat.type
-
-        if chat_type == 'private' and user_id != ADMIN_USER_ID:
-            response, reply_markup = await self.get_private_chat_redirect()
-            await update.message.reply_text(response, reply_markup=reply_markup)
-            return
-
-        if len(context.args) < 2:
-            await update.message.reply_text("Usage: /gpt <text> <id>\nExample: /gpt Hey what's up 123456")
-            return
-
-        original_text = ' '.join(context.args[:-1])
-        unique_id = context.args[-1]
-        await context.bot.send_chat_action(chat_id=update.effective_chat.id, action="typing")
-        
-        success, result = call_gpt_api(original_text, unique_id)
-        if success:
-            # Format the response based on the API's JSON structure
-            # Adjust this based on the actual response structure of the GPT API
-            response_text = result.get('response', 'No response provided')
-            message = (
-                "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓\n"
-                f"┃ 🤖 GPT API Response ┃\n"
-                "┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫\n"
-                f"┃ 📝 Input Text: {original_text}\n"
-                f"┃ 🆔 Unique ID: {unique_id}\n"
-                f"┃ 📬 Response: {response_text}\n"
-                "┃\n"
-                "┗━━━ 𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸 ━━━┛"
-            )
-        else:
-            message = f"❌ Failed to call GPT API: {result}"
         
         await update.message.reply_text(message)
 
@@ -1197,7 +1134,7 @@ For security, the command message will be deleted after setting the key.
                 await context.bot.send_photo(
                     chat_id=chat_id,
                     photo=result,
-                    caption="✅ Background removed successfully!\n┗━━━ 𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂�_k ━━━┛"
+                    caption="✅ Background removed successfully!\n┗━━━ 𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸 ━━━┛"
                 )
             else:
                 await update.message.reply_text(f"❌ Failed to remove background: {result}")
