@@ -37,7 +37,7 @@ available_models = [
 current_model = 'gemini-1.5-flash'  # Default model
 
 # API keys for external services
-PHONE_API_KEY = "num_live_Nf2vjeM19tHdi42qQ2LaVVMg2IGk1ReU2BYBKnvm"
+PHONE_API_KEY = "aadaaa983c9b4b418ee194aa78fd25b3"  # Abstract API key for phone validation
 BIN_API_KEY = "kEXNklIYqLiLU657swFB1VXE0e4NF21G"
 
 # Store conversation context, group activity, removebg state, and user likes
@@ -72,40 +72,66 @@ else:
 
 async def validate_phone_number(phone_number: str, api_key: str, country_code: str = None):
     """
-    Validate a phone number
-    :param phone_number: Phone number to validate (string)
-    :param api_key: Your API key
-    :param country_code: Country code (e.g., BD, US) — optional
-    :return: Formatted response string
+    Validate a phone number using Abstract API
+    :param phone_number: Phone number to validate (string, preferably in +880xxxxxxxxx format)
+    :param api_key: Abstract API key
+    :param country_code: Not used in Abstract API but kept for compatibility
+    :return: Formatted response string with box design
     """
-    base_url = "https://api.numlookupapi.com/v1/validate"
+    api_url = "https://phonevalidation.abstractapi.com/v1/"
     params = {
-        "apikey": api_key,
-        "country_code": country_code
+        "api_key": api_key,
+        "phone": phone_number
     }
-    url = f"{base_url}/{phone_number}"
     
     try:
-        response = requests.get(url, params=params)
+        response = requests.get(api_url, params=params)
         if response.status_code == 200:
             data = response.json()
-            valid = data.get('valid', False)
-            if valid:
-                return f"""
-✅ Phone Number Validation Complete:
-📞 Number: {data.get('number', 'N/A')}
-🌍 Country: {data.get('country_name', 'N/A')} ({data.get('country_code', 'N/A')})
-📍 Location: {data.get('location', 'N/A')}
-📡 Carrier: {data.get('carrier', 'N/A')}
-📱 Line Type: {data.get('line_type', 'N/A')}
-"""
+            if data['valid']:
+                output_message = "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓\n"
+                output_message += f"┃ 📞 Phone Number Validation for '{phone_number}' ┃\n"
+                output_message += "┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫\n"
+                output_message += f"┃ ✅ Status: Valid\n"
+                output_message += f"┃ 📞 Number: {phone_number}\n"
+                output_message += f"┃ 🌍 Country: {data.get('country_name', 'N/A')}\n"
+                output_message += f"┃ 📍 Location: {data.get('location', 'N/A')}\n"
+                output_message += f"┃ 📡 Carrier: {data.get('carrier', 'N/A')}\n"
+                output_message += f"┃ 📱 Line Type: {data.get('line_type', 'N/A')}\n"
+                output_message += "┃\n"
+                output_message += "┗━━━ 𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸 ━━━┛"
+                return output_message
             else:
-                return "❌ The phone number is not valid."
+                return (
+                    "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓\n"
+                    f"┃ 📞 Phone Number Validation for '{phone_number}' ┃\n"
+                    "┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫\n"
+                    f"┃ ❌ Status: Invalid\n"
+                    f"┃ 📞 Number: {phone_number}\n"
+                    "┃\n"
+                    "┗━━━ 𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸 ━━━┛"
+                )
         else:
-            return f"❌ Failed to fetch data: Status code {response.status_code}\nError: {response.text}"
+            return (
+                "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓\n"
+                f"┃ 📞 Phone Number Validation Error ┃\n"
+                "┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫\n"
+                f"┃ ❌ Failed to fetch data: Status code {response.status_code}\n"
+                f"┃ Error: {response.text}\n"
+                "┃\n"
+                "┗━━━ 𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸 ━━━┛"
+            )
     except Exception as e:
         logger.error(f"Error validating phone number: {e}")
-        return "There was an issue validating the phone number. Shall we try again?"
+        return (
+            "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓\n"
+            f"┃ 📞 Phone Number Validation Error ┃\n"
+            "┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫\n"
+            f"┃ ❌ Error: There was an issue validating the phone number\n"
+            f"┃ Details: {str(e)}\n"
+            "┃\n"
+            "┗━━━ 𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸 ━━━┛"
+        )
 
 async def validate_bin(bin_number: str, api_key: str):
     """
@@ -252,7 +278,7 @@ async def get_country_info(country_name: str):
             output_message += f"┃ 🌐 Region: {country.get('region', 'N/A')}\n"
             output_message += f"┃ 🗺️ Subregion: {country.get('subregion', 'N/A')}\n"
             output_message += "┃\n"
-            output_message += "┗━━━ 𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸 ━━━┛"
+            output_message += "┗━━━ 𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮�_ruk ━━━┛"
             return output_message
         else:
             return "No information found for this country. Please try a different country name!"
@@ -867,7 +893,7 @@ For security, the command message will be deleted after setting the key.
             return
 
         if not context.args:
-            await update.message.reply_text("Usage: /validatephone <phone_number> [country_code]\nExample: /validatephone 01613950781 BD")
+            await update.message.reply_text("Usage: /validatephone <phone_number> [country_code]\nExample: /validatephone +8801712345678 BD")
             return
 
         phone_number = context.args[0]
