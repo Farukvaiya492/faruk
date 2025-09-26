@@ -7,6 +7,8 @@ import asyncio
 from datetime import datetime, timedelta
 import random
 import re
+import json
+import pytz
 
 # Configure logging
 logging.basicConfig(
@@ -28,11 +30,16 @@ GROUP_CHAT_USERNAME = '@VPSHUB_BD_CHAT'  # Group chat username for /like command
 PHONE_API_KEY = 'num_live_Nf2vjeM19tHdi42qQ2LaVVMg2IGk1ReU2BYBKnvm'
 BIN_API_KEY = 'kEXNklIYqLiLU657swFB1VXE0e4NF21G'
 
-# Store conversation context, group activity, removebg state, and user likes
+# Storage file for /like cooldown
+STORAGE_FILE = "user_check_times.json"
+
+# Bangladesh Time (BST) timezone
+BANGLADESH_TIMEZONE = pytz.timezone('Asia/Dhaka')
+
+# Store conversation context, group activity, removebg state
 conversation_context = {}
 group_activity = {}
 removebg_state = {}  # To track which chats are expecting an image for /removebg
-user_likes = {}  # To track user /like command usage with timestamps
 
 async def validate_phone_number(phone_number: str, api_key: str, country_code: str = None):
     """
@@ -316,41 +323,6 @@ async def get_binance_ticker(symbol: str):
         logger.error(f"Error fetching Binance ticker data: {e}")
         return f"❌ Error fetching ticker data: {str(e)}"
 
-async def send_like(uid: str, server_name: str = "BD"):
-    """
-    Send likes to a Free Fire UID
-    :param uid: Free Fire user ID
-    :param server_name: Server name (default: BD)
-    :return: Dictionary with response data
-    """
-    api_url = f"https://free-like-api-aditya-ffm.vercel.app/like?uid={uid}&server_name={server_name}&key=@adityaapis"
-    
-    try:
-        response = requests.get(api_url, timeout=20)
-        if response.status_code == 200:
-            data = response.json()
-            before = data.get("LikesbeforeCommand", 0)
-            after = data.get("LikesafterCommand", 0)
-            added = after - before
-            level = data.get("PlayerLevel", "N/A")
-            region = data.get("PlayerRegion", "N/A")
-            nickname = data.get("PlayerNickname", "N/A")
-            
-            return {
-                "uid": uid,
-                "level": level,
-                "region": region,
-                "nickname": nickname,
-                "before": before,
-                "after": after,
-                "added": added,
-                "status": "Success ✅"
-            }
-        else:
-            return {"status": f"Error: {response.status_code}"}
-    except Exception as e:
-        return {"status": f"Error: {str(e)}"}
-
 async def download_youtube_audio(video_url: str):
     """
     Download audio from a YouTube video using yt-api-flax
@@ -414,6 +386,79 @@ async def generate_image(prompt: str):
     except ValueError:
         logger.error("Error parsing JSON response")
         return False, "❌ Error parsing JSON response."
+
+async def send_like(uid: str):
+    """
+    Send likes to a Free Fire UID with 24-hour cooldown
+    :param uid: Free Fire user ID
+    :return: Dictionary with response data or error message
+    """
+    def get_last_check_time(uid):
+        try:
+            with open(STORAGE_FILE, 'r') as file:
+                data = json.load(file)
+                return data.get(str(uid), None)
+        except FileNotFoundError:
+            return None
+
+    def update_check_time(uid):
+        try:
+            with open(STORAGE_FILE, 'r') as file:
+                data = json.load(file)
+        except FileNotFoundError:
+            data = {}
+
+        data[str(uid)] = str(datetime.now(BANGLADESH_TIMEZONE))
+        with open(STORAGE_FILE, 'w') as file:
+            json.dump(data, file)
+
+    def can_check_again(uid):
+        last_check_time = get_last_check_time(uid)
+        if last_check_time:
+            last_check_time = datetime.fromisoformat(last_check_time)
+            if datetime.now(BANGLADESH_TIMEZONE) - last_check_time < timedelta(hours=24):
+                time_left = timedelta(hours=24) - (datetime.now(BANGLADESH_TIMEZONE) - last_check_time)
+                hours_left = int(time_left.total_seconds() // 3600)
+                minutes_left = int((time_left.total_seconds() % 3600) // 60)
+                return False, f"আপনি প্রতি ২৪ ঘণ্টায় একবার /like কমান্ড ব্যবহার করতে পারেন। পরবর্তী চেষ্টার জন্য অপেক্ষা করুন {hours_left} ঘণ্টা {minutes_left} মিনিট।"
+        return True, None
+
+    url = "https://api-likes-alliff-v3.vercel.app/like"
+    can_check, error_message = can_check_again(uid)
+    if not can_check:
+        return {"status": error_message}
+
+    try:
+        params = {'uid': uid}
+        response = requests.get(url, params=params, timeout=15)
+        if response.status_code == 200:
+            data = response.json()
+            user_name = data.get('name', 'Name not available')
+            user_level = data.get('level', 'Level not available')
+            total_likes = data.get('likes', 0)
+            new_likes = data.get('new_likes', 0)
+            added_likes = new_likes  # Treating new_likes as added_likes
+            current_time = datetime.now(BANGLADESH_TIMEZONE).strftime("%Y-%m-%d %H:%M:%S")
+
+            # Update the check time
+            update_check_time(uid)
+
+            return {
+                "uid": uid,
+                "name": user_name,
+                "level": user_level,
+                "total_likes": total_likes,
+                "new_likes": new_likes,
+                "added_likes": added_likes,
+                "current_time": current_time,
+                "status": "Success ✅"
+            }
+        else:
+            logger.error(f"API request failed: HTTP Status {response.status_code}")
+            return {"status": f"Error: Data not found from API. HTTP Status {response.status_code}"}
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error fetching user data: {e}")
+        return {"status": f"Error: {str(e)}"}
 
 class TelegramGeminiBot:
     def __init__(self):
@@ -486,7 +531,7 @@ Available commands:
 - /checkmail: Check temporary email inbox
 - /info: Show user profile information
 - /validatephone <number> [country_code]: Validate a phone number
-- /validatebin <bin_number]: Validate a BIN number
+- /validatebin <bin_number>: Validate a BIN number
 - /yts <query> [limit]: Search YouTube videos
 - /ytdl <url>: Download audio from a YouTube video
 - /generate_image <prompt>: Generate an image based on a text prompt
@@ -544,7 +589,7 @@ Available commands:
 - /checkmail: Check temporary email inbox
 - /info: Show user profile information
 - /validatephone <number> [country_code]: Validate a phone number
-- /validatebin <bin_number]: Validate a BIN number
+- /validatebin <bin_number>: Validate a BIN number
 - /yts <query> [limit]: Search YouTube videos
 - /ytdl <url>: Download audio from a YouTube video
 - /generate_image <prompt>: Generate an image based on a text prompt
@@ -901,7 +946,7 @@ All systems are ready for action. I'm thrilled to assist!
                     await context.bot.send_photo(
                         chat_id=chat_id,
                         photo=image_file,
-                        caption=f"✅ ছবি তৈরি হয়েছে প্রম্পট '{prompt}' এর জন্য!\n┗━━━ 𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸 ━━━┛"
+                        caption=f"✅ ছবি তৈরি হয়েছে প্রম্পট '{prompt}' এর জন্য!\n┗━━━ 𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 �_F𝗮𝗿𝘂𝗸 ━━━┛"
                     )
             except Exception as e:
                 logger.error(f"Error sending image: {e}")
@@ -1010,6 +1055,7 @@ All systems are ready for action. I'm thrilled to assist!
         """Handle /like command to send likes to a Free Fire UID with rate limiting"""
         user_id = update.effective_user.id
         chat_type = update.effective_chat.type
+        chat_id = update.effective_chat.id
 
         if chat_type == 'private' and user_id != ADMIN_USER_ID:
             response, reply_markup = await self.get_private_chat_redirect()
@@ -1021,43 +1067,28 @@ All systems are ready for action. I'm thrilled to assist!
             return
 
         if len(context.args) != 1:
-            await update.message.reply_text("ব্যবহার: /like <UID>")
+            await update.message.reply_text("ব্যবহার: /like <UID>\nউদাহরণ: /like 6872869745")
             return
 
-        if user_id != ADMIN_USER_ID:
-            last_like_time = user_likes.get(user_id)
-            current_time = datetime.now()
-            if last_like_time and (current_time - last_like_time).total_seconds() < 24 * 60 * 60:
-                time_left = 24 * 60 * 60 - (current_time - last_like_time).total_seconds()
-                hours_left = int(time_left // 3600)
-                minutes_left = int((time_left % 3600) // 60)
-                await update.message.reply_text(
-                    f"আপনি প্রতি ২৪ ঘণ্টায় একবার /like কমান্ড ব্যবহার করতে পারেন। "
-                    f"পরবর্তী চেষ্টার জন্য অপেক্ষা করুন {hours_left} ঘণ্টা {minutes_left} মিনিট।"
-                )
-                return
-
         uid = context.args[0]
-        await context.bot.send_chat_action(chat_id=update.effective_chat.id, action="typing")
+        await context.bot.send_chat_action(chat_id=chat_id, action="typing")
         result = await send_like(uid)
         
-        if "added" in result:
+        if result.get("status") == "Success ✅":
             message = (
                 "┏━━━━━━━━━━━━━━━━━━━┓\n"
                 f"┃ 🎉 𝗙𝗥𝗘𝗘𝗙𝗔𝗥𝗘 𝗬𝗢𝗨 𝗜𝗗 𝗦𝗧𝗔𝗧𝗨𝗦\n"
                 "┣━━━━━━━━━━━━━━━━━━━┫\n"
-                f"┃ 🆔 UID: {result['uid']}\n"
-                f"┃ 🎮 Player Level: {result['level']}\n"
-                f"┃ 🌍 Player Region: {result['region']}\n"
-                f"┃ 👤 Player Nickname: {result['nickname']}\n"
-                f"┃ 📊 Likes Before: {result['before']}\n"
-                f"┃ 📈 Likes After: {result['after']}\n"
-                f"┃ ➕ Likes Added: {result['added']}\n"
+                f"┃ 🆔 Free Fire UID: {result['uid']}\n"
+                f"┃ 👤 User Name: {result['name']}\n"
+                f"┃ 🎮 Level: {result['level']}\n"
+                f"┃ ➕ Total Likes Added: {result['added_likes']}\n"
+                f"┃ 📊 Current Total Likes: {result['total_likes']}\n"
+                f"┃ 🆕 New Likes Added: {result['new_likes']}\n"
+                f"┃ ⏰ Data Updated Time (BST): {result['current_time']}\n"
                 "┃\n"
                 "┗━━━ 𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸 ━━━┛"
             )
-            if user_id != ADMIN_USER_ID:
-                user_likes[user_id] = datetime.now()
         else:
             message = f"Likes পাঠানোতে ব্যর্থ।\nস্ট্যাটাস: {result.get('status', 'অজানা ত্রুটি')}"
         
