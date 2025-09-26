@@ -63,7 +63,7 @@ async def validate_phone_number(phone_number: str, api_key: str, country_code: s
                 return f"""
 ━━━━━━•❅•°•❈•°•❅•━━━━━━
 ✅ Phone Number Validation Complete
-📅 Time: {datetime.now(BD_TIMEZONE).strftime('%Y-%m-%d %I:%M:%S %p +06')}
+📅 System Time: {datetime.now(BD_TIMEZONE).strftime('%Y-%m-%d %I:%M:%S %p +06')}
 ━━━━━━•❅•°•❈•°•❅•━━━━━━
 📞 Number: {data.get('number', 'N/A')}
 🌍 Country: {data.get('country_name', 'N/A')} ({data.get('country_code', 'N/A')})
@@ -103,7 +103,7 @@ async def validate_bin(bin_number: str, api_key: str):
             return f"""
 ━━━━━━•❅•°•❈•°•❅•━━━━━━
 ✅ BIN Validation Complete
-📅 Time: {datetime.now(BD_TIMEZONE).strftime('%Y-%m-%d %I:%M:%S %p +06')}
+📅 System Time: {datetime.now(BD_TIMEZONE).strftime('%Y-%m-%d %I:%M:%S %p +06')}
 ━━━━━━•❅•°•❈•°•❅•━━━━━━
 💳 BIN: {result.get('Bin', 'N/A')}
 🏦 Card Brand: {result.get('CardBrand', 'N/A')}
@@ -140,7 +140,7 @@ async def search_yts_multiple(query: str, limit: int = 5):
                 results = [results]
                 
             output_message = f"━━━━━━•❅•°•❈•°•❅•━━━━━━\n"
-            output_message += f"🔍YouTube Search Results for '{query}'\n"
+            output_message += f"🔍 YouTube Search Results for '{query}'\n"
             output_message += f"📅 System Time: {datetime.now(BD_TIMEZONE).strftime('%Y-%m-%d %I:%M:%S %p +06')}\n"
             output_message += f"━━━━━━•❅•°•❈•°•❅•━━━━━━\n"
             
@@ -180,7 +180,7 @@ async def get_ip_info(ip_address: str):
         
         output_message = f"━━━━━━•❅•°•❈•°•❅•━━━━━━\n"
         output_message += f"🌐 IP Information for '{ip_address}'\n"
-        output_message += f"📅 Time: {datetime.now(BD_TIMEZONE).strftime('%Y-%m-%d %I:%M:%S %p +06')}\n"
+        output_message += f"📅 System Time: {datetime.now(BD_TIMEZONE).strftime('%Y-%m-%d %I:%M:%S %p +06')}\n"
         output_message += f"━━━━━━•❅•°•❈•°•❅•━━━━━━\n"
         output_message += f"📍 IP: {data.get('ip', 'N/A')}\n"
         output_message += f"🖥️ Hostname: {data.get('hostname', 'N/A')}\n"
@@ -263,7 +263,7 @@ async def get_weather_info(location: str):
             current_weather = data['current']
             output_message = f"━━━━━━•❅•°•❈•°•❅•━━━━━━\n"
             output_message += f"☁ Weather Information for '{location.title()}'\n"
-            output_message += f"📅 Time: {datetime.now(BD_TIMEZONE).strftime('%Y-%m-%d %I:%M:%S %p +06')}\n"
+            output_message += f"📅 System Time: {datetime.now(BD_TIMEZONE).strftime('%Y-%m-%d %I:%M:%S %p +06')}\n"
             output_message += f"━━━━━━•❅•°•❈•°•❅•━━━━━━\n"
             output_message += f"🌡️ Temperature: {current_weather.get('temperature', 'N/A')}°C\n"
             output_message += f"☁ Weather: {current_weather.get('weather_descriptions', ['N/A'])[0]}\n"
@@ -719,9 +719,10 @@ All systems are ready for action. I'm thrilled to assist!
         phone_number = context.args[0]
         country_code = context.args[1] if len(context.args) > 1 else None
         response_message = await validate_phone_number(phone_number, PHONE_API_KEY, country_code)
-        await context.bot.send_message(
+        await context.bot.send_photo(
             chat_id=chat_id,
-            text=response_message,
+            photo=FREE_FIRE_LOGO_URL,
+            caption=response_message,
             reply_to_message_id=update.message.message_id
         )
 
@@ -742,9 +743,10 @@ All systems are ready for action. I'm thrilled to assist!
 
         bin_number = context.args[0]
         response_message = await validate_bin(bin_number, BIN_API_KEY)
-        await context.bot.send_message(
+        await context.bot.send_photo(
             chat_id=chat_id,
-            text=response_message,
+            photo=FREE_FIRE_LOGO_URL,
+            caption=response_message,
             reply_to_message_id=update.message.message_id
         )
 
@@ -766,9 +768,10 @@ All systems are ready for action. I'm thrilled to assist!
         query = ' '.join(context.args[:-1]) if len(context.args) > 1 and context.args[-1].isdigit() else ' '.join(context.args)
         limit = int(context.args[-1]) if len(context.args) > 1 and context.args[-1].isdigit() else 5
         response_message = await search_yts_multiple(query, limit)
-        await context.bot.send_message(
+        await context.bot.send_photo(
             chat_id=chat_id,
-            text=response_message,
+            photo=FREE_FIRE_LOGO_URL,
+            caption=response_message,
             reply_to_message_id=update.message.message_id
         )
 
@@ -789,9 +792,10 @@ All systems are ready for action. I'm thrilled to assist!
 
         ip_address = context.args[0]
         response_message = await get_ip_info(ip_address)
-        await context.bot.send_message(
+        await context.bot.send_photo(
             chat_id=chat_id,
-            text=response_message,
+            photo=FREE_FIRE_LOGO_URL,
+            caption=response_message,
             reply_to_message_id=update.message.message_id
         )
 
@@ -816,9 +820,10 @@ All systems are ready for action. I'm thrilled to assist!
             return
 
         response_message = await get_country_info(country_name)
-        await context.bot.send_message(
+        await context.bot.send_photo(
             chat_id=chat_id,
-            text=response_message,
+            photo=FREE_FIRE_LOGO_URL,
+            caption=response_message,
             reply_to_message_id=update.message.message_id
         )
 
@@ -839,9 +844,10 @@ All systems are ready for action. I'm thrilled to assist!
 
         location = ' '.join(context.args)
         response_message = await get_weather_info(location)
-        await context.bot.send_message(
+        await context.bot.send_photo(
             chat_id=chat_id,
-            text=response_message,
+            photo=FREE_FIRE_LOGO_URL,
+            caption=response_message,
             reply_to_message_id=update.message.message_id
         )
 
@@ -879,9 +885,10 @@ All systems are ready for action. I'm thrilled to assist!
         symbol = context.args[0].upper()
         await context.bot.send_chat_action(chat_id=chat_id, action="typing")
         response_message = await get_binance_ticker(symbol)
-        await context.bot.send_message(
+        await context.bot.send_photo(
             chat_id=chat_id,
-            text=response_message,
+            photo=FREE_FIRE_LOGO_URL,
+            caption=response_message,
             reply_to_message_id=update.message.message_id
         )
 
@@ -925,14 +932,16 @@ All systems are ready for action. I'm thrilled to assist!
             message = (
                 f"🔥 𝗙𝗥𝗘𝗘𝗙𝗜𝗥𝗘 𝗨𝗜𝗗 𝗦𝗧𝗔𝗧𝗨𝗦 🔥\n"
                 f"━━━━━━•❅•°•❈•°•❅•━━━━━━\n"
-                f"📅 Time: {datetime.now(BD_TIMEZONE).strftime('%Y-%m-%d %I:%M:%S %p +06')}\n"
+                f"📅 System Time: {datetime.now(BD_TIMEZONE).strftime('%Y-%m-%d %I:%M:%S %p +06')}\n"
                 f"🆔 UID: {result['uid']}\n"
                 f"👤 Name: {result['name']}\n"
+                f"📊 Level: {result['level']}\n"
                 f"📊 Likes Before: {result['likes_before']}\n"
                 f"📈 Likes After: {result['likes_after']}\n"
                 f"➕ Likes Added: {result['likes_added']}\n"
                 f"👨‍💻 Developer: {result['dev']}\n"
                 f"━━━━━━•❅•°•❈•°•❅•━━━━━━\n"
+                f"𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸"
             )
             if user_id != ADMIN_USER_ID:
                 user_likes[user_id] = datetime.now(BD_TIMEZONE)
@@ -972,12 +981,13 @@ All systems are ready for action. I'm thrilled to assist!
                 await context.bot.send_photo(
                     chat_id=chat_id,
                     photo=result,
-                    caption=f"✅ Background removed successfully!\n📅 Time: {datetime.now(BD_TIMEZONE).strftime('%Y-%m-%d %I:%M:%S %p +06')}\n━━━━━━•❅•°•❈•°•❅•━━━━━━\n𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸"
+                    caption=f"✅ Background removed successfully!\n📅 System Time: {datetime.now(BD_TIMEZONE).strftime('%Y-%m-%d %I:%M:%S %p +06')}\n━━━━━━•❅•°•❈•°•❅•━━━━━━\n𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸"
                 )
             else:
-                await context.bot.send_message(
+                await context.bot.send_photo(
                     chat_id=chat_id,
-                    text=f"❌ Failed to remove background: {result}"
+                    photo=FREE_FIRE_LOGO_URL,
+                    caption=f"❌ Failed to remove background: {result}"
                 )
 
             if chat_id in removebg_state:
@@ -985,9 +995,10 @@ All systems are ready for action. I'm thrilled to assist!
 
         except Exception as e:
             logger.error(f"Error handling photo for chat {chat_id}: {e}")
-            await context.bot.send_message(
+            await context.bot.send_photo(
                 chat_id=chat_id,
-                text="Something went wrong while processing the image. Please try again!"
+                photo=FREE_FIRE_LOGO_URL,
+                caption="Something went wrong while processing the image. Please try again!"
             )
             if chat_id in removebg_state:
                 del removebg_state[chat_id]
