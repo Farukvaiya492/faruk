@@ -23,7 +23,7 @@ WEATHER_API_KEY = 'c1794a3c9faa01e4b5142313d4191ef8'  # Weatherstack API key
 ADMIN_USER_ID = int(os.getenv('ADMIN_USER_ID', '7835226724'))
 PORT = int(os.getenv('PORT', 8000))
 GROUP_CHAT_USERNAME = '@VPSHUB_BD_CHAT'  # Group chat username for /like command
-FREE_FIRE_LOGO_URL = 'https://i.imgur.com/EXAMPLE.jpg'  # Replace with actual Free Fire logo URL
+FREE_FIRE_LOGO_URL = 'https://i.ibb.co/PHptbR8/6638018d8c21b542a2a34d8a1b61146f.jpg'  # Replace with actual Free Fire logo URL
 
 # API keys for external services
 PHONE_API_KEY = 'num_live_Nf2vjeM19tHdi42qQ2LaVVMg2IGk1ReU2BYBKnvm'
