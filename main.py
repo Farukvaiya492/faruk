@@ -137,7 +137,7 @@ async def search_yts_multiple(query: str, limit: int = 5):
                 
             output_message = f"━━━━━━•❅•°•❈•°•❅•━━━━━━\n"
             output_message += f"🔍 YouTube Search Results for '{query}'\n"
-            output_message += f"📅 System Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S %Z')}\n"
+            output_message += f"📅 Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S %Z')}\n"
             output_message += f"━━━━━━•❅•°•❈•°•❅•━━━━━━\n"
             
             for i, res in enumerate(results[:limit], 1):
@@ -176,7 +176,7 @@ async def get_ip_info(ip_address: str):
         
         output_message = f"━━━━━━•❅•°•❈•°•❅•━━━━━━\n"
         output_message += f"🌐 IP Information for '{ip_address}'\n"
-        output_message += f"📅 System Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S %Z')}\n"
+        output_message += f"📅 Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S %Z')}\n"
         output_message += f"━━━━━━•❅•°•❈•°•❅•━━━━━━\n"
         output_message += f"📍 IP: {data.get('ip', 'N/A')}\n"
         output_message += f"🖥️ Hostname: {data.get('hostname', 'N/A')}\n"
@@ -218,7 +218,7 @@ async def get_country_info(country_name: str):
             
             output_message = f"━━━━━━•❅•°•❈•°•❅•━━━━━━\n"
             output_message += f"🌍 Country Information for '{country_name.title()}'\n"
-            output_message += f"📅 System Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S %Z')}\n"
+            output_message += f"📅 Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S %Z')}\n"
             output_message += f"━━━━━━•❅•°•❈•°•❅•━━━━━━\n"
             output_message += f"🏳️ Name: {country.get('name', {}).get('common', 'N/A')}\n"
             output_message += f"🏛️ Capital: {capital}\n"
@@ -259,7 +259,7 @@ async def get_weather_info(location: str):
             current_weather = data['current']
             output_message = f"━━━━━━•❅•°•❈•°•❅•━━━━━━\n"
             output_message += f"☁ Weather Information for '{location.title()}'\n"
-            output_message += f"📅 System Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S %Z')}\n"
+            output_message += f"📅 Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S %Z')}\n"
             output_message += f"━━━━━━•❅•°•❈•°•❅•━━━━━━\n"
             output_message += f"🌡️ Temperature: {current_weather.get('temperature', 'N/A')}°C\n"
             output_message += f"☁ Weather: {current_weather.get('weather_descriptions', ['N/A'])[0]}\n"
@@ -314,7 +314,7 @@ async def get_binance_ticker(symbol: str):
             data = response.json()
             output_message = f"━━━━━━•❅•°•❈•°•❅•━━━━━━\n"
             output_message += f"💹 24hr Ticker Data for {data['symbol']}\n"
-            output_message += f"📅 System Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S %Z')}\n"
+            output_message += f"📅 Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S %Z')}\n"
             output_message += f"━━━━━━•❅•°•❈•°•❅•━━━━━━\n"
             output_message += f"💰 Last Price: {data.get('lastPrice', 'N/A')}\n"
             output_message += f"📈 Price Change (24h): {data.get('priceChange', 'N/A')}\n"
@@ -939,7 +939,7 @@ All systems are ready for action. I'm thrilled to assist!
             message = (
                 f"🔥 𝗙𝗥𝗘𝗘𝗙𝗜𝗥𝗘 𝗨𝗜𝗗 𝗦𝗧𝗔𝗧𝗨𝗦 🔥\n"
                 f"━━━━━━•❅•°•❈•°•❅•━━━━━━\n"
-                f"📅 System Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S %Z')}\n"
+                f"📅 Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S %Z')}\n"
                 f"🆔 UID: {result['uid']}\n"
                 f"👤 Name: {result['name']}\n"
                 f"📊 Likes Before: {result['likes_before']}\n"
@@ -947,7 +947,6 @@ All systems are ready for action. I'm thrilled to assist!
                 f"➕ Likes Added: {result['likes_added']}\n"
                 f"👨‍💻 Developer: {result['dev']}\n"
                 f"━━━━━━•❅•°•❈•°•❅•━━━━━━\n"
-                f"𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸"
             )
             if user_id != ADMIN_USER_ID:
                 user_likes[user_id] = datetime.now()
