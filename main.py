@@ -251,7 +251,7 @@ async def get_weather_info(location: str):
             output_message += f"┃ 💧 Humidity: {current_weather.get('humidity', 'N/A')}% \n"
             output_message += f"┃ 💨 Wind Speed: {current_weather.get('wind_speed', 'N/A')} km/h\n"
             output_message += "┃\n"
-            output_message += "┗━━━ 𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮�_ruk ━━━┛"
+            output_message += "┗━━━ 𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸 ━━━┛"
             return output_message
         else:
             error_info = data.get("error", {}).get("info", "Unknown error")
@@ -351,6 +351,37 @@ async def send_like(uid: str, server_name: str = "BD"):
     except Exception as e:
         return {"status": f"Error: {str(e)}"}
 
+async def download_youtube_audio(video_url: str):
+    """
+    Download audio from a YouTube video using yt-api-flax
+    :param video_url: YouTube video URL
+    :return: Tuple of (success, audio_data or error_message)
+    """
+    api_url = f"https://yt-api-flax.vercel.app/dl?url={video_url}"
+    
+    try:
+        response = requests.get(api_url, timeout=15)
+        if response.status_code == 200:
+            data = response.json()
+            if data.get('status') == 'success':
+                audio_url = data.get('audio_url')
+                audio_response = requests.get(audio_url, timeout=15)
+                if audio_response.status_code == 200:
+                    return True, audio_response.content
+                else:
+                    logger.error(f"Error downloading audio: {audio_response.status_code}")
+                    return False, f"❌ Failed to download audio: HTTP Status {audio_response.status_code}"
+            else:
+                error_message = data.get('error', 'অজানা ত্রুটি')
+                logger.error(f"API error: {error_message}")
+                return False, f"❌ ত্রুটি! তথ্য পাওয়া যায়নি!\nকারণ: {error_message}"
+        else:
+            logger.error(f"API call failed: {response.status_code}")
+            return False, f"❌ API কলের সময়ে ত্রুটি ঘটেছে!\nHTTP স্ট্যাটাস কোড: {response.status_code}"
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error downloading YouTube audio: {e}")
+        return False, f"❌ Error downloading audio: {str(e)}"
+
 class TelegramGeminiBot:
     def __init__(self):
         self.application = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
@@ -370,6 +401,7 @@ class TelegramGeminiBot:
         self.application.add_handler(CommandHandler("validatephone", self.validatephone_command))
         self.application.add_handler(CommandHandler("validatebin", self.validatebin_command))
         self.application.add_handler(CommandHandler("yts", self.yts_command))
+        self.application.add_handler(CommandHandler("ytdl", self.ytdl_command))
         self.application.add_handler(CommandHandler("ipinfo", self.ipinfo_command))
         self.application.add_handler(CommandHandler("countryinfo", self.countryinfo_command))
         self.application.add_handler(CommandHandler("weather", self.weather_command))
@@ -422,6 +454,7 @@ Available commands:
 - /validatephone <number> [country_code]: Validate a phone number
 - /validatebin <bin_number>: Validate a BIN number
 - /yts <query> [limit]: Search YouTube videos
+- /ytdl <url>: Download audio from a YouTube video
 - /ipinfo <ip_address>: Fetch IP address information
 - /countryinfo <country_name>: Fetch country information (use English names, e.g., 'Bangladesh')
 - /weather <location>: Fetch current weather information
@@ -478,6 +511,7 @@ Available commands:
 - /validatephone <number> [country_code]: Validate a phone number
 - /validatebin <bin_number>: Validate a BIN number
 - /yts <query> [limit]: Search YouTube videos
+- /ytdl <url>: Download audio from a YouTube video
 - /ipinfo <ip_address>: Fetch IP address information
 - /countryinfo <country_name>: Fetch country information (use English names, e.g., 'Bangladesh')
 - /weather <location>: Fetch current weather information
@@ -601,7 +635,7 @@ All systems are ready for action. I'm thrilled to assist!
             response, reply_markup = await self.get_private_chat_redirect()
             await update.message.reply_text(response, reply_markup=reply_markup)
         else:
-            await update.message.reply_text("Gemini AI API is disabled in this version. Use other commands like /weather, /ipinfo, or /like!")
+            await update.message.reply_text("Gemini AI API is disabled in this version. Use other commands like /ytdl, /weather, or /like!")
 
     async def setmodel_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /setmodel command to choose Gemini model"""
@@ -612,7 +646,7 @@ All systems are ready for action. I'm thrilled to assist!
             response, reply_markup = await self.get_private_chat_redirect()
             await update.message.reply_text(response, reply_markup=reply_markup)
         else:
-            await update.message.reply_text("Model selection is disabled as Gemini API is not configured. Use other commands like /info or /weather!")
+            await update.message.reply_text("Model selection is disabled as Gemini API is not configured. Use other commands like /ytdl or /info!")
 
     async def info_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /info command to show user profile information"""
@@ -756,6 +790,49 @@ All systems are ready for action. I'm thrilled to assist!
         limit = int(context.args[-1]) if len(context.args) > 1 and context.args[-1].isdigit() else 5
         response_message = await search_yts_multiple(query, limit)
         await update.message.reply_text(response_message)
+
+    async def ytdl_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle /ytdl command to download audio from a YouTube video"""
+        user_id = update.effective_user.id
+        chat_type = update.effective_chat.type
+        chat_id = update.effective_chat.id
+
+        if chat_type == 'private' and user_id != ADMIN_USER_ID:
+            response, reply_markup = await self.get_private_chat_redirect()
+            await update.message.reply_text(response, reply_markup=reply_markup)
+            return
+
+        if not context.args:
+            await update.message.reply_text("Usage: /ytdl <youtube_url>\nExample: /ytdl https://youtu.be/zi1pjYjHBeQ")
+            return
+
+        video_url = ' '.join(context.args)
+        await context.bot.send_chat_action(chat_id=chat_id, action="upload_audio")
+        
+        success, result = await download_youtube_audio(video_url)
+        if success:
+            # Save audio temporarily
+            audio_file_path = "audio.m4a"
+            with open(audio_file_path, "wb") as f:
+                f.write(result)
+            
+            # Send audio to Telegram
+            try:
+                with open(audio_file_path, "rb") as audio_file:
+                    await context.bot.send_audio(
+                        chat_id=chat_id,
+                        audio=audio_file,
+                        caption="✅ অডিও সফলভাবে ডাউনলোড করা হয়েছে!\n┗━━━ 𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸 ━━━┛"
+                    )
+            except Exception as e:
+                logger.error(f"Error sending audio: {e}")
+                await update.message.reply_text("❌ Error sending audio file. Please try again!")
+            finally:
+                # Clean up the temporary file
+                if os.path.exists(audio_file_path):
+                    os.remove(audio_file_path)
+        else:
+            await update.message.reply_text(result)
 
     async def ipinfo_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /ipinfo command to fetch IP address information"""
@@ -968,7 +1045,7 @@ All systems are ready for action. I'm thrilled to assist!
                 return
             
             await context.bot.send_chat_action(chat_id=chat_id, action="typing")
-            await update.message.reply_text("Sorry, text-based AI responses are disabled as Gemini API is not configured. Try commands like /weather, /ipinfo, or /like!")
+            await update.message.reply_text("Sorry, text-based AI responses are disabled as Gemini API is not configured. Try commands like /ytdl, /weather, or /like!")
         except Exception as e:
             logger.error(f"Error handling message: {e}")
             await update.message.reply_text("Something went wrong. Shall we try again?")
