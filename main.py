@@ -307,7 +307,7 @@ async def get_binance_ticker(symbol: str):
             output_message += f"┃ 🔻 24h Low Price: {data.get('lowPrice', 'N/A')}\n"
             output_message += f"┃ 📉 24h Volume: {data.get('volume', 'N/A')}\n"
             output_message += "┃\n"
-            output_message += "┗━━━ 𝗖�_r𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸 ━━━┛"
+            output_message += "┗━━━ 𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸 ━━━┛"
             return output_message
         else:
             logger.error(f"Binance API error: {response.status_code} - {response.text}")
@@ -329,7 +329,7 @@ async def send_like(uid: str):
         if response.status_code == 200:
             data = response.json()
             return {
-                "dev": data.get("DEV", "N/A"),
+                "dev": "@Farukvaiya01",  # Hardcoded developer name as requested
                 "name": data.get("name", "N/A"),
                 "uid": data.get("uid", "N/A"),
                 "likes_before": data.get("likes_before", 0),
@@ -878,7 +878,7 @@ All systems are ready for action. I'm thrilled to assist!
         
         if "likes_added" in result:
             message = (
-                "🔥 **Free Fire UID Status** 🔥\n"
+                "🔥 𝗙𝗥𝗘𝗘𝗙𝗜𝗥𝗘 𝗨𝗜𝗗 𝗦𝗧𝗔𝗧𝗨𝗦 🔥\n"
                 f"🆔 UID: {result['uid']}\n"
                 f"👤 Name: {result['name']}\n"
                 f"📊 Likes Before: {result['likes_before']}\n"
