@@ -981,7 +981,7 @@ All systems are ready for action. I'm thrilled to assist!
                 await context.bot.send_photo(
                     chat_id=chat_id,
                     photo=result,
-                    caption=f"✅ Background removed successfully!\n📅 System Time: {datetime.now(BD_TIMEZONE).strftime('%Y-%m-%d %I:%M:%S %p +06')}\n━━━━━━•❅•°•❈•°•❅•━━━━━━\n𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸"
+                    caption=f"✅ Background removed successfully!\n📅 Time: {datetime.now(BD_TIMEZONE).strftime('%Y-%m-%d %I:%M:%S %p +06')}\n━━━━━━•❅•°•❈•°•❅•━━━━━━\n𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸"
                 )
             else:
                 await context.bot.send_photo(
