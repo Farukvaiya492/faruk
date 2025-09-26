@@ -20,7 +20,6 @@ TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN', '8380869007:AAGu7e41JJVU8aX
 GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
 REMOVE_BG_API_KEY = '15smbepCfMYoHh7D7Cnzj9Z6'  # remove.bg API key
 WEATHER_API_KEY = 'c1794a3c9faa01e4b5142313d4191ef8'  # Weatherstack API key
-QUIZ_API_TOKEN = 'RhSjpGeqwpnnglnTbtIPelPERG9hTCwgK5V2tIlD'  # QuizAPI Access Token
 ADMIN_USER_ID = int(os.getenv('ADMIN_USER_ID', '7835226724'))
 PORT = int(os.getenv('PORT', 8000))
 GROUP_CHAT_USERNAME = '@VPSHUB_BD_CHAT'  # Group chat username for /like command
@@ -252,7 +251,7 @@ async def get_weather_info(location: str):
             output_message += f"┃ 💧 Humidity: {current_weather.get('humidity', 'N/A')}% \n"
             output_message += f"┃ 💨 Wind Speed: {current_weather.get('wind_speed', 'N/A')} km/h\n"
             output_message += "┃\n"
-            output_message += "┗━━━ 𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸 ━━━┛"
+            output_message += "┗━━━ 𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮�_ruk ━━━┛"
             return output_message
         else:
             error_info = data.get("error", {}).get("info", "Unknown error")
@@ -284,35 +283,6 @@ async def remove_background(image_data: bytes, chat_id: int):
     except Exception as e:
         logger.error(f"Error removing background for chat {chat_id}: {e}")
         return False, f"Error removing background: {str(e)}"
-
-async def get_gemini_trading_pairs():
-    """
-    Fetch available trading pairs from Gemini API
-    :return: Formatted response string with box design
-    """
-    url = "https://api.gemini.com/v1/symbols"
-    headers = {
-        "Content-Type": "application/json"
-    }
-    
-    try:
-        response = requests.get(url, headers=headers)
-        if response.status_code == 200:
-            symbols = response.json()
-            output_message = "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓\n"
-            output_message += "┃ 💹 Available Trading Pairs on Gemini ┃\n"
-            output_message += "┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫\n"
-            for i, symbol in enumerate(symbols[:10], 1):  # Limit to 10 pairs for brevity
-                output_message += f"┃ 💱 Pair {i}: {symbol.upper()}\n"
-            output_message += "┃\n"
-            output_message += "┗━━━ 𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸 ━━━┛"
-            return output_message
-        else:
-            logger.error(f"Gemini API error: {response.status_code} - {response.text}")
-            return f"❌ Error fetching trading pairs: {response.status_code} - {response.text}"
-    except requests.exceptions.RequestException as e:
-        logger.error(f"Error fetching Gemini trading pairs: {e}")
-        return f"❌ Error fetching trading pairs: {str(e)}"
 
 async def get_binance_ticker(symbol: str):
     """
@@ -381,77 +351,6 @@ async def send_like(uid: str, server_name: str = "BD"):
     except Exception as e:
         return {"status": f"Error: {str(e)}"}
 
-async def download_youtube_video(video_url: str):
-    """
-    Download YouTube video using VidFly API
-    :param video_url: YouTube video URL
-    :return: Formatted response string
-    """
-    api_url = f"https://api.vidfly.ai/api/media/youtube/download?url={video_url}"
-    
-    try:
-        response = requests.get(api_url, timeout=15)
-        if response.status_code == 200:
-            video_data = response.json()
-            download_link = video_data.get("download_link", "No link provided")
-            title = video_data.get("title", "Unknown Title")
-            
-            output_message = "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓\n"
-            output_message += f"┃ 🎬 YouTube Video Downloader ┃\n"
-            output_message += "┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫\n"
-            output_message += f"┃ 📹 Title: {title}\n"
-            output_message += f"┃ 🔗 Download Link: {download_link}\n"
-            output_message += "┃\n"
-            output_message += "┗━━━ 𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸 ━━━┛"
-            return output_message
-        else:
-            return f"❌ Failed to fetch video. Status: {response.status_code}\nError: {response.text}"
-    except Exception as e:
-        logger.error(f"Error downloading YouTube video: {e}")
-        return "❌ Failed to download the video. Please try again later."
-
-async def fetch_quiz_questions(limit: int = 5):
-    """
-    Fetch quiz questions from QuizAPI and return formatted response
-    :param limit: Number of questions to fetch (default 5)
-    :return: Formatted response string with box design
-    """
-    url = "https://quizapi.io/api/v1/questions"
-    headers = {
-        'Authorization': f'Bearer {QUIZ_API_TOKEN}'
-    }
-    params = {'limit': limit}
-
-    try:
-        response = requests.get(url, headers=headers, params=params, timeout=10)
-        if response.status_code == 200:
-            quiz_data = response.json()
-            if not quiz_data:
-                return "No questions found. Try again later!"
-            
-            output_message = "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓\n"
-            output_message += f"┃ ❓ Quiz Questions (Limit: {limit}) ┃\n"
-            output_message += "┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫\n"
-            
-            for index, question in enumerate(quiz_data, 1):
-                output_message += f"┃ ❓ Question {index}: {question.get('question', 'No question text')}\n"
-                answers = question.get('answers', {})
-                if answers:
-                    output_message += "┃ 📝 Options:\n"
-                    for key, value in answers.items():
-                        if value:
-                            output_message += f"┃   {key.replace('answer_', '')}: {value}\n"
-                output_message += f"┃ ✅ Correct Answer: {question.get('correct_answer', 'No answer provided')}\n"
-                output_message += "┃\n"
-            
-            output_message += "┗━━━ 𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸 ━━━┛"
-            return output_message
-        else:
-            return f"❌ Error fetching quiz questions: Status code {response.status_code}\nMessage: {response.text}"
-    except requests.exceptions.RequestException as e:
-        logger.error(f"Error fetching quiz questions: {e}")
-        return f"❌ Error fetching quiz questions: {str(e)}"
-
 class TelegramGeminiBot:
     def __init__(self):
         self.application = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
@@ -471,15 +370,12 @@ class TelegramGeminiBot:
         self.application.add_handler(CommandHandler("validatephone", self.validatephone_command))
         self.application.add_handler(CommandHandler("validatebin", self.validatebin_command))
         self.application.add_handler(CommandHandler("yts", self.yts_command))
-        self.application.add_handler(CommandHandler("ytdl", self.ytdl_command))
         self.application.add_handler(CommandHandler("ipinfo", self.ipinfo_command))
         self.application.add_handler(CommandHandler("countryinfo", self.countryinfo_command))
         self.application.add_handler(CommandHandler("weather", self.weather_command))
         self.application.add_handler(CommandHandler("removebg", self.removebg_command))
-        self.application.add_handler(CommandHandler("gemini", self.gemini_command))
         self.application.add_handler(CommandHandler("binance", self.binance_command))
         self.application.add_handler(CommandHandler("like", self.like_command))
-        self.application.add_handler(CommandHandler("quiz", self.quiz_command))
         self.application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_message))
         self.application.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, self.handle_new_member))
         self.application.add_handler(MessageHandler(filters.PHOTO & ~filters.COMMAND, self.handle_photo))
@@ -526,15 +422,12 @@ Available commands:
 - /validatephone <number> [country_code]: Validate a phone number
 - /validatebin <bin_number>: Validate a BIN number
 - /yts <query> [limit]: Search YouTube videos
-- /ytdl <url>: Download YouTube video
 - /ipinfo <ip_address>: Fetch IP address information
 - /countryinfo <country_name>: Fetch country information (use English names, e.g., 'Bangladesh')
 - /weather <location>: Fetch current weather information
 - /removebg: Remove the background from an uploaded image
-- /gemini: List available trading pairs on Gemini exchange
 - /binance <symbol>: Fetch 24hr ticker data for a Binance trading pair
 - /like <uid>: Send likes to a Free Fire UID
-- /quiz [limit]: Fetch quiz questions (default limit: 5)
 {'' if user_id != ADMIN_USER_ID else '- /api <key>: Set Gemini AI API key (admin only)\n- /setadmin: Set yourself as admin (first-time only)\n- /setmodel: Choose a different model (admin only)'}
 
 In groups, mention @I MasterTools or reply to my messages to get a response. I'm excited to chat with you!
@@ -585,15 +478,12 @@ Available commands:
 - /validatephone <number> [country_code]: Validate a phone number
 - /validatebin <bin_number>: Validate a BIN number
 - /yts <query> [limit]: Search YouTube videos
-- /ytdl <url>: Download YouTube video
 - /ipinfo <ip_address>: Fetch IP address information
 - /countryinfo <country_name>: Fetch country information (use English names, e.g., 'Bangladesh')
 - /weather <location>: Fetch current weather information
 - /removebg: Remove the background from an uploaded image
-- /gemini: List available trading pairs on Gemini exchange
 - /binance <symbol>: Fetch 24hr ticker data for a Binance trading pair
 - /like <uid>: Send likes to a Free Fire UID
-- /quiz [limit]: Fetch quiz questions (default limit: 5)
 {'' if user_id != ADMIN_USER_ID else '- /api <key>: Set Gemini AI API key (admin only)\n- /setadmin: Set yourself as admin (first-time only)\n- /setmodel: Choose a different model (admin only)'}
 
 My personality:
@@ -711,7 +601,7 @@ All systems are ready for action. I'm thrilled to assist!
             response, reply_markup = await self.get_private_chat_redirect()
             await update.message.reply_text(response, reply_markup=reply_markup)
         else:
-            await update.message.reply_text("Gemini AI API is disabled in this version. Use other commands like /quiz, /weather, or /yts!")
+            await update.message.reply_text("Gemini AI API is disabled in this version. Use other commands like /weather, /ipinfo, or /like!")
 
     async def setmodel_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /setmodel command to choose Gemini model"""
@@ -722,7 +612,7 @@ All systems are ready for action. I'm thrilled to assist!
             response, reply_markup = await self.get_private_chat_redirect()
             await update.message.reply_text(response, reply_markup=reply_markup)
         else:
-            await update.message.reply_text("Model selection is disabled as Gemini API is not configured. Use other commands like /quiz or /info!")
+            await update.message.reply_text("Model selection is disabled as Gemini API is not configured. Use other commands like /info or /weather!")
 
     async def info_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /info command to show user profile information"""
@@ -867,25 +757,6 @@ All systems are ready for action. I'm thrilled to assist!
         response_message = await search_yts_multiple(query, limit)
         await update.message.reply_text(response_message)
 
-    async def ytdl_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle /ytdl command to download YouTube video"""
-        user_id = update.effective_user.id
-        chat_type = update.effective_chat.type
-
-        if chat_type == 'private' and user_id != ADMIN_USER_ID:
-            response, reply_markup = await self.get_private_chat_redirect()
-            await update.message.reply_text(response, reply_markup=reply_markup)
-            return
-
-        if not context.args:
-            await update.message.reply_text("Usage: /ytdl <youtube_url>\nExample: /ytdl https://youtu.be/CWutFtS8Wg0")
-            return
-
-        video_url = ' '.join(context.args)
-        await context.bot.send_chat_action(chat_id=update.effective_chat.id, action="typing")
-        response_message = await download_youtube_video(video_url)
-        await update.message.reply_text(response_message)
-
     async def ipinfo_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /ipinfo command to fetch IP address information"""
         user_id = update.effective_user.id
@@ -959,20 +830,6 @@ All systems are ready for action. I'm thrilled to assist!
         await update.message.reply_text(
             "Please upload an image to remove its background. I'll process it and send back the result!"
         )
-
-    async def gemini_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle /gemini command to list available trading pairs"""
-        user_id = update.effective_user.id
-        chat_type = update.effective_chat.type
-
-        if chat_type == 'private' and user_id != ADMIN_USER_ID:
-            response, reply_markup = await self.get_private_chat_redirect()
-            await update.message.reply_text(response, reply_markup=reply_markup)
-            return
-
-        await context.bot.send_chat_action(chat_id=update.effective_chat.id, action="typing")
-        response_message = await get_gemini_trading_pairs()
-        await update.message.reply_text(response_message)
 
     async def binance_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /binance command to fetch 24hr ticker data"""
@@ -1050,27 +907,6 @@ All systems are ready for action. I'm thrilled to assist!
         
         await update.message.reply_text(message)
 
-    async def quiz_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle /quiz command to fetch quiz questions"""
-        user_id = update.effective_user.id
-        chat_type = update.effective_chat.type
-
-        if chat_type == 'private' and user_id != ADMIN_USER_ID:
-            response, reply_markup = await self.get_private_chat_redirect()
-            await update.message.reply_text(response, reply_markup=reply_markup)
-            return
-
-        limit = 5
-        if context.args and context.args[0].isdigit():
-            limit = int(context.args[0])
-            if limit < 1 or limit > 10:
-                await update.message.reply_text("Please provide a limit between 1 and 10.\nExample: /quiz 3")
-                return
-
-        await context.bot.send_chat_action(chat_id=update.effective_chat.id, action="typing")
-        response_message = await fetch_quiz_questions(limit)
-        await update.message.reply_text(response_message)
-
     async def handle_photo(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle photo uploads for background removal"""
         user_id = update.effective_user.id
@@ -1132,7 +968,7 @@ All systems are ready for action. I'm thrilled to assist!
                 return
             
             await context.bot.send_chat_action(chat_id=chat_id, action="typing")
-            await update.message.reply_text("Sorry, text-based AI responses are disabled as Gemini API is not configured. Try commands like /quiz, /weather, or /yts!")
+            await update.message.reply_text("Sorry, text-based AI responses are disabled as Gemini API is not configured. Try commands like /weather, /ipinfo, or /like!")
         except Exception as e:
             logger.error(f"Error handling message: {e}")
             await update.message.reply_text("Something went wrong. Shall we try again?")
