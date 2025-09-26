@@ -258,7 +258,7 @@ async def get_weather_info(location: str):
             output_message += f"┃ 💧 Humidity: {current_weather.get('humidity', 'N/A')}% \n"
             output_message += f"┃ 💨 Wind Speed: {current_weather.get('wind_speed', 'N/A')} km/h\n"
             output_message += "┃\n"
-            output_message += "┗━━━ 𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸 ━━━┛"
+            output_message += "┗━━━ 𝗖�_r_e𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸 ━━━┛"
             return output_message
         else:
             error_info = data.get("error", {}).get("info", "Unknown error")
@@ -417,26 +417,22 @@ async def send_like(uid: str):
         if last_check_time:
             last_check_time = datetime.fromisoformat(last_check_time)
             if datetime.now(BANGLADESH_TIMEZONE) - last_check_time < timedelta(hours=24):
-                time_left = timedelta(hours=24) - (datetime.now(BANGLADESH_TIMEZONE) - last_check_time)
-                hours_left = int(time_left.total_seconds() // 3600)
-                minutes_left = int((time_left.total_seconds() % 3600) // 60)
-                return False, f"আপনি প্রতি ২৪ ঘণ্টায় একবার /like কমান্ড ব্যবহার করতে পারেন। পরবর্তী চেষ্টার জন্য অপেক্ষা করুন {hours_left} ঘণ্টা {minutes_left} মিনিট।"
-        return True, None
+                return False
+        return True
 
     url = "https://api-likes-alliff-v3.vercel.app/like"
-    can_check, error_message = can_check_again(uid)
-    if not can_check:
-        return {"status": error_message}
+    if not can_check_again(uid):
+        return {"status": "You cannot check again within 24 hours. Please try again later."}
 
     try:
         params = {'uid': uid}
-        response = requests.get(url, params=params, timeout=15)
+        response = requests.get(url, params=params)
         if response.status_code == 200:
-            data = response.json()
-            user_name = data.get('name', 'Name not available')
-            user_level = data.get('level', 'Level not available')
-            total_likes = data.get('likes', 0)
-            new_likes = data.get('new_likes', 0)
+            user_data = response.json()
+            user_name = user_data.get('name', 'Name not available')
+            user_level = user_data.get('level', 'Level not available')
+            total_likes = user_data.get('likes', 0)
+            new_likes = user_data.get('new_likes', 0)
             added_likes = new_likes  # Treating new_likes as added_likes
             current_time = datetime.now(BANGLADESH_TIMEZONE).strftime("%Y-%m-%d %H:%M:%S")
 
@@ -531,7 +527,7 @@ Available commands:
 - /checkmail: Check temporary email inbox
 - /info: Show user profile information
 - /validatephone <number> [country_code]: Validate a phone number
-- /validatebin <bin_number>: Validate a BIN number
+- /validatebin <bin_number]: Validate a BIN number
 - /yts <query> [limit]: Search YouTube videos
 - /ytdl <url>: Download audio from a YouTube video
 - /generate_image <prompt>: Generate an image based on a text prompt
@@ -589,7 +585,7 @@ Available commands:
 - /checkmail: Check temporary email inbox
 - /info: Show user profile information
 - /validatephone <number> [country_code]: Validate a phone number
-- /validatebin <bin_number>: Validate a BIN number
+- /validatebin <bin_number]: Validate a BIN number
 - /yts <query> [limit]: Search YouTube videos
 - /ytdl <url>: Download audio from a YouTube video
 - /generate_image <prompt>: Generate an image based on a text prompt
@@ -946,7 +942,7 @@ All systems are ready for action. I'm thrilled to assist!
                     await context.bot.send_photo(
                         chat_id=chat_id,
                         photo=image_file,
-                        caption=f"✅ ছবি তৈরি হয়েছে প্রম্পট '{prompt}' এর জন্য!\n┗━━━ 𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 �_F𝗮𝗿𝘂𝗸 ━━━┛"
+                        caption=f"✅ ছবি তৈরি হয়েছে প্রম্পট '{prompt}' এর জন্য!\n┗━━━ 𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸 ━━━┛"
                     )
             except Exception as e:
                 logger.error(f"Error sending image: {e}")
@@ -1052,7 +1048,7 @@ All systems are ready for action. I'm thrilled to assist!
         await update.message.reply_text(response_message)
 
     async def like_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle /like command to send likes to a Free Fire UID with rate limiting"""
+        """Handle /like command to send likes to a Free Fire UID"""
         user_id = update.effective_user.id
         chat_type = update.effective_chat.type
         chat_id = update.effective_chat.id
@@ -1062,12 +1058,8 @@ All systems are ready for action. I'm thrilled to assist!
             await update.message.reply_text(response, reply_markup=reply_markup)
             return
 
-        if chat_type in ['group', 'supergroup'] and update.message.chat.link != 'https://t.me/VPSHUB_BD_CHAT':
-            await update.message.reply_text("এই কমান্ডটি শুধুমাত্র @VPSHUB_BD_CHAT গ্রুপে ব্যবহার করা যাবে।")
-            return
-
         if len(context.args) != 1:
-            await update.message.reply_text("ব্যবহার: /like <UID>\nউদাহরণ: /like 6872869745")
+            await update.message.reply_text("Usage: /like <UID>\nExample: /like 6872869745")
             return
 
         uid = context.args[0]
@@ -1076,21 +1068,18 @@ All systems are ready for action. I'm thrilled to assist!
         
         if result.get("status") == "Success ✅":
             message = (
-                "┏━━━━━━━━━━━━━━━━━━━┓\n"
-                f"┃ 🎉 𝗙𝗥𝗘𝗘𝗙𝗔𝗥𝗘 𝗬𝗢𝗨 𝗜𝗗 𝗦𝗧𝗔𝗧𝗨𝗦\n"
-                "┣━━━━━━━━━━━━━━━━━━━┫\n"
-                f"┃ 🆔 Free Fire UID: {result['uid']}\n"
-                f"┃ 👤 User Name: {result['name']}\n"
-                f"┃ 🎮 Level: {result['level']}\n"
-                f"┃ ➕ Total Likes Added: {result['added_likes']}\n"
-                f"┃ 📊 Current Total Likes: {result['total_likes']}\n"
-                f"┃ 🆕 New Likes Added: {result['new_likes']}\n"
-                f"┃ ⏰ Data Updated Time (BST): {result['current_time']}\n"
-                "┃\n"
+                f"Free Fire UID: {result['uid']}\n"
+                f"User Name: {result['name']}\n"
+                f"Level: {result['level']}\n"
+                f"Total Likes Added: {result['added_likes']}\n"
+                f"Current Total Likes: {result['total_likes']}\n"
+                f"New Likes Added: {result['new_likes']}\n"
+                f"Data Updated Time (BST): {result['current_time']}\n"
+                "\n"
                 "┗━━━ 𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸 ━━━┛"
             )
         else:
-            message = f"Likes পাঠানোতে ব্যর্থ।\nস্ট্যাটাস: {result.get('status', 'অজানা ত্রুটি')}"
+            message = result.get('status', 'অজানা ত্রুটি')
         
         await update.message.reply_text(message)
 
