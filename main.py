@@ -895,7 +895,6 @@ All systems are ready for action. I'm thrilled to assist!
                 f"➕ Likes Added: {result['likes_added']}\n"
                 f"👨‍💻 Developer: {result['dev']}\n"
                 f"━━━━━━•❅•°•❈•°•❅•━━━━━━\n"
-                f"𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸"
             )
             if user_id != ADMIN_USER_ID:
                 user_likes[user_id] = datetime.now()
