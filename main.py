@@ -382,6 +382,25 @@ async def download_youtube_audio(video_url: str):
         logger.error(f"Error downloading YouTube audio: {e}")
         return False, f"❌ Error downloading audio: {str(e)}"
 
+async def generate_image(prompt: str):
+    """
+    Generate an image based on a text prompt using seedream API
+    :param prompt: Text prompt for image generation
+    :return: Tuple of (success, image_data or error_message)
+    """
+    api_url = f"https://seedream.ashlynn.workers.dev/?prompt={prompt}"
+    
+    try:
+        response = requests.get(api_url, timeout=15)
+        if response.status_code == 200:
+            return True, response.content
+        else:
+            logger.error(f"Image generation API error: {response.status_code}")
+            return False, f"❌ কনটেন্ট তৈরি করতে ব্যর্থ। স্ট্যাটাস কোড: {response.status_code}"
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error generating image: {e}")
+        return False, f"❌ Error generating image: {str(e)}"
+
 class TelegramGeminiBot:
     def __init__(self):
         self.application = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
@@ -402,6 +421,7 @@ class TelegramGeminiBot:
         self.application.add_handler(CommandHandler("validatebin", self.validatebin_command))
         self.application.add_handler(CommandHandler("yts", self.yts_command))
         self.application.add_handler(CommandHandler("ytdl", self.ytdl_command))
+        self.application.add_handler(CommandHandler("generate_image", self.generate_image_command))
         self.application.add_handler(CommandHandler("ipinfo", self.ipinfo_command))
         self.application.add_handler(CommandHandler("countryinfo", self.countryinfo_command))
         self.application.add_handler(CommandHandler("weather", self.weather_command))
@@ -455,6 +475,7 @@ Available commands:
 - /validatebin <bin_number>: Validate a BIN number
 - /yts <query> [limit]: Search YouTube videos
 - /ytdl <url>: Download audio from a YouTube video
+- /generate_image <prompt>: Generate an image based on a text prompt
 - /ipinfo <ip_address>: Fetch IP address information
 - /countryinfo <country_name>: Fetch country information (use English names, e.g., 'Bangladesh')
 - /weather <location>: Fetch current weather information
@@ -512,6 +533,7 @@ Available commands:
 - /validatebin <bin_number>: Validate a BIN number
 - /yts <query> [limit]: Search YouTube videos
 - /ytdl <url>: Download audio from a YouTube video
+- /generate_image <prompt>: Generate an image based on a text prompt
 - /ipinfo <ip_address>: Fetch IP address information
 - /countryinfo <country_name>: Fetch country information (use English names, e.g., 'Bangladesh')
 - /weather <location>: Fetch current weather information
@@ -635,7 +657,7 @@ All systems are ready for action. I'm thrilled to assist!
             response, reply_markup = await self.get_private_chat_redirect()
             await update.message.reply_text(response, reply_markup=reply_markup)
         else:
-            await update.message.reply_text("Gemini AI API is disabled in this version. Use other commands like /ytdl, /weather, or /like!")
+            await update.message.reply_text("Gemini AI API is disabled in this version. Use other commands like /ytdl, /generate_image, or /like!")
 
     async def setmodel_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /setmodel command to choose Gemini model"""
@@ -646,7 +668,7 @@ All systems are ready for action. I'm thrilled to assist!
             response, reply_markup = await self.get_private_chat_redirect()
             await update.message.reply_text(response, reply_markup=reply_markup)
         else:
-            await update.message.reply_text("Model selection is disabled as Gemini API is not configured. Use other commands like /ytdl or /info!")
+            await update.message.reply_text("Model selection is disabled as Gemini API is not configured. Use other commands like /ytdl or /generate_image!")
 
     async def info_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /info command to show user profile information"""
@@ -831,6 +853,49 @@ All systems are ready for action. I'm thrilled to assist!
                 # Clean up the temporary file
                 if os.path.exists(audio_file_path):
                     os.remove(audio_file_path)
+        else:
+            await update.message.reply_text(result)
+
+    async def generate_image_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle /generate_image command to generate an image from a text prompt"""
+        user_id = update.effective_user.id
+        chat_type = update.effective_chat.type
+        chat_id = update.effective_chat.id
+
+        if chat_type == 'private' and user_id != ADMIN_USER_ID:
+            response, reply_markup = await self.get_private_chat_redirect()
+            await update.message.reply_text(response, reply_markup=reply_markup)
+            return
+
+        if not context.args:
+            await update.message.reply_text("Usage: /generate_image <prompt>\nExample: /generate_image girl")
+            return
+
+        prompt = ' '.join(context.args)
+        await context.bot.send_chat_action(chat_id=chat_id, action="upload_photo")
+        
+        success, result = await generate_image(prompt)
+        if success:
+            # Save image temporarily
+            image_file_path = "generated_image.jpg"
+            with open(image_file_path, "wb") as f:
+                f.write(result)
+            
+            # Send image to Telegram
+            try:
+                with open(image_file_path, "rb") as image_file:
+                    await context.bot.send_photo(
+                        chat_id=chat_id,
+                        photo=image_file,
+                        caption=f"✅ ছবি সফলভাবে তৈরি হয়েছে প্রম্পট '{prompt}' এর জন্য!\n┗━━━ 𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸 ━━━┛"
+                    )
+            except Exception as e:
+                logger.error(f"Error sending image: {e}")
+                await update.message.reply_text("❌ Error sending image file. Please try again!")
+            finally:
+                # Clean up the temporary file
+                if os.path.exists(image_file_path):
+                    os.remove(image_file_path)
         else:
             await update.message.reply_text(result)
 
@@ -1045,7 +1110,7 @@ All systems are ready for action. I'm thrilled to assist!
                 return
             
             await context.bot.send_chat_action(chat_id=chat_id, action="typing")
-            await update.message.reply_text("Sorry, text-based AI responses are disabled as Gemini API is not configured. Try commands like /ytdl, /weather, or /like!")
+            await update.message.reply_text("Sorry, text-based AI responses are disabled as Gemini API is not configured. Try commands like /ytdl, /generate_image, or /like!")
         except Exception as e:
             logger.error(f"Error handling message: {e}")
             await update.message.reply_text("Something went wrong. Shall we try again?")
