@@ -251,7 +251,7 @@ async def get_weather_info(location: str):
             output_message += f"┃ 💧 Humidity: {current_weather.get('humidity', 'N/A')}% \n"
             output_message += f"┃ 💨 Wind Speed: {current_weather.get('wind_speed', 'N/A')} km/h\n"
             output_message += "┃\n"
-            output_message += "┗━━━ 𝗖�_r𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸 ━━━┛"
+            output_message += "┗━━━ 𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸 ━━━┛"
             return output_message
         else:
             error_info = data.get("error", {}).get("info", "Unknown error")
@@ -307,7 +307,7 @@ async def get_binance_ticker(symbol: str):
             output_message += f"┃ 🔻 24h Low Price: {data.get('lowPrice', 'N/A')}\n"
             output_message += f"┃ 📉 24h Volume: {data.get('volume', 'N/A')}\n"
             output_message += "┃\n"
-            output_message += "┗━━━ 𝗖�_r𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸 ━━━┛"
+            output_message += "┗━━━ 𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸 ━━━┛"
             return output_message
         else:
             logger.error(f"Binance API error: {response.status_code} - {response.text}")
@@ -388,22 +388,32 @@ async def generate_image(prompt: str):
     :param prompt: Text prompt for image generation
     :return: Tuple of (success, image_data or error_message)
     """
-    url = f"https://seedream.ashlynn.workers.dev/?prompt={prompt}"
+    url = "https://seedream.ashlynn.workers.dev/"
     
     try:
-        response = requests.get(url, timeout=15)
-        if response.status_code == 200:
-            print("✅ ছবি তৈরি হয়েছে!")  # Maintain original print for logging
-            return True, response.content
+        # Make the API request with prompt as query parameter
+        response = requests.get(url, params={"prompt": prompt}, timeout=15)
+        response.raise_for_status()  # Check for HTTP errors
+
+        # Parse the JSON response
+        data = response.json()
+        image_url = data.get("image_url")
+
+        if image_url:
+            # Download the image from the URL
+            image_response = requests.get(image_url, timeout=15)
+            image_response.raise_for_status()
+            print(f"Generated image URL: {image_url}")  # Maintain original print for logging
+            return True, image_response.content
         else:
-            logger.error(f"API request failed: HTTP Status {response.status_code}")
-            return False, f"❌ ত্রুটি! HTTP স্ট্যাটাস কোড: {response.status_code}"
-    except requests.exceptions.Timeout:
-        logger.error("Request timed out after 15 seconds")
-        return False, "❌ ত্রুটি! রিকোয়েস্ট টাইমআউট হয়েছে।"
+            logger.error("No image URL found in the response")
+            return False, "❌ No image URL found in the response."
     except requests.exceptions.RequestException as e:
-        logger.error(f"Error generating image: {e}")
-        return False, f"❌ ত্রুটি! API রিকোয়েস্টে সমস্যা: {str(e)}"
+        logger.error(f"Error making API request: {e}")
+        return False, f"❌ Error making API request: {str(e)}"
+    except ValueError:
+        logger.error("Error parsing JSON response")
+        return False, "❌ Error parsing JSON response."
 
 class TelegramGeminiBot:
     def __init__(self):
@@ -476,7 +486,7 @@ Available commands:
 - /checkmail: Check temporary email inbox
 - /info: Show user profile information
 - /validatephone <number> [country_code]: Validate a phone number
-- /validatebin <bin_number>: Validate a BIN number
+- /validatebin <bin_number]: Validate a BIN number
 - /yts <query> [limit]: Search YouTube videos
 - /ytdl <url>: Download audio from a YouTube video
 - /generate_image <prompt>: Generate an image based on a text prompt
@@ -534,7 +544,7 @@ Available commands:
 - /checkmail: Check temporary email inbox
 - /info: Show user profile information
 - /validatephone <number> [country_code]: Validate a phone number
-- /validatebin <bin_number>: Validate a BIN number
+- /validatebin <bin_number]: Validate a BIN number
 - /yts <query> [limit]: Search YouTube videos
 - /ytdl <url>: Download audio from a YouTube video
 - /generate_image <prompt>: Generate an image based on a text prompt
