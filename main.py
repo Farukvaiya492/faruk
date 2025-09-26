@@ -23,6 +23,7 @@ WEATHER_API_KEY = 'c1794a3c9faa01e4b5142313d4191ef8'  # Weatherstack API key
 ADMIN_USER_ID = int(os.getenv('ADMIN_USER_ID', '7835226724'))
 PORT = int(os.getenv('PORT', 8000))
 GROUP_CHAT_USERNAME = '@VPSHUB_BD_CHAT'  # Group chat username for /like command
+FREE_FIRE_LOGO_URL = 'https://i.imgur.com/EXAMPLE.jpg'  # Replace with actual Free Fire logo URL
 
 # API keys for external services
 PHONE_API_KEY = 'num_live_Nf2vjeM19tHdi42qQ2LaVVMg2IGk1ReU2BYBKnvm'
@@ -58,6 +59,7 @@ async def validate_phone_number(phone_number: str, api_key: str, country_code: s
                 return f"""
 ━━━━━━•❅•°•❈•°•❅•━━━━━━
 ✅ Phone Number Validation Complete
+📅 System Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S %Z')}
 ━━━━━━•❅•°•❈•°•❅•━━━━━━
 📞 Number: {data.get('number', 'N/A')}
 🌍 Country: {data.get('country_name', 'N/A')} ({data.get('country_code', 'N/A')})
@@ -97,6 +99,7 @@ async def validate_bin(bin_number: str, api_key: str):
             return f"""
 ━━━━━━•❅•°•❈•°•❅•━━━━━━
 ✅ BIN Validation Complete
+📅 System Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S %Z')}
 ━━━━━━•❅•°•❈•°•❅•━━━━━━
 💳 BIN: {result.get('Bin', 'N/A')}
 🏦 Card Brand: {result.get('CardBrand', 'N/A')}
@@ -134,6 +137,7 @@ async def search_yts_multiple(query: str, limit: int = 5):
                 
             output_message = f"━━━━━━•❅•°•❈•°•❅•━━━━━━\n"
             output_message += f"🔍 YouTube Search Results for '{query}'\n"
+            output_message += f"📅 System Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S %Z')}\n"
             output_message += f"━━━━━━•❅•°•❈•°•❅•━━━━━━\n"
             
             for i, res in enumerate(results[:limit], 1):
@@ -172,6 +176,7 @@ async def get_ip_info(ip_address: str):
         
         output_message = f"━━━━━━•❅•°•❈•°•❅•━━━━━━\n"
         output_message += f"🌐 IP Information for '{ip_address}'\n"
+        output_message += f"📅 System Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S %Z')}\n"
         output_message += f"━━━━━━•❅•°•❈•°•❅•━━━━━━\n"
         output_message += f"📍 IP: {data.get('ip', 'N/A')}\n"
         output_message += f"🖥️ Hostname: {data.get('hostname', 'N/A')}\n"
@@ -213,6 +218,7 @@ async def get_country_info(country_name: str):
             
             output_message = f"━━━━━━•❅•°•❈•°•❅•━━━━━━\n"
             output_message += f"🌍 Country Information for '{country_name.title()}'\n"
+            output_message += f"📅 System Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S %Z')}\n"
             output_message += f"━━━━━━•❅•°•❈•°•❅•━━━━━━\n"
             output_message += f"🏳️ Name: {country.get('name', {}).get('common', 'N/A')}\n"
             output_message += f"🏛️ Capital: {capital}\n"
@@ -253,6 +259,7 @@ async def get_weather_info(location: str):
             current_weather = data['current']
             output_message = f"━━━━━━•❅•°•❈•°•❅•━━━━━━\n"
             output_message += f"☁ Weather Information for '{location.title()}'\n"
+            output_message += f"📅 System Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S %Z')}\n"
             output_message += f"━━━━━━•❅•°•❈•°•❅•━━━━━━\n"
             output_message += f"🌡️ Temperature: {current_weather.get('temperature', 'N/A')}°C\n"
             output_message += f"☁ Weather: {current_weather.get('weather_descriptions', ['N/A'])[0]}\n"
@@ -307,6 +314,7 @@ async def get_binance_ticker(symbol: str):
             data = response.json()
             output_message = f"━━━━━━•❅•°•❈•°•❅•━━━━━━\n"
             output_message += f"💹 24hr Ticker Data for {data['symbol']}\n"
+            output_message += f"📅 System Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S %Z')}\n"
             output_message += f"━━━━━━•❅•°•❈•°•❅•━━━━━━\n"
             output_message += f"💰 Last Price: {data.get('lastPrice', 'N/A')}\n"
             output_message += f"📈 Price Change (24h): {data.get('priceChange', 'N/A')}\n"
@@ -562,7 +570,7 @@ Model: Not applicable (Gemini API disabled)
 API Status: {api_status}
 API Key: {api_key_display}
 Group Responses: Mention or reply only
-Current Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+Current Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S %Z')}
 Active Conversations: {len(conversation_context)}
 Admin ID: {ADMIN_USER_ID if ADMIN_USER_ID != 0 else 'Not set'}
 
@@ -703,6 +711,7 @@ All systems are ready for action. I'm thrilled to assist!
     async def validatephone_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /validatephone command to validate a phone number"""
         user_id = update.effective_user.id
+        chat_id = update.effective_chat.id
         chat_type = update.effective_chat.type
 
         if chat_type == 'private' and user_id != ADMIN_USER_ID:
@@ -717,11 +726,17 @@ All systems are ready for action. I'm thrilled to assist!
         phone_number = context.args[0]
         country_code = context.args[1] if len(context.args) > 1 else None
         response_message = await validate_phone_number(phone_number, PHONE_API_KEY, country_code)
-        await update.message.reply_text(response_message)
+        await context.bot.send_photo(
+            chat_id=chat_id,
+            photo=FREE_FIRE_LOGO_URL,
+            caption=response_message,
+            reply_to_message_id=update.message.message_id
+        )
 
     async def validatebin_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /validatebin command to validate a BIN number"""
         user_id = update.effective_user.id
+        chat_id = update.effective_chat.id
         chat_type = update.effective_chat.type
 
         if chat_type == 'private' and user_id != ADMIN_USER_ID:
@@ -735,11 +750,17 @@ All systems are ready for action. I'm thrilled to assist!
 
         bin_number = context.args[0]
         response_message = await validate_bin(bin_number, BIN_API_KEY)
-        await update.message.reply_text(response_message)
+        await context.bot.send_photo(
+            chat_id=chat_id,
+            photo=FREE_FIRE_LOGO_URL,
+            caption=response_message,
+            reply_to_message_id=update.message.message_id
+        )
 
     async def yts_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /yts command to search YouTube videos"""
         user_id = update.effective_user.id
+        chat_id = update.effective_chat.id
         chat_type = update.effective_chat.type
 
         if chat_type == 'private' and user_id != ADMIN_USER_ID:
@@ -754,11 +775,17 @@ All systems are ready for action. I'm thrilled to assist!
         query = ' '.join(context.args[:-1]) if len(context.args) > 1 and context.args[-1].isdigit() else ' '.join(context.args)
         limit = int(context.args[-1]) if len(context.args) > 1 and context.args[-1].isdigit() else 5
         response_message = await search_yts_multiple(query, limit)
-        await update.message.reply_text(response_message)
+        await context.bot.send_photo(
+            chat_id=chat_id,
+            photo=FREE_FIRE_LOGO_URL,
+            caption=response_message,
+            reply_to_message_id=update.message.message_id
+        )
 
     async def ipinfo_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /ipinfo command to fetch IP address information"""
         user_id = update.effective_user.id
+        chat_id = update.effective_chat.id
         chat_type = update.effective_chat.type
 
         if chat_type == 'private' and user_id != ADMIN_USER_ID:
@@ -772,11 +799,17 @@ All systems are ready for action. I'm thrilled to assist!
 
         ip_address = context.args[0]
         response_message = await get_ip_info(ip_address)
-        await update.message.reply_text(response_message)
+        await context.bot.send_photo(
+            chat_id=chat_id,
+            photo=FREE_FIRE_LOGO_URL,
+            caption=response_message,
+            reply_to_message_id=update.message.message_id
+        )
 
     async def countryinfo_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /countryinfo command to fetch country information"""
         user_id = update.effective_user.id
+        chat_id = update.effective_chat.id
         chat_type = update.effective_chat.type
 
         if chat_type == 'private' and user_id != ADMIN_USER_ID:
@@ -794,11 +827,17 @@ All systems are ready for action. I'm thrilled to assist!
             return
 
         response_message = await get_country_info(country_name)
-        await update.message.reply_text(response_message)
+        await context.bot.send_photo(
+            chat_id=chat_id,
+            photo=FREE_FIRE_LOGO_URL,
+            caption=response_message,
+            reply_to_message_id=update.message.message_id
+        )
 
     async def weather_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /weather command to fetch current weather information"""
         user_id = update.effective_user.id
+        chat_id = update.effective_chat.id
         chat_type = update.effective_chat.type
 
         if chat_type == 'private' and user_id != ADMIN_USER_ID:
@@ -812,7 +851,12 @@ All systems are ready for action. I'm thrilled to assist!
 
         location = ' '.join(context.args)
         response_message = await get_weather_info(location)
-        await update.message.reply_text(response_message)
+        await context.bot.send_photo(
+            chat_id=chat_id,
+            photo=FREE_FIRE_LOGO_URL,
+            caption=response_message,
+            reply_to_message_id=update.message.message_id
+        )
 
     async def removebg_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /removebg command to initiate background removal"""
@@ -833,6 +877,7 @@ All systems are ready for action. I'm thrilled to assist!
     async def binance_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /binance command to fetch 24hr ticker data"""
         user_id = update.effective_user.id
+        chat_id = update.effective_chat.id
         chat_type = update.effective_chat.type
 
         if chat_type == 'private' and user_id != ADMIN_USER_ID:
@@ -845,13 +890,19 @@ All systems are ready for action. I'm thrilled to assist!
             return
 
         symbol = context.args[0].upper()
-        await context.bot.send_chat_action(chat_id=update.effective_chat.id, action="typing")
+        await context.bot.send_chat_action(chat_id=chat_id, action="typing")
         response_message = await get_binance_ticker(symbol)
-        await update.message.reply_text(response_message)
+        await context.bot.send_photo(
+            chat_id=chat_id,
+            photo=FREE_FIRE_LOGO_URL,
+            caption=response_message,
+            reply_to_message_id=update.message.message_id
+        )
 
     async def like_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /like command to send likes to a Free Fire UID with rate limiting"""
         user_id = update.effective_user.id
+        chat_id = update.effective_chat.id
         chat_type = update.effective_chat.type
 
         if chat_type == 'private' and user_id != ADMIN_USER_ID:
@@ -881,13 +932,14 @@ All systems are ready for action. I'm thrilled to assist!
                 return
 
         uid = context.args[0]
-        await context.bot.send_chat_action(chat_id=update.effective_chat.id, action="typing")
+        await context.bot.send_chat_action(chat_id=chat_id, action="typing")
         result = await send_like(uid)
         
         if "likes_added" in result:
             message = (
                 f"🔥 𝗙𝗥𝗘𝗘𝗙𝗜𝗥𝗘 𝗨𝗜𝗗 𝗦𝗧𝗔𝗧𝗨𝗦 🔥\n"
                 f"━━━━━━•❅•°•❈•°•❅•━━━━━━\n"
+                f"📅 System Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S %Z')}\n"
                 f"🆔 UID: {result['uid']}\n"
                 f"👤 Name: {result['name']}\n"
                 f"📊 Likes Before: {result['likes_before']}\n"
@@ -895,13 +947,19 @@ All systems are ready for action. I'm thrilled to assist!
                 f"➕ Likes Added: {result['likes_added']}\n"
                 f"👨‍💻 Developer: {result['dev']}\n"
                 f"━━━━━━•❅•°•❈•°•❅•━━━━━━\n"
+                f"𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸"
             )
             if user_id != ADMIN_USER_ID:
                 user_likes[user_id] = datetime.now()
         else:
             message = f"❌ Likes পাঠানোতে ব্যর্থ।\nস্ট্যাটাস: {result.get('status', 'অজানা ত্রুটি')}"
         
-        await update.message.reply_text(message)
+        await context.bot.send_photo(
+            chat_id=chat_id,
+            photo=FREE_FIRE_LOGO_URL,
+            caption=message,
+            reply_to_message_id=update.message.message_id
+        )
 
     async def handle_photo(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle photo uploads for background removal"""
@@ -929,17 +987,25 @@ All systems are ready for action. I'm thrilled to assist!
                 await context.bot.send_photo(
                     chat_id=chat_id,
                     photo=result,
-                    caption="✅ Background removed successfully!\n━━━━━━•❅•°•❈•°•❅•━━━━━━\n𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸"
+                    caption=f"✅ Background removed successfully!\n📅 System Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S %Z')}\n━━━━━━•❅•°•❈•°•❅•━━━━━━\n𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸"
                 )
             else:
-                await update.message.reply_text(f"❌ Failed to remove background: {result}")
+                await context.bot.send_photo(
+                    chat_id=chat_id,
+                    photo=FREE_FIRE_LOGO_URL,
+                    caption=f"❌ Failed to remove background: {result}"
+                )
 
             if chat_id in removebg_state:
                 del removebg_state[chat_id]
 
         except Exception as e:
             logger.error(f"Error handling photo for chat {chat_id}: {e}")
-            await update.message.reply_text("Something went wrong while processing the image. Please try again!")
+            await context.bot.send_photo(
+                chat_id=chat_id,
+                photo=FREE_FIRE_LOGO_URL,
+                caption="Something went wrong while processing the image. Please try again!"
+            )
             if chat_id in removebg_state:
                 del removebg_state[chat_id]
 
