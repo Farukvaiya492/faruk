@@ -7,8 +7,6 @@ import asyncio
 from datetime import datetime, timedelta
 import random
 import re
-import json
-import pytz
 
 # Configure logging
 logging.basicConfig(
@@ -30,16 +28,11 @@ GROUP_CHAT_USERNAME = '@VPSHUB_BD_CHAT'  # Group chat username for /like command
 PHONE_API_KEY = 'num_live_Nf2vjeM19tHdi42qQ2LaVVMg2IGk1ReU2BYBKnvm'
 BIN_API_KEY = 'kEXNklIYqLiLU657swFB1VXE0e4NF21G'
 
-# Storage file for /like cooldown
-STORAGE_FILE = "user_check_times.json"
-
-# Bangladesh Time (BST) timezone
-BANGLADESH_TIMEZONE = pytz.timezone('Asia/Dhaka')
-
-# Store conversation context, group activity, removebg state
+# Store conversation context, group activity, removebg state, and user likes
 conversation_context = {}
 group_activity = {}
 removebg_state = {}  # To track which chats are expecting an image for /removebg
+user_likes = {}  # To track user /like command usage with timestamps
 
 async def validate_phone_number(phone_number: str, api_key: str, country_code: str = None):
     """
@@ -258,7 +251,7 @@ async def get_weather_info(location: str):
             output_message += f"┃ 💧 Humidity: {current_weather.get('humidity', 'N/A')}% \n"
             output_message += f"┃ 💨 Wind Speed: {current_weather.get('wind_speed', 'N/A')} km/h\n"
             output_message += "┃\n"
-            output_message += "┗━━━ 𝗖�_r_e𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸 ━━━┛"
+            output_message += "┗━━━ 𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸 ━━━┛"
             return output_message
         else:
             error_info = data.get("error", {}).get("info", "Unknown error")
@@ -323,137 +316,39 @@ async def get_binance_ticker(symbol: str):
         logger.error(f"Error fetching Binance ticker data: {e}")
         return f"❌ Error fetching ticker data: {str(e)}"
 
-async def download_youtube_audio(video_url: str):
+async def send_like(uid: str, server_name: str = "BD"):
     """
-    Download audio from a YouTube video using yt-api-flax
-    :param video_url: YouTube video URL
-    :return: Tuple of (success, audio_data or error_message)
+    Send likes to a Free Fire UID
+    :param uid: Free Fire user ID
+    :param server_name: Server name (default: BD)
+    :return: Dictionary with response data
     """
-    api_url = f"https://yt-api-flax.vercel.app/dl?url={video_url}"
+    api_url = f"https://free-like-api-aditya-ffm.vercel.app/like?uid={uid}&server_name={server_name}&key=@adityaapis"
     
     try:
-        response = requests.get(api_url, timeout=15)
+        response = requests.get(api_url, timeout=20)
         if response.status_code == 200:
             data = response.json()
-            if data.get('status') == 'success':
-                audio_url = data.get('audio_url')
-                audio_response = requests.get(audio_url, timeout=15)
-                if audio_response.status_code == 200:
-                    return True, audio_response.content
-                else:
-                    logger.error(f"Error downloading audio: {audio_response.status_code}")
-                    return False, f"❌ Failed to download audio: HTTP Status {audio_response.status_code}"
-            else:
-                error_message = data.get('error', 'অজানা ত্রুটি')
-                logger.error(f"API error: {error_message}")
-                return False, f"❌ ত্রুটি! তথ্য পাওয়া যায়নি!\nকারণ: {error_message}"
-        else:
-            logger.error(f"API call failed: {response.status_code}")
-            return False, f"❌ API কলের সময়ে ত্রুটি ঘটেছে!\nHTTP স্ট্যাটাস কোড: {response.status_code}"
-    except requests.exceptions.RequestException as e:
-        logger.error(f"Error downloading YouTube audio: {e}")
-        return False, f"❌ Error downloading audio: {str(e)}"
-
-async def generate_image(prompt: str):
-    """
-    Generate an image based on a text prompt using seedream API
-    :param prompt: Text prompt for image generation
-    :return: Tuple of (success, image_data or error_message)
-    """
-    url = "https://seedream.ashlynn.workers.dev/"
-    
-    try:
-        # Make the API request with prompt as query parameter
-        response = requests.get(url, params={"prompt": prompt}, timeout=15)
-        response.raise_for_status()  # Check for HTTP errors
-
-        # Parse the JSON response
-        data = response.json()
-        image_url = data.get("image_url")
-
-        if image_url:
-            # Download the image from the URL
-            image_response = requests.get(image_url, timeout=15)
-            image_response.raise_for_status()
-            print(f"Generated image URL: {image_url}")  # Maintain original print for logging
-            return True, image_response.content
-        else:
-            logger.error("No image URL found in the response")
-            return False, "❌ No image URL found in the response."
-    except requests.exceptions.RequestException as e:
-        logger.error(f"Error making API request: {e}")
-        return False, f"❌ Error making API request: {str(e)}"
-    except ValueError:
-        logger.error("Error parsing JSON response")
-        return False, "❌ Error parsing JSON response."
-
-async def send_like(uid: str):
-    """
-    Send likes to a Free Fire UID with 24-hour cooldown
-    :param uid: Free Fire user ID
-    :return: Dictionary with response data or error message
-    """
-    def get_last_check_time(uid):
-        try:
-            with open(STORAGE_FILE, 'r') as file:
-                data = json.load(file)
-                return data.get(str(uid), None)
-        except FileNotFoundError:
-            return None
-
-    def update_check_time(uid):
-        try:
-            with open(STORAGE_FILE, 'r') as file:
-                data = json.load(file)
-        except FileNotFoundError:
-            data = {}
-
-        data[str(uid)] = str(datetime.now(BANGLADESH_TIMEZONE))
-        with open(STORAGE_FILE, 'w') as file:
-            json.dump(data, file)
-
-    def can_check_again(uid):
-        last_check_time = get_last_check_time(uid)
-        if last_check_time:
-            last_check_time = datetime.fromisoformat(last_check_time)
-            if datetime.now(BANGLADESH_TIMEZONE) - last_check_time < timedelta(hours=24):
-                return False
-        return True
-
-    url = "https://api-likes-alliff-v3.vercel.app/like"
-    if not can_check_again(uid):
-        return {"status": "You cannot check again within 24 hours. Please try again later."}
-
-    try:
-        params = {'uid': uid}
-        response = requests.get(url, params=params)
-        if response.status_code == 200:
-            user_data = response.json()
-            user_name = user_data.get('name', 'Name not available')
-            user_level = user_data.get('level', 'Level not available')
-            total_likes = user_data.get('likes', 0)
-            new_likes = user_data.get('new_likes', 0)
-            added_likes = new_likes  # Treating new_likes as added_likes
-            current_time = datetime.now(BANGLADESH_TIMEZONE).strftime("%Y-%m-%d %H:%M:%S")
-
-            # Update the check time
-            update_check_time(uid)
-
+            before = data.get("LikesbeforeCommand", 0)
+            after = data.get("LikesafterCommand", 0)
+            added = after - before
+            level = data.get("PlayerLevel", "N/A")
+            region = data.get("PlayerRegion", "N/A")
+            nickname = data.get("PlayerNickname", "N/A")
+            
             return {
                 "uid": uid,
-                "name": user_name,
-                "level": user_level,
-                "total_likes": total_likes,
-                "new_likes": new_likes,
-                "added_likes": added_likes,
-                "current_time": current_time,
+                "level": level,
+                "region": region,
+                "nickname": nickname,
+                "before": before,
+                "after": after,
+                "added": added,
                 "status": "Success ✅"
             }
         else:
-            logger.error(f"API request failed: HTTP Status {response.status_code}")
-            return {"status": f"Error: Data not found from API. HTTP Status {response.status_code}"}
-    except requests.exceptions.RequestException as e:
-        logger.error(f"Error fetching user data: {e}")
+            return {"status": f"Error: {response.status_code}"}
+    except Exception as e:
         return {"status": f"Error: {str(e)}"}
 
 class TelegramGeminiBot:
@@ -475,8 +370,6 @@ class TelegramGeminiBot:
         self.application.add_handler(CommandHandler("validatephone", self.validatephone_command))
         self.application.add_handler(CommandHandler("validatebin", self.validatebin_command))
         self.application.add_handler(CommandHandler("yts", self.yts_command))
-        self.application.add_handler(CommandHandler("ytdl", self.ytdl_command))
-        self.application.add_handler(CommandHandler("generate_image", self.generate_image_command))
         self.application.add_handler(CommandHandler("ipinfo", self.ipinfo_command))
         self.application.add_handler(CommandHandler("countryinfo", self.countryinfo_command))
         self.application.add_handler(CommandHandler("weather", self.weather_command))
@@ -527,10 +420,8 @@ Available commands:
 - /checkmail: Check temporary email inbox
 - /info: Show user profile information
 - /validatephone <number> [country_code]: Validate a phone number
-- /validatebin <bin_number]: Validate a BIN number
+- /validatebin <bin_number>: Validate a BIN number
 - /yts <query> [limit]: Search YouTube videos
-- /ytdl <url>: Download audio from a YouTube video
-- /generate_image <prompt>: Generate an image based on a text prompt
 - /ipinfo <ip_address>: Fetch IP address information
 - /countryinfo <country_name>: Fetch country information (use English names, e.g., 'Bangladesh')
 - /weather <location>: Fetch current weather information
@@ -585,10 +476,8 @@ Available commands:
 - /checkmail: Check temporary email inbox
 - /info: Show user profile information
 - /validatephone <number> [country_code]: Validate a phone number
-- /validatebin <bin_number]: Validate a BIN number
+- /validatebin <bin_number>: Validate a BIN number
 - /yts <query> [limit]: Search YouTube videos
-- /ytdl <url>: Download audio from a YouTube video
-- /generate_image <prompt>: Generate an image based on a text prompt
 - /ipinfo <ip_address>: Fetch IP address information
 - /countryinfo <country_name>: Fetch country information (use English names, e.g., 'Bangladesh')
 - /weather <location>: Fetch current weather information
@@ -712,7 +601,7 @@ All systems are ready for action. I'm thrilled to assist!
             response, reply_markup = await self.get_private_chat_redirect()
             await update.message.reply_text(response, reply_markup=reply_markup)
         else:
-            await update.message.reply_text("Gemini AI API is disabled in this version. Use other commands like /ytdl, /generate_image, or /like!")
+            await update.message.reply_text("Gemini AI API is disabled in this version. Use other commands like /weather, /ipinfo, or /like!")
 
     async def setmodel_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /setmodel command to choose Gemini model"""
@@ -723,7 +612,7 @@ All systems are ready for action. I'm thrilled to assist!
             response, reply_markup = await self.get_private_chat_redirect()
             await update.message.reply_text(response, reply_markup=reply_markup)
         else:
-            await update.message.reply_text("Model selection is disabled as Gemini API is not configured. Use other commands like /ytdl or /generate_image!")
+            await update.message.reply_text("Model selection is disabled as Gemini API is not configured. Use other commands like /info or /weather!")
 
     async def info_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /info command to show user profile information"""
@@ -868,92 +757,6 @@ All systems are ready for action. I'm thrilled to assist!
         response_message = await search_yts_multiple(query, limit)
         await update.message.reply_text(response_message)
 
-    async def ytdl_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle /ytdl command to download audio from a YouTube video"""
-        user_id = update.effective_user.id
-        chat_type = update.effective_chat.type
-        chat_id = update.effective_chat.id
-
-        if chat_type == 'private' and user_id != ADMIN_USER_ID:
-            response, reply_markup = await self.get_private_chat_redirect()
-            await update.message.reply_text(response, reply_markup=reply_markup)
-            return
-
-        if not context.args:
-            await update.message.reply_text("Usage: /ytdl <youtube_url>\nExample: /ytdl https://youtu.be/zi1pjYjHBeQ")
-            return
-
-        video_url = ' '.join(context.args)
-        await context.bot.send_chat_action(chat_id=chat_id, action="upload_audio")
-        
-        success, result = await download_youtube_audio(video_url)
-        if success:
-            # Save audio temporarily
-            audio_file_path = "audio.m4a"
-            with open(audio_file_path, "wb") as f:
-                f.write(result)
-            
-            # Send audio to Telegram
-            try:
-                with open(audio_file_path, "rb") as audio_file:
-                    await context.bot.send_audio(
-                        chat_id=chat_id,
-                        audio=audio_file,
-                        caption="✅ অডিও সফলভাবে ডাউনলোড করা হয়েছে!\n┗━━━ 𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸 ━━━┛"
-                    )
-            except Exception as e:
-                logger.error(f"Error sending audio: {e}")
-                await update.message.reply_text("❌ Error sending audio file. Please try again!")
-            finally:
-                # Clean up the temporary file
-                if os.path.exists(audio_file_path):
-                    os.remove(audio_file_path)
-        else:
-            await update.message.reply_text(result)
-
-    async def generate_image_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle /generate_image command to generate an image from a text prompt"""
-        user_id = update.effective_user.id
-        chat_type = update.effective_chat.type
-        chat_id = update.effective_chat.id
-
-        if chat_type == 'private' and user_id != ADMIN_USER_ID:
-            response, reply_markup = await self.get_private_chat_redirect()
-            await update.message.reply_text(response, reply_markup=reply_markup)
-            return
-
-        if not context.args:
-            await update.message.reply_text("Usage: /generate_image <prompt>\nExample: /generate_image girl")
-            return
-
-        prompt = ' '.join(context.args)
-        await context.bot.send_chat_action(chat_id=chat_id, action="upload_photo")
-        
-        success, result = await generate_image(prompt)
-        if success:
-            # Save image temporarily
-            image_file_path = "generated_image.jpg"
-            with open(image_file_path, "wb") as f:
-                f.write(result)
-            
-            # Send image to Telegram
-            try:
-                with open(image_file_path, "rb") as image_file:
-                    await context.bot.send_photo(
-                        chat_id=chat_id,
-                        photo=image_file,
-                        caption=f"✅ ছবি তৈরি হয়েছে প্রম্পট '{prompt}' এর জন্য!\n┗━━━ 𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸 ━━━┛"
-                    )
-            except Exception as e:
-                logger.error(f"Error sending image: {e}")
-                await update.message.reply_text("❌ Error sending image file. Please try again!")
-            finally:
-                # Clean up the temporary file
-                if os.path.exists(image_file_path):
-                    os.remove(image_file_path)
-        else:
-            await update.message.reply_text(result)
-
     async def ipinfo_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /ipinfo command to fetch IP address information"""
         user_id = update.effective_user.id
@@ -1048,38 +851,57 @@ All systems are ready for action. I'm thrilled to assist!
         await update.message.reply_text(response_message)
 
     async def like_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle /like command to send likes to a Free Fire UID"""
+        """Handle /like command to send likes to a Free Fire UID with rate limiting"""
         user_id = update.effective_user.id
         chat_type = update.effective_chat.type
-        chat_id = update.effective_chat.id
 
         if chat_type == 'private' and user_id != ADMIN_USER_ID:
             response, reply_markup = await self.get_private_chat_redirect()
             await update.message.reply_text(response, reply_markup=reply_markup)
             return
 
-        if len(context.args) != 1:
-            await update.message.reply_text("Usage: /like <UID>\nExample: /like 6872869745")
+        if chat_type in ['group', 'supergroup'] and update.message.chat.link != 'https://t.me/VPSHUB_BD_CHAT':
+            await update.message.reply_text("এই কমান্ডটি শুধুমাত্র @VPSHUB_BD_CHAT গ্রুপে ব্যবহার করা যাবে।")
             return
 
+        if len(context.args) != 1:
+            await update.message.reply_text("ব্যবহার: /like <UID>")
+            return
+
+        if user_id != ADMIN_USER_ID:
+            last_like_time = user_likes.get(user_id)
+            current_time = datetime.now()
+            if last_like_time and (current_time - last_like_time).total_seconds() < 24 * 60 * 60:
+                time_left = 24 * 60 * 60 - (current_time - last_like_time).total_seconds()
+                hours_left = int(time_left // 3600)
+                minutes_left = int((time_left % 3600) // 60)
+                await update.message.reply_text(
+                    f"আপনি প্রতি ২৪ ঘণ্টায় একবার /like কমান্ড ব্যবহার করতে পারেন। "
+                    f"পরবর্তী চেষ্টার জন্য অপেক্ষা করুন {hours_left} ঘণ্টা {minutes_left} মিনিট।"
+                )
+                return
+
         uid = context.args[0]
-        await context.bot.send_chat_action(chat_id=chat_id, action="typing")
+        await context.bot.send_chat_action(chat_id=update.effective_chat.id, action="typing")
         result = await send_like(uid)
         
-        if result.get("status") == "Success ✅":
+        if "added" in result:
             message = (
-                f"Free Fire UID: {result['uid']}\n"
-                f"User Name: {result['name']}\n"
-                f"Level: {result['level']}\n"
-                f"Total Likes Added: {result['added_likes']}\n"
-                f"Current Total Likes: {result['total_likes']}\n"
-                f"New Likes Added: {result['new_likes']}\n"
-                f"Data Updated Time (BST): {result['current_time']}\n"
-                "\n"
-                "┗━━━ 𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸 ━━━┛"
+                "🔥 **Free Fire UID Status** 🔥\n"
+                f"🆔 UID: {result['uid']}\n"
+                f"🎮 Level: {result['level']}\n"
+                f"🌍 Region: {result['region']}\n"
+                f"👤 Nickname: {result['nickname']}\n"
+                f"📊 Likes Before: {result['before']}\n"
+                f"📈 Likes After: {result['after']}\n"
+                f"➕ Likes Added: {result['added']}\n"
+                "━━━━━━━━━━━━\n"
+                "𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸"
             )
+            if user_id != ADMIN_USER_ID:
+                user_likes[user_id] = datetime.now()
         else:
-            message = result.get('status', 'অজানা ত্রুটি')
+            message = f"❌ Likes পাঠানোতে ব্যর্থ।\nস্ট্যাটাস: {result.get('status', 'অজানা ত্রুটি')}"
         
         await update.message.reply_text(message)
 
@@ -1144,7 +966,7 @@ All systems are ready for action. I'm thrilled to assist!
                 return
             
             await context.bot.send_chat_action(chat_id=chat_id, action="typing")
-            await update.message.reply_text("Sorry, text-based AI responses are disabled as Gemini API is not configured. Try commands like /ytdl, /generate_image, or /like!")
+            await update.message.reply_text("Sorry, text-based AI responses are disabled as Gemini API is not configured. Try commands like /weather, /ipinfo, or /like!")
         except Exception as e:
             logger.error(f"Error handling message: {e}")
             await update.message.reply_text("Something went wrong. Shall we try again?")
