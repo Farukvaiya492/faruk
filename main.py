@@ -251,7 +251,7 @@ async def get_weather_info(location: str):
             output_message += f"┃ 💧 Humidity: {current_weather.get('humidity', 'N/A')}% \n"
             output_message += f"┃ 💨 Wind Speed: {current_weather.get('wind_speed', 'N/A')} km/h\n"
             output_message += "┃\n"
-            output_message += "┗━━━ 𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸 ━━━┛"
+            output_message += "┗━━━ 𝗖�_r𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸 ━━━┛"
             return output_message
         else:
             error_info = data.get("error", {}).get("info", "Unknown error")
@@ -307,7 +307,7 @@ async def get_binance_ticker(symbol: str):
             output_message += f"┃ 🔻 24h Low Price: {data.get('lowPrice', 'N/A')}\n"
             output_message += f"┃ 📉 24h Volume: {data.get('volume', 'N/A')}\n"
             output_message += "┃\n"
-            output_message += "┗━━━ 𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸 ━━━┛"
+            output_message += "┗━━━ 𝗖�_r𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸 ━━━┛"
             return output_message
         else:
             logger.error(f"Binance API error: {response.status_code} - {response.text}")
@@ -388,18 +388,22 @@ async def generate_image(prompt: str):
     :param prompt: Text prompt for image generation
     :return: Tuple of (success, image_data or error_message)
     """
-    api_url = f"https://seedream.ashlynn.workers.dev/?prompt={prompt}"
+    url = f"https://seedream.ashlynn.workers.dev/?prompt={prompt}"
     
     try:
-        response = requests.get(api_url, timeout=15)
+        response = requests.get(url, timeout=15)
         if response.status_code == 200:
+            print("✅ ছবি তৈরি হয়েছে!")  # Maintain original print for logging
             return True, response.content
         else:
-            logger.error(f"Image generation API error: {response.status_code}")
-            return False, f"❌ কনটেন্ট তৈরি করতে ব্যর্থ। স্ট্যাটাস কোড: {response.status_code}"
+            logger.error(f"API request failed: HTTP Status {response.status_code}")
+            return False, f"❌ ত্রুটি! HTTP স্ট্যাটাস কোড: {response.status_code}"
+    except requests.exceptions.Timeout:
+        logger.error("Request timed out after 15 seconds")
+        return False, "❌ ত্রুটি! রিকোয়েস্ট টাইমআউট হয়েছে।"
     except requests.exceptions.RequestException as e:
         logger.error(f"Error generating image: {e}")
-        return False, f"❌ Error generating image: {str(e)}"
+        return False, f"❌ ত্রুটি! API রিকোয়েস্টে সমস্যা: {str(e)}"
 
 class TelegramGeminiBot:
     def __init__(self):
@@ -887,7 +891,7 @@ All systems are ready for action. I'm thrilled to assist!
                     await context.bot.send_photo(
                         chat_id=chat_id,
                         photo=image_file,
-                        caption=f"✅ ছবি সফলভাবে তৈরি হয়েছে প্রম্পট '{prompt}' এর জন্য!\n┗━━━ 𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸 ━━━┛"
+                        caption=f"✅ ছবি তৈরি হয়েছে প্রম্পট '{prompt}' এর জন্য!\n┗━━━ 𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸 ━━━┛"
                     )
             except Exception as e:
                 logger.error(f"Error sending image: {e}")
