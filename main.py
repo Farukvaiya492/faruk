@@ -59,7 +59,7 @@ async def validate_phone_number(phone_number: str, api_key: str, country_code: s
                 return f"""
 ━━━━━━•❅•°•❈•°•❅•━━━━━━
 ✅ Phone Number Validation Complete
-📅 System Time: {datetime.now(timezone(timedelta(hours=6))).strftime('%Y-%m-%d %H:%M:%S +06')}
+📅 Time: {datetime.now(timezone(timedelta(hours=6))).strftime('%Y-%m-%d %H:%M:%S +06')}
 ━━━━━━•❅•°•❈•°•❅•━━━━━━
 📞 Number: {data.get('number', 'N/A')}
 🌍 Country: {data.get('country_name', 'N/A')} ({data.get('country_code', 'N/A')})
@@ -186,7 +186,7 @@ async def get_ip_info(ip_address: str):
         output_message += f"📌 Location: {data.get('loc', 'N/A')}\n"
         output_message += f"🏢 Organization: {data.get('org', 'N/A')}\n"
         output_message += f"━━━━━━•❅•°•❈•°•❅•━━━━━━\n"
-        output_message += "𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 �_F𝗮𝗿𝘂𝗸"
+        output_message += "𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸"
         return output_message
     except requests.exceptions.RequestException as e:
         logger.error(f"Error fetching IP info: {e}")
@@ -266,7 +266,7 @@ async def get_weather_info(location: str):
             output_message += f"💧 Humidity: {current_weather.get('humidity', 'N/A')}% \n"
             output_message += f"💨 Wind Speed: {current_weather.get('wind_speed', 'N/A')} km/h\n"
             output_message += f"━━━━━━•❅•°•❈•°•❅•━━━━━━\n"
-            output_message += "𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸"
+            output_message += "𝗖�_r𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸"
             return output_message
         else:
             error_info = data.get("error", {}).get("info", "Unknown error")
@@ -334,9 +334,9 @@ async def get_binance_ticker(symbol: str):
 
 async def send_like(uid: str):
     """
-    Send likes to a Free Fire UID using the new API
+    Send likes to a Free Fire UID using the API and fetch level
     :param uid: Free Fire user ID
-    :return: Dictionary with response data
+    :return: Dictionary with response data including level
     """
     api_url = f"https://api-likes-alliff-v3.vercel.app/like?uid={uid}"
     
@@ -345,12 +345,13 @@ async def send_like(uid: str):
         if response.status_code == 200:
             data = response.json()
             return {
-                "dev": "@Farukvaiya01",  # Hardcoded developer name as requested
+                "dev": "@Farukvaiya01",  # Hardcoded developer name
                 "name": data.get("name", "N/A"),
                 "uid": data.get("uid", "N/A"),
                 "likes_before": data.get("likes_before", 0),
                 "likes_after": data.get("likes_after", 0),
                 "likes_added": data.get("likes_added", 0),
+                "level": data.get("level", "N/A"),  # Assuming API provides level
                 "status": "Success ✅"
             }
         else:
@@ -888,7 +889,7 @@ All systems are ready for action. I'm thrilled to assist!
         )
 
     async def like_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle /like command to send likes to a Free Fire UID with rate limiting"""
+        """Handle /like command to send likes to a Free Fire UID with rate limiting and display level"""
         user_id = update.effective_user.id
         chat_id = update.effective_chat.id
         chat_type = update.effective_chat.type
@@ -930,12 +931,12 @@ All systems are ready for action. I'm thrilled to assist!
                 f"📅 Time: {datetime.now(timezone(timedelta(hours=6))).strftime('%Y-%m-%d %H:%M:%S +06')}\n"
                 f"🆔 UID: {result['uid']}\n"
                 f"👤 Name: {result['name']}\n"
+                f"📊 Level: {result['level']}\n"
                 f"📊 Likes Before: {result['likes_before']}\n"
                 f"📈 Likes After: {result['likes_after']}\n"
                 f"➕ Likes Added: {result['likes_added']}\n"
                 f"👨‍💻 Developer: {result['dev']}\n"
                 f"━━━━━━•❅•°•❈•°•❅•━━━━━━\n"
-                f"𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸"
             )
             if user_id != ADMIN_USER_ID:
                 user_likes[user_id] = datetime.now(timezone(timedelta(hours=6)))
@@ -975,7 +976,7 @@ All systems are ready for action. I'm thrilled to assist!
                 await context.bot.send_photo(
                     chat_id=chat_id,
                     photo=result,
-                    caption=f"✅ Background removed successfully!\n📅 System Time: {datetime.now(timezone(timedelta(hours=6))).strftime('%Y-%m-%d %H:%M:%S +06')}\n━━━━━━•❅•°•❈•°•❅•━━━━━━\n𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸"
+                    caption=f"✅ Background removed successfully!\n📅 Time: {datetime.now(timezone(timedelta(hours=6))).strftime('%Y-%m-%d %H:%M:%S +06')}\n━━━━━━•❅•°•❈•°•❅•━━━━━━\n𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸"
                 )
             else:
                 await context.bot.send_photo(
