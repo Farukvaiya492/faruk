@@ -307,7 +307,7 @@ async def get_binance_ticker(symbol: str):
             output_message += f"┃ 🔻 24h Low Price: {data.get('lowPrice', 'N/A')}\n"
             output_message += f"┃ 📉 24h Volume: {data.get('volume', 'N/A')}\n"
             output_message += "┃\n"
-            output_message += "┗━━━ 𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸 ━━━┛"
+            output_message += "┗━━━ 𝗖�_r𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸 ━━━┛"
             return output_message
         else:
             logger.error(f"Binance API error: {response.status_code} - {response.text}")
@@ -316,34 +316,25 @@ async def get_binance_ticker(symbol: str):
         logger.error(f"Error fetching Binance ticker data: {e}")
         return f"❌ Error fetching ticker data: {str(e)}"
 
-async def send_like(uid: str, server_name: str = "BD"):
+async def send_like(uid: str):
     """
-    Send likes to a Free Fire UID
+    Send likes to a Free Fire UID using the new API
     :param uid: Free Fire user ID
-    :param server_name: Server name (default: BD)
     :return: Dictionary with response data
     """
-    api_url = f"https://free-like-api-aditya-ffm.vercel.app/like?uid={uid}&server_name={server_name}&key=@adityaapis"
+    api_url = f"https://api-likes-alliff-v3.vercel.app/like?uid={uid}"
     
     try:
         response = requests.get(api_url, timeout=20)
         if response.status_code == 200:
             data = response.json()
-            before = data.get("LikesbeforeCommand", 0)
-            after = data.get("LikesafterCommand", 0)
-            added = after - before
-            level = data.get("PlayerLevel", "N/A")
-            region = data.get("PlayerRegion", "N/A")
-            nickname = data.get("PlayerNickname", "N/A")
-            
             return {
-                "uid": uid,
-                "level": level,
-                "region": region,
-                "nickname": nickname,
-                "before": before,
-                "after": after,
-                "added": added,
+                "dev": data.get("DEV", "N/A"),
+                "name": data.get("name", "N/A"),
+                "uid": data.get("uid", "N/A"),
+                "likes_before": data.get("likes_before", 0),
+                "likes_after": data.get("likes_after", 0),
+                "likes_added": data.get("likes_added", 0),
                 "status": "Success ✅"
             }
         else:
@@ -885,16 +876,15 @@ All systems are ready for action. I'm thrilled to assist!
         await context.bot.send_chat_action(chat_id=update.effective_chat.id, action="typing")
         result = await send_like(uid)
         
-        if "added" in result:
+        if "likes_added" in result:
             message = (
                 "🔥 **Free Fire UID Status** 🔥\n"
                 f"🆔 UID: {result['uid']}\n"
-                f"🎮 Level: {result['level']}\n"
-                f"🌍 Region: {result['region']}\n"
-                f"👤 Nickname: {result['nickname']}\n"
-                f"📊 Likes Before: {result['before']}\n"
-                f"📈 Likes After: {result['after']}\n"
-                f"➕ Likes Added: {result['added']}\n"
+                f"👤 Name: {result['name']}\n"
+                f"📊 Likes Before: {result['likes_before']}\n"
+                f"📈 Likes After: {result['likes_after']}\n"
+                f"➕ Likes Added: {result['likes_added']}\n"
+                f"👨‍💻 Developer: {result['dev']}\n"
                 "━━━━━━━━━━━━\n"
                 "𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸"
             )
