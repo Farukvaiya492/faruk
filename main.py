@@ -907,7 +907,7 @@ All systems ready!
                 await update.message.reply_text(response, reply_markup=reply_markup)
                 return
             await context.bot.send_chat_action(chat_id=chat_id, action="typing")
-            await update.message.reply_text("Text-based AI responses disabled. Try /weather, /ipinfo, or /like!")
+            await update.message.reply_text("Okay Thank you")
         except Exception as e:
             logger.error(f"Error handling message: {e}")
             await update.message.reply_text("Error occurred. Try again?")
