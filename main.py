@@ -266,7 +266,7 @@ async def get_weather_info(location: str):
             output_message += f"💧 Humidity: {current_weather.get('humidity', 'N/A')}% \n"
             output_message += f"💨 Wind Speed: {current_weather.get('wind_speed', 'N/A')} km/h\n"
             output_message += f"━━━━━━•❅•°•❈•°•❅•━━━━━━\n"
-            output_message += "𝗖�_r𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸"
+            output_message += "𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸"
             return output_message
         else:
             error_info = data.get("error", {}).get("info", "Unknown error")
@@ -414,7 +414,7 @@ async def generate_image(prompt: str, style: str = None):
 ━━━━━━•❅•°•❈•°•❅•━━━━━━
 ❌ Image Generation Failed
 📅 System Time: {datetime.now(timezone(timedelta(hours=6))).strftime('%Y-%m-%d %H:%M:%S +06')}
-━━━━━━•❅•°•❈•°•❅•━━━━━━
+━━━━━━•❅•°•❈•°•❅ macrophagic
 📩 Error: {str(e)}
 👨‍💻 Developer: @Farukvaiya01
 ━━━━━━•❅•°•❈•°•❅•━━━━━━
@@ -983,7 +983,7 @@ All systems are ready for action. I'm thrilled to assist!
         
         if "likes_added" in result and result["likes_added"] > 0:
             message = (
-                f"🔥 𝗙𝗥𝗘𝗘𝗙𝗜𝗥𝗘 𝗨𝗜𝗗 𝗦𝗧𝗔𝗧𝗨𝗦 🔥\n"
+                f"🔥 𝗙𝗥𝗘𝗘𝗙𝗜𝗥𝗘 �_U𝗜𝗗 𝗦𝗧𝗔𝗧𝗨𝗦 🔥\n"
                 f"━━━━━━•❅•°•❈•°•❅•━━━━━━\n"
                 f"📅 Time: {datetime.now(timezone(timedelta(hours=6))).strftime('%Y-%m-%d %H:%M:%S +06')}\n"
                 f"🆔 UID: {result['uid']}\n"
@@ -998,7 +998,7 @@ All systems are ready for action. I'm thrilled to assist!
                 user_likes[user_id] = datetime.now(timezone(timedelta(hours=6)))
         else:
             message = (
-                f"🔥 𝗙𝗥𝗘𝗘𝗙𝗜𝗥𝗘 �_L𝗜𝗞𝗘 𝗦𝗧𝗔𝗧𝗨𝗦 🔥\n"
+                f"🔥 𝗙𝗥𝗘𝗘𝗙𝗜𝗥𝗘 𝗟𝗜𝗞𝗘 𝗦𝗧𝗔𝗧𝗨𝗦 🔥\n"
                 f"━━━━━━•❅•°•❈•°•❅•━━━━━━\n"
                 f"📅 Time: {datetime.now(timezone(timedelta(hours=6))).strftime('%Y-%m-%d %H:%M:%S +06')}\n"
                 f"❌ Failed to Send Likes\n"
@@ -1042,10 +1042,9 @@ All systems are ready for action. I'm thrilled to assist!
         await context.bot.send_chat_action(chat_id=chat_id, action="typing")
         response_message = await generate_image(prompt, style)
         
-        await context.bot.send_photo(
+        await context.bot.send_message(
             chat_id=chat_id,
-            photo=FREE_FIRE_LOGO_URL,
-            caption=response_message,
+            text=response_message,
             reply_to_message_id=update.message.message_id
         )
 
