@@ -764,7 +764,7 @@ All systems ready!
         )
 
     async def like_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle /like command with simple loading effect"""
+        """Handle /like command with loading effect until API response"""
         user_id = update.effective_user.id
         chat_id = update.effective_chat.id
         chat_type = update.effective_chat.type
@@ -803,13 +803,17 @@ All systems ready!
             reply_to_message_id=update.message.message_id
         )
         await context.bot.send_chat_action(chat_id=chat_id, action="typing")
-        await asyncio.sleep(3)  # Simulate 3-second loading
+
+        # Wait for API response
+        result = await send_like(uid)
+
+        # Delete loading message
         try:
             await context.bot.delete_message(chat_id=chat_id, message_id=loading_message.message_id)
         except Exception as e:
             logger.error(f"Failed to delete loading message: {e}")
 
-        result = await send_like(uid)
+        # Prepare and send final response
         if "likes_added" in result and result["likes_added"] > 0:
             message = (
                 f"🔥 FREE FIRE UID STATUS 🔥\n"
