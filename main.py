@@ -266,7 +266,7 @@ async def get_weather_info(location: str):
             output_message += f"💧 Humidity: {current_weather.get('humidity', 'N/A')}% \n"
             output_message += f"💨 Wind Speed: {current_weather.get('wind_speed', 'N/A')} km/h\n"
             output_message += f"━━━━━━•❅•°•❈•°•❅•━━━━━━\n"
-            output_message += "𝗖�_r𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸"
+            output_message += "𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸"
             return output_message
         else:
             error_info = data.get("error", {}).get("info", "Unknown error")
@@ -916,9 +916,9 @@ All systems are ready for action. I'm thrilled to assist!
         await context.bot.send_chat_action(chat_id=chat_id, action="typing")
         result = await send_like(uid)
         
-        if "likes_added" in result:
+        if "likes_added" in result and result["likes_added"] > 0:
             message = (
-                f"🔥 𝗙𝗥𝗘𝗘𝗙𝗜𝗥𝗘 𝗨𝗜𝗗 𝗦𝗧𝗔𝗧𝗨𝗦 🔥\n"
+                f"🔥 𝗙𝗥𝗘𝗘𝗙𝗜𝗥𝗘 �_U𝗜𝗗 𝗦𝗧𝗔𝗧𝗨𝗦 🔥\n"
                 f"━━━━━━•❅•°•❈•°•❅•━━━━━━\n"
                 f"📅 Time: {datetime.now(timezone(timedelta(hours=8))).strftime('%Y-%m-%d %H:%M:%S +08')}\n"
                 f"🆔 UID: {result['uid']}\n"
@@ -932,30 +932,18 @@ All systems are ready for action. I'm thrilled to assist!
             if user_id != ADMIN_USER_ID:
                 user_likes[user_id] = datetime.now(timezone(timedelta(hours=8)))
         else:
-            # Check for specific error case
-            error_message = result.get('status', 'Unknown error')
-            if error_message.lower().startswith("error:") and "likes_already_send" in error_message.lower():
-                message = (
-                    f"🔥 𝗙𝗥𝗘𝗘𝗙𝗜𝗥𝗘 �_L𝗜𝗞𝗘 𝗦𝗧𝗔𝗧𝗨𝗦 🔥\n"
-                    f"━━━━━━•❅•°•❈•°•❅•━━━━━━\n"
-                    f"📅 Time: {datetime.now(timezone(timedelta(hours=8))).strftime('%Y-%m-%d %H:%M:%S +08')}\n"
-                    f"❌ Failed to Send Likes\n"
-                    f"✅ Success: False\n"
-                    f"📩 Message: likes_already_send\n"
-                    f"👨‍💻 Developer: @Farukvaiya01\n"
-                    f"━━━━━━•❅•°•❈•°•❅•━━━━━━\n"
-                )
-            else:
-                message = (
-                    f"🔥 𝗙𝗥𝗘𝗘𝗙𝗜𝗥𝗘 𝗟𝗜𝗞𝗘 𝗦𝗧𝗔𝗧𝗨𝗦 🔥\n"
-                    f"━━━━━━•❅•°•❈•°•❅•━━━━━━\n"
-                    f"📅 Time: {datetime.now(timezone(timedelta(hours=8))).strftime('%Y-%m-%d %H:%M:%S +08')}\n"
-                    f"❌ Failed to send likes.\n"
-                    f"📩 Status: {error_message}\n"
-                    f"👨‍💻 Developer: @Farukvaiya01\n"
-                    f"━━━━━━•❅•°•❈•°•❅•━━━━━━\n"
-                )
-        
+            # Show specific error message when likes_added is 0 or not present
+            message = (
+                f"🔥 𝗙𝗥𝗘𝗘𝗙𝗜𝗥𝗘 𝗟𝗜𝗞𝗘 𝗦𝗧𝗔𝗧𝗨𝗦 🔥\n"
+                f"━━━━━━•❅•°•❈•°•❅•━━━━━━\n"
+                f"📅 Time: {datetime.now(timezone(timedelta(hours=8))).strftime('%Y-%m-%d %H:%M:%S +08')}\n"
+                f"❌ Failed to Send Likes\n"
+                f"✅ Success: False\n"
+                f"📩 Message: likes_already_send\n"
+                f"👨‍💻 Developer: @Farukvaiya01\n"
+                f"━━━━━━•❅•°•❈•°•❅•━━━━━━\n"
+            )
+
         await context.bot.send_photo(
             chat_id=chat_id,
             photo=FREE_FIRE_LOGO_URL,
