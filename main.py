@@ -22,8 +22,8 @@ REMOVE_BG_API_KEY = '15smbepCfMYoHh7D7Cnzj9Z6'  # remove.bg API key
 WEATHER_API_KEY = 'c1794a3c9faa01e4b5142313d4191ef8'  # Weatherstack API key
 ADMIN_USER_ID = int(os.getenv('ADMIN_USER_ID', '7835226724'))
 PORT = int(os.getenv('PORT', 8000))
-GROUP_CHAT_USERNAME = '@VPSHUB_BD_CHAT'  # Group chat username for /like command
-FREE_FIRE_LOGO_URL = 'https://i.ibb.co/v4ZMrFzh/46e17f0fc03734bf7b93defbc4e5b404.jpg'  # Replace with actual Free Fire logo URL
+GROUP_CHAT_USERNAME = '@VPSHUB_BD_CHAT'  # Group chat username for commands
+FREE_FIRE_LOGO_URL = 'https://i.ibb.co/v4ZMrFzh/46e17f0fc03734bf7b93defbc4e5b404.jpg'  # Free Fire logo URL
 
 # API keys for external services
 PHONE_API_KEY = 'num_live_Nf2vjeM19tHdi42qQ2LaVVMg2IGk1ReU2BYBKnvm'
@@ -108,7 +108,7 @@ async def validate_bin(bin_number: str, api_key: str):
 🏷️ Card Category: {result.get('CardCategory', 'N/A')}
 🌍 Issuing Country: {result.get('IssuingCountry', 'N/A')} ({result.get('IssuingCountryCode', 'N/A')})
 ━━━━━━•❅•°•❈•°•❅•━━━━━━
-𝗖�_r𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸
+𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸
 """
         else:
             return "❌ The BIN is not valid."
@@ -266,7 +266,7 @@ async def get_weather_info(location: str):
             output_message += f"💧 Humidity: {current_weather.get('humidity', 'N/A')}% \n"
             output_message += f"💨 Wind Speed: {current_weather.get('wind_speed', 'N/A')} km/h\n"
             output_message += f"━━━━━━•❅•°•❈•°•❅•━━━━━━\n"
-            output_message += "𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸"
+            output_message += "𝗖�_r𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸"
             return output_message
         else:
             error_info = data.get("error", {}).get("info", "Unknown error")
@@ -358,6 +358,68 @@ async def send_like(uid: str):
     except Exception as e:
         return {"status": f"Error: {str(e)}"}
 
+async def generate_image(prompt: str, style: str = None):
+    """
+    Generate an image using the provided API
+    :param prompt: Description of the image to generate
+    :param style: Optional style parameter (e.g., cinematic)
+    :return: Formatted response string
+    """
+    url = "https://midapi.vasarai.net/api/v1/images/generate-image"
+    params = {"message": prompt}
+    if style:
+        params["style"] = style
+    
+    try:
+        response = requests.post(url, params=params)
+        if response.status_code == 200:
+            data = response.json()
+            image_url = data.get('image_url', 'N/A')
+            return f"""
+━━━━━━•❅•°•❈•°•❅•━━━━━━
+✅ Image Generated Successfully
+📅 System Time: {datetime.now(timezone(timedelta(hours=6))).strftime('%Y-%m-%d %H:%M:%S +06')}
+━━━━━━•❅•°•❈•°•❅•━━━━━━
+🖼️ Prompt: {prompt}
+🎨 Style: {style or 'Default'}
+🔗 Image URL: {image_url}
+👨‍💻 Developer: @Farukvaiya01
+━━━━━━•❅•°•❈•°•❅•━━━━━━
+"""
+        elif response.status_code == 422:
+            data = response.json()
+            error_detail = data.get('detail', 'Unknown validation error')
+            return f"""
+━━━━━━•❅•°•❈•°•❅•━━━━━━
+❌ Image Generation Failed
+📅 System Time: {datetime.now(timezone(timedelta(hours=6))).strftime('%Y-%m-%d %H:%M:%S +06')}
+━━━━━━•❅•°•❈•°•❅•━━━━━━
+📩 Error: Validation Error - {error_detail}
+👨‍💻 Developer: @Farukvaiya01
+━━━━━━•❅•°•❈•°•❅•━━━━━━
+"""
+        else:
+            return f"""
+━━━━━━•❅•°•❈•°•❅•━━━━━━
+❌ Image Generation Failed
+📅 System Time: {datetime.now(timezone(timedelta(hours=6))).strftime('%Y-%m-%d %H:%M:%S +06')}
+━━━━━━•❅•°•❈•°•❅•━━━━━━
+📩 Error: Status code {response.status_code}
+👨‍💻 Developer: @Farukvaiya01
+━━━━━━•❅•°•❈•°•❅•━━━━━━
+"""
+    except Exception as e:
+        logger.error(f"Error generating image: {e}")
+        return f"""
+━━━━━━•❅•°•❈•°•❅•━━━━━━
+❌ Image Generation Failed
+📅 System Time: {datetime.now(timezone(timedelta(hours=6))).strftime('%Y-%m-%d %H:%M:%S +06')}
+━━━━━━•❅•°•❈•°•❅•━━━━━━
+📩 Error: {str(e)}
+👨‍💻 Developer: @Farukvaiya01
+━━━━━━•❅•°•❈•°•❅•━━━━━━
+"""
+
 class TelegramGeminiBot:
     def __init__(self):
         self.application = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
@@ -383,6 +445,7 @@ class TelegramGeminiBot:
         self.application.add_handler(CommandHandler("removebg", self.removebg_command))
         self.application.add_handler(CommandHandler("binance", self.binance_command))
         self.application.add_handler(CommandHandler("like", self.like_command))
+        self.application.add_handler(CommandHandler("generateimage", self.generateimage_command))
         self.application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_message))
         self.application.add_handler(MessageHandler(filters.PHOTO & ~filters.COMMAND, self.handle_photo))
         self.application.add_handler(CallbackQueryHandler(self.button_callback, pattern='^copy_code$'))
@@ -434,6 +497,7 @@ Available commands:
 - /removebg: Remove the background from an uploaded image
 - /binance <symbol>: Fetch 24hr ticker data for a Binance trading pair
 - /like <uid>: Send likes to a Free Fire UID
+- /generateimage <prompt> [style]: Generate an image with a prompt and optional style
 {'' if user_id != ADMIN_USER_ID else '- /api <key>: Set Gemini AI API key (admin only)\n- /setadmin: Set yourself as admin (first-time only)\n- /setmodel: Choose a different model (admin only)'}
 
 In groups, mention @I MasterTools or reply to my messages to get a response. I'm excited to chat with you!
@@ -479,6 +543,7 @@ Available commands:
 - /removebg: Remove the background from an uploaded image
 - /binance <symbol>: Fetch 24hr ticker data for a Binance trading pair
 - /like <uid>: Send likes to a Free Fire UID
+- /generateimage <prompt> [style]: Generate an image with a prompt and optional style
 {'' if user_id != ADMIN_USER_ID else '- /api <key>: Set Gemini AI API key (admin only)\n- /setadmin: Set yourself as admin (first-time only)\n- /setmodel: Choose a different model (admin only)'}
 
 My personality:
@@ -932,9 +997,8 @@ All systems are ready for action. I'm thrilled to assist!
             if user_id != ADMIN_USER_ID:
                 user_likes[user_id] = datetime.now(timezone(timedelta(hours=6)))
         else:
-            # Show specific error message when likes_added is 0 or not present
             message = (
-                f"🔥 𝗙𝗥𝗘𝗘𝗙𝗜𝗥𝗘 𝗟𝗜𝗞𝗘 𝗦𝗧𝗔𝗧𝗨𝗦 🔥\n"
+                f"🔥 𝗙𝗥𝗘𝗘𝗙𝗜𝗥𝗘 �_L𝗜𝗞𝗘 𝗦𝗧𝗔𝗧𝗨𝗦 🔥\n"
                 f"━━━━━━•❅•°•❈•°•❅•━━━━━━\n"
                 f"📅 Time: {datetime.now(timezone(timedelta(hours=6))).strftime('%Y-%m-%d %H:%M:%S +06')}\n"
                 f"❌ Failed to Send Likes\n"
@@ -948,6 +1012,40 @@ All systems are ready for action. I'm thrilled to assist!
             chat_id=chat_id,
             photo=FREE_FIRE_LOGO_URL,
             caption=message,
+            reply_to_message_id=update.message.message_id
+        )
+
+    async def generateimage_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle /generateimage command to generate an image with a prompt and optional style"""
+        user_id = update.effective_user.id
+        chat_id = update.effective_chat.id
+        chat_type = update.effective_chat.type
+
+        if chat_type == 'private' and user_id != ADMIN_USER_ID:
+            response, reply_markup = await self.get_private_chat_redirect()
+            await update.message.reply_text(response, reply_markup=reply_markup)
+            return
+
+        if chat_type in ['group', 'supergroup'] and update.message.chat.link != 'https://t.me/VPSHUB_BD_CHAT':
+            await update.message.reply_text("This command can only be used in @VPSHUB_BD_CHAT group.")
+            return
+
+        if not context.args:
+            await update.message.reply_text("Usage: /generateimage <prompt> [style]\nExample: /generateimage A sunset over the mountains cinematic")
+            return
+
+        # Extract prompt and optional style
+        args = context.args
+        style = args[-1] if len(args) > 1 and args[-1] in ['cinematic', 'realistic', 'abstract', 'cartoon'] else None
+        prompt = ' '.join(args[:-1]) if style else ' '.join(args)
+
+        await context.bot.send_chat_action(chat_id=chat_id, action="typing")
+        response_message = await generate_image(prompt, style)
+        
+        await context.bot.send_photo(
+            chat_id=chat_id,
+            photo=FREE_FIRE_LOGO_URL,
+            caption=response_message,
             reply_to_message_id=update.message.message_id
         )
 
