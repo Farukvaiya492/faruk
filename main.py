@@ -297,9 +297,9 @@ async def generate_anime_image(prompt: str, chat_id: int):
         logger.error(f"Error generating anime image for chat {chat_id}: {e}")
         return False, f"Error generating image: {str(e)}"
 
-async def generate_audio(text: str, chat_id: int, voice: str = "alloy"):
+async def generate_audio(text: str, chat_id: int):
     """Generate an audio file using the provided API"""
-    url = f"https://voice-assistance.hello-kaiiddo.workers.dev/Hii?model=openai-audio&voice={voice}&text={text.replace(' ', '+')}"
+    url = f"https://voice-assistance.hello-kaiiddo.workers.dev/Hii?model=openai-audio&voice=&text={text.replace(' ', '+')}"
     try:
         response = requests.get(url)
         if response.status_code == 200:
@@ -901,7 +901,7 @@ All systems ready!
                 await context.bot.send_photo(
                     chat_id=chat_id,
                     photo=result,
-                    caption=f"✅ Anime image generated successfully!\n📅 Time: {datetime.now(timezone(timedelta(hours=6))).strftime('%Y-%m-%d %H:%M:%S +06')}\nPrompt: {prompt}\n━━━━━━•❅•°•❈•°•❅•━━━━━━\n𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸",
+                    caption=f"✅ Anime image generated successfully!\n📅 Time: {datetime.now(timezone(timedelta(hours=6))).strftime('%Y-%m-%d %H:%M:%S +06')}\nPrompt: {prompt}\n━━━━━━•❅•°•❈•°•❅•━━━━━━\n𝗖�_r_e_a_t_e_ 𝗕_𝘆_ 𝗙_a_r_u_k",
                     reply_to_message_id=update.message.message_id
                 )
             else:
@@ -930,7 +930,7 @@ All systems ready!
             await update.message.reply_text(response, reply_markup=reply_markup)
             return
         if not context.args:
-            await update.message.reply_text("Usage: /audio <text>\nExample: /audio Hello, this is a test audio")
+            await update.message.reply_text("Usage: /audio <text>\nExample: /audio এটা যেকোনো কিছু বলতে পারবে।")
             return
         text = ' '.join(context.args)
         await context.bot.send_chat_action(chat_id=chat_id, action="upload_audio")
@@ -940,7 +940,7 @@ All systems ready!
                 await context.bot.send_audio(
                     chat_id=chat_id,
                     audio=result,
-                    caption=f"✅ Audio generated successfully!\n📅 Time: {datetime.now(timezone(timedelta(hours=6))).strftime('%Y-%m-%d %H:%M:%S +06')}\nText: {text}\n━━━━━━•❅•°•❈•°•❅•━━━━━━\n𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸",
+                    caption=f"✅ Audio generated successfully!\n📅 Time: {datetime.now(timezone(timedelta(hours=6))).strftime('%Y-%m-%d %H:%M:%S +06')}\nText: {text}\n━━━━━━•❅•°•❈•°•❅•━━━━━━\n𝗖�_r_e_a_t_e_ 𝗕_𝘆_ 𝗙_a_r_u_k",
                     reply_to_message_id=update.message.message_id
                 )
             else:
@@ -980,7 +980,7 @@ All systems ready!
                 await context.bot.send_photo(
                     chat_id=chat_id,
                     photo=result,
-                    caption=f"✅ Background removed successfully!\n📅 Time: {datetime.now(timezone(timedelta(hours=6))).strftime('%Y-%m-%d %H:%M:%S +06')}\n━━━━━━•❅•°•❈•°•❅•━━━━━━\n𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸"
+                    caption=f"✅ Background removed successfully!\n📅 Time: {datetime.now(timezone(timedelta(hours=6))).strftime('%Y-%m-%d %H:%M:%S +06')}\n━━━━━━•❅•°•❈•°•❅•━━━━━━\n𝗖�_r_e_a_t_e_ 𝗕_𝘆_ 𝗙_a_r_u_k"
                 )
             else:
                 await context.bot.send_photo(
