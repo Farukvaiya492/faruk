@@ -297,6 +297,19 @@ async def generate_anime_image(prompt: str, chat_id: int):
         logger.error(f"Error generating anime image for chat {chat_id}: {e}")
         return False, f"Error generating image: {str(e)}"
 
+async def generate_audio(text: str, chat_id: int, voice: str = "alloy"):
+    """Generate an audio file using the provided API"""
+    url = f"https://voice-assistance.hello-kaiiddo.workers.dev/Hii?model=openai-audio&voice={voice}&text={text.replace(' ', '+')}"
+    try:
+        response = requests.get(url)
+        if response.status_code == 200:
+            return True, response.content
+        logger.error(f"Audio generation error for chat {chat_id}: {response.status_code} - {response.text}")
+        return False, f"Error: {response.status_code} - {response.text}"
+    except Exception as e:
+        logger.error(f"Error generating audio for chat {chat_id}: {e}")
+        return False, f"Error generating audio: {str(e)}"
+
 class TelegramGeminiBot:
     def __init__(self):
         self.application = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
@@ -323,6 +336,7 @@ class TelegramGeminiBot:
         self.application.add_handler(CommandHandler("binance", self.binance_command))
         self.application.add_handler(CommandHandler("like", self.like_command))
         self.application.add_handler(CommandHandler("img", self.img_command))
+        self.application.add_handler(CommandHandler("audio", self.audio_command))
         self.application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_message))
         self.application.add_handler(MessageHandler(filters.PHOTO & ~filters.COMMAND, self.handle_photo))
         self.application.add_handler(CallbackQueryHandler(self.button_callback, pattern='^copy_code$'))
@@ -373,6 +387,7 @@ Available commands:
 - /binance <symbol>: Fetch 24hr ticker data for a Binance trading pair
 - /like <uid>: Send likes to a Free Fire UID
 - /img <prompt>: Generate an anime-style image from a text prompt
+- /audio <text>: Generate an audio file from a text prompt
 {'' if user_id != ADMIN_USER_ID else '- /api <key>: Set Gemini AI API key (admin only)\n- /setadmin: Set yourself as admin (first-time only)\n- /setmodel: Choose a different model (admin only)'}
 
 In groups, mention @I MasterTools or reply to my messages to get a response. I'm excited to chat with you!
@@ -418,6 +433,7 @@ Available commands:
 - /binance <symbol>: Fetch 24hr ticker data for a Binance trading pair
 - /like <uid>: Send likes to a Free Fire UID
 - /img <prompt>: Generate an anime-style image from a text prompt
+- /audio <text>: Generate an audio file from a text prompt
 {'' if user_id != ADMIN_USER_ID else '- /api <key>: Set Gemini AI API key (admin only)\n- /setadmin: Set yourself as admin (first-time only)\n- /setmodel: Choose a different model (admin only)'}
 
 My personality:
@@ -901,6 +917,45 @@ All systems ready!
                 chat_id=chat_id,
                 photo=FREE_FIRE_LOGO_URL,
                 caption=f"Error generating image: {str(e)}",
+                reply_to_message_id=update.message.message_id
+            )
+
+    async def audio_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle /audio command for generating audio files"""
+        user_id = update.effective_user.id
+        chat_id = update.effective_chat.id
+        chat_type = update.effective_chat.type
+        if chat_type == 'private' and user_id != ADMIN_USER_ID:
+            response, reply_markup = await self.get_private_chat_redirect()
+            await update.message.reply_text(response, reply_markup=reply_markup)
+            return
+        if not context.args:
+            await update.message.reply_text("Usage: /audio <text>\nExample: /audio Hello, this is a test audio")
+            return
+        text = ' '.join(context.args)
+        await context.bot.send_chat_action(chat_id=chat_id, action="upload_audio")
+        try:
+            success, result = await generate_audio(text, chat_id)
+            if success:
+                await context.bot.send_audio(
+                    chat_id=chat_id,
+                    audio=result,
+                    caption=f"✅ Audio generated successfully!\n📅 Time: {datetime.now(timezone(timedelta(hours=6))).strftime('%Y-%m-%d %H:%M:%S +06')}\nText: {text}\n━━━━━━•❅•°•❈•°•❅•━━━━━━\n𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸",
+                    reply_to_message_id=update.message.message_id
+                )
+            else:
+                await context.bot.send_photo(
+                    chat_id=chat_id,
+                    photo=FREE_FIRE_LOGO_URL,
+                    caption=f"❌ Failed to generate audio: {result}",
+                    reply_to_message_id=update.message.message_id
+                )
+        except Exception as e:
+            logger.error(f"Error handling audio generation for chat {chat_id}: {e}")
+            await context.bot.send_photo(
+                chat_id=chat_id,
+                photo=FREE_FIRE_LOGO_URL,
+                caption=f"Error generating audio: {str(e)}",
                 reply_to_message_id=update.message.message_id
             )
 
