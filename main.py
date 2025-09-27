@@ -7,7 +7,7 @@ import asyncio
 from datetime import datetime, timedelta, timezone
 import random
 import re
-import json
+import tempfile
 
 # Configure logging
 logging.basicConfig(
@@ -29,7 +29,6 @@ FREE_FIRE_LOGO_URL = 'https://i.ibb.co/v4ZMrFzh/46e17f0fc03734bf7b93defbc4e5b404
 # API keys for external services
 PHONE_API_KEY = 'num_live_Nf2vjeM19tHdi42qQ2LaVVMg2IGk1ReU2BYBKnvm'
 BIN_API_KEY = 'kEXNklIYqLiLU657swFB1VXE0e4NF21G'
-TTS_API_URL = "https://text.hello-kaiiddo.workers.dev"  # Text-to-Speech API URL
 
 # Store conversation context, group activity, removebg state, and user likes
 conversation_context = {}
@@ -285,23 +284,18 @@ async def send_like(uid: str):
     except Exception as e:
         return {"status": f"Error: {str(e)}"}
 
-async def text_to_speech(text: str, language: str = "en", emotion: str = "Neutral"):
-    """Convert text to speech using the provided API"""
-    headers = {"Content-Type": "application/json"}
-    payload = {
-        "text": text,
-        "language": language,
-        "emotion": emotion
-    }
+async def download_terabox_file(file_url: str, chat_id: int):
+    """Download a file from a TeraBox URL"""
+    download_url = f"https://terabox.hello-kaiiddo.workers.dev/download?url={file_url}"
     try:
-        response = requests.post(TTS_API_URL, json=payload, headers=headers)
+        response = requests.get(download_url)
         if response.status_code == 200:
-            return True, response.content  # Assuming the API returns audio data
-        logger.error(f"Text-to-Speech API error: {response.status_code} - {response.text}")
+            return True, response.content
+        logger.error(f"TeraBox download error for chat {chat_id}: {response.status_code} - {response.text}")
         return False, f"Error: {response.status_code} - {response.text}"
     except Exception as e:
-        logger.error(f"Error in Text-to-Speech API: {e}")
-        return False, f"Error: {str(e)}"
+        logger.error(f"Error downloading TeraBox file for chat {chat_id}: {e}")
+        return False, f"Error downloading file: {str(e)}"
 
 class TelegramGeminiBot:
     def __init__(self):
@@ -328,7 +322,7 @@ class TelegramGeminiBot:
         self.application.add_handler(CommandHandler("removebg", self.removebg_command))
         self.application.add_handler(CommandHandler("binance", self.binance_command))
         self.application.add_handler(CommandHandler("like", self.like_command))
-        self.application.add_handler(CommandHandler("tts", self.tts_command))
+        self.application.add_handler(CommandHandler("download", self.download_command))
         self.application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_message))
         self.application.add_handler(MessageHandler(filters.PHOTO & ~filters.COMMAND, self.handle_photo))
         self.application.add_handler(CallbackQueryHandler(self.button_callback, pattern='^copy_code$'))
@@ -378,7 +372,7 @@ Available commands:
 - /removebg: Remove the background from an uploaded image
 - /binance <symbol>: Fetch 24hr ticker data for a Binance trading pair
 - /like <uid>: Send likes to a Free Fire UID
-- /tts <text> [language] [emotion]: Convert text to speech
+- /download <terabox_url>: Download a file from TeraBox
 {'' if user_id != ADMIN_USER_ID else '- /api <key>: Set Gemini AI API key (admin only)\n- /setadmin: Set yourself as admin (first-time only)\n- /setmodel: Choose a different model (admin only)'}
 
 In groups, mention @I MasterTools or reply to my messages to get a response. I'm excited to chat with you!
@@ -423,7 +417,7 @@ Available commands:
 - /removebg: Remove the background from an uploaded image
 - /binance <symbol>: Fetch 24hr ticker data for a Binance trading pair
 - /like <uid>: Send likes to a Free Fire UID
-- /tts <text> [language] [emotion]: Convert text to speech
+- /download <terabox_url>: Download a file from TeraBox
 {'' if user_id != ADMIN_USER_ID else '- /api <key>: Set Gemini AI API key (admin only)\n- /setadmin: Set yourself as admin (first-time only)\n- /setmodel: Choose a different model (admin only)'}
 
 My personality:
@@ -871,8 +865,8 @@ All systems ready!
             reply_to_message_id=update.message.message_id
         )
 
-    async def tts_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle /tts command for text-to-speech conversion"""
+    async def download_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle /download command for downloading TeraBox files"""
         user_id = update.effective_user.id
         chat_id = update.effective_chat.id
         chat_type = update.effective_chat.type
@@ -881,24 +875,40 @@ All systems ready!
             await update.message.reply_text(response, reply_markup=reply_markup)
             return
         if not context.args:
-            await update.message.reply_text("Usage: /tts <text> [language] [emotion]\nExample: /tts Hello world en Neutral")
+            await update.message.reply_text("Usage: /download <terabox_url>\nExample: /download https://1024terabox.com/s/1cZZCFsxcheQcG93wNeanbw")
             return
-        text = ' '.join(context.args[:-2]) if len(context.args) >= 3 else ' '.join(context.args)
-        language = context.args[-2] if len(context.args) >= 2 else "en"
-        emotion = context.args[-1] if len(context.args) >= 1 else "Neutral"
-        await context.bot.send_chat_action(chat_id=chat_id, action="upload_audio")
-        success, result = await text_to_speech(text, language, emotion)
-        if success:
-            await context.bot.send_audio(
+        file_url = context.args[0]
+        await context.bot.send_chat_action(chat_id=chat_id, action="upload_document")
+        try:
+            success, result = await download_terabox_file(file_url, chat_id)
+            if success:
+                # Save the file temporarily
+                with tempfile.NamedTemporaryFile(delete=False, suffix='.file') as tmp_file:
+                    tmp_file.write(result)
+                    tmp_file_path = tmp_file.name
+                # Send the file
+                with open(tmp_file_path, 'rb') as f:
+                    await context.bot.send_document(
+                        chat_id=chat_id,
+                        document=f,
+                        caption=f"✅ File downloaded successfully!\n📅 Time: {datetime.now(timezone(timedelta(hours=6))).strftime('%Y-%m-%d %H:%M:%S +06')}\n━━━━━━•❅•°•❈•°•❅•━━━━━━\n𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸",
+                        reply_to_message_id=update.message.message_id
+                    )
+                # Clean up temporary file
+                os.unlink(tmp_file_path)
+            else:
+                await context.bot.send_photo(
+                    chat_id=chat_id,
+                    photo=FREE_FIRE_LOGO_URL,
+                    caption=f"❌ Failed to download file: {result}",
+                    reply_to_message_id=update.message.message_id
+                )
+        except Exception as e:
+            logger.error(f"Error handling download for chat {chat_id}: {e}")
+            await context.bot.send_photo(
                 chat_id=chat_id,
-                audio=result,
-                caption=f"✅ Text-to-Speech generated!\n📅 Time: {datetime.now(timezone(timedelta(hours=6))).strftime('%Y-%m-%d %H:%M:%S +06')}\n━━━━━━•❅•°•❈•°•❅•━━━━━━\n𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸",
-                reply_to_message_id=update.message.message_id
-            )
-        else:
-            await context.bot.send_message(
-                chat_id=chat_id,
-                text=f"❌ Failed to generate audio: {result}",
+                photo=FREE_FIRE_LOGO_URL,
+                caption=f"Error downloading file: {str(e)}",
                 reply_to_message_id=update.message.message_id
             )
 
