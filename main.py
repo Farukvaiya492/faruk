@@ -358,63 +358,76 @@ async def send_like(uid: str):
     except Exception as e:
         return {"status": f"Error: {str(e)}"}
 
-async def generate_image(prompt: str, style: str = None):
+async def generate_image(terabox_url: str):
     """
-    Generate an image using the provided API
-    :param prompt: Description of the image to generate
-    :param style: Optional style parameter (e.g., cinematic)
+    Fetch direct download link from a TeraBox URL using the provided API
+    :param terabox_url: TeraBox URL to process
     :return: Formatted response string
     """
-    url = "https://midapi.vasarai.net/api/v1/images/generate-image"
-    params = {"message": prompt}
-    if style:
-        params["style"] = style
+    api_url = f"https://tr-dld.vercel.app/api?url={terabox_url}"
     
     try:
-        response = requests.post(url, params=params)
+        response = requests.get(api_url)
         if response.status_code == 200:
-            data = response.json()
-            image_url = data.get('image_url', 'N/A')
-            return f"""
+            try:
+                # If the response is JSON
+                data = response.json()
+                if 'download_url' in data:
+                    return f"""
 ━━━━━━•❅•°•❈•°•❅•━━━━━━
-✅ Image Generated Successfully
+✅ TeraBox Download Link Generated
 📅 System Time: {datetime.now(timezone(timedelta(hours=6))).strftime('%Y-%m-%d %H:%M:%S +06')}
 ━━━━━━•❅•°•❈•°•❅•━━━━━━
-🖼️ Prompt: {prompt}
-🎨 Style: {style or 'Default'}
-🔗 Image URL: {image_url}
+🔗 TeraBox URL: {terabox_url}
+📥 Download Link: {data['download_url']}
 👨‍💻 Developer: @Farukvaiya01
 ━━━━━━•❅•°•❈•°•❅•━━━━━━
 """
-        elif response.status_code == 422:
-            data = response.json()
-            error_detail = data.get('detail', 'Unknown validation error')
-            return f"""
+                else:
+                    return f"""
 ━━━━━━•❅•°•❈•°•❅•━━━━━━
-❌ Image Generation Failed
+❌ TeraBox Download Failed
 📅 System Time: {datetime.now(timezone(timedelta(hours=6))).strftime('%Y-%m-%d %H:%M:%S +06')}
 ━━━━━━•❅•°•❈•°•❅•━━━━━━
-📩 Error: Validation Error - {error_detail}
+🔗 TeraBox URL: {terabox_url}
+📩 Error: No download URL found in response
+👨‍💻 Developer: @Farukvaiya01
+━━━━━━•❅•°•❈•°•❅•━━━━━━
+"""
+            except ValueError:
+                # If the response is a file, save it
+                file_name = f"terabox_download_{datetime.now(timezone(timedelta(hours=6))).strftime('%Y%m%d_%H%M%S')}"
+                with open(file_name, 'wb') as f:
+                    f.write(response.content)
+                return f"""
+━━━━━━•❅•°•❈•°•❅•━━━━━━
+✅ TeraBox File Downloaded
+📅 System Time: {datetime.now(timezone(timedelta(hours=6))).strftime('%Y-%m-%d %H:%M:%S +06')}
+━━━━━━•❅•°•❈•°•❅•━━━━━━
+🔗 TeraBox URL: {terabox_url}
+📁 File Saved As: {file_name}
 👨‍💻 Developer: @Farukvaiya01
 ━━━━━━•❅•°•❈•°•❅•━━━━━━
 """
         else:
             return f"""
 ━━━━━━•❅•°•❈•°•❅•━━━━━━
-❌ Image Generation Failed
+❌ TeraBox Download Failed
 📅 System Time: {datetime.now(timezone(timedelta(hours=6))).strftime('%Y-%m-%d %H:%M:%S +06')}
 ━━━━━━•❅•°•❈•°•❅•━━━━━━
-📩 Error: Status code {response.status_code}
+🔗 TeraBox URL: {terabox_url}
+📩 Error: API request failed with status code {response.status_code}
 👨‍💻 Developer: @Farukvaiya01
 ━━━━━━•❅•°•❈•°•❅•━━━━━━
 """
     except Exception as e:
-        logger.error(f"Error generating image: {e}")
+        logger.error(f"Error fetching TeraBox download link: {e}")
         return f"""
 ━━━━━━•❅•°•❈•°•❅•━━━━━━
-❌ Image Generation Failed
+❌ TeraBox Download Failed
 📅 System Time: {datetime.now(timezone(timedelta(hours=6))).strftime('%Y-%m-%d %H:%M:%S +06')}
-━━━━━━•❅•°•❈•°•❅ macrophagic
+━━━━━━•❅•°•❈•°•❅•━━━━━━
+🔗 TeraBox URL: {terabox_url}
 📩 Error: {str(e)}
 👨‍💻 Developer: @Farukvaiya01
 ━━━━━━•❅•°•❈•°•❅•━━━━━━
@@ -497,7 +510,7 @@ Available commands:
 - /removebg: Remove the background from an uploaded image
 - /binance <symbol>: Fetch 24hr ticker data for a Binance trading pair
 - /like <uid>: Send likes to a Free Fire UID
-- /generateimage <prompt> [style]: Generate an image with a prompt and optional style
+- /generateimage <terabox_url>: Generate a direct download link from a TeraBox URL
 {'' if user_id != ADMIN_USER_ID else '- /api <key>: Set Gemini AI API key (admin only)\n- /setadmin: Set yourself as admin (first-time only)\n- /setmodel: Choose a different model (admin only)'}
 
 In groups, mention @I MasterTools or reply to my messages to get a response. I'm excited to chat with you!
@@ -543,7 +556,7 @@ Available commands:
 - /removebg: Remove the background from an uploaded image
 - /binance <symbol>: Fetch 24hr ticker data for a Binance trading pair
 - /like <uid>: Send likes to a Free Fire UID
-- /generateimage <prompt> [style]: Generate an image with a prompt and optional style
+- /generateimage <terabox_url>: Generate a direct download link from a TeraBox URL
 {'' if user_id != ADMIN_USER_ID else '- /api <key>: Set Gemini AI API key (admin only)\n- /setadmin: Set yourself as admin (first-time only)\n- /setmodel: Choose a different model (admin only)'}
 
 My personality:
@@ -653,7 +666,7 @@ All systems are ready for action. I'm thrilled to assist!
                     await update.message.reply_text("Sorry, the admin is already set. Only the current admin can manage the bot.")
 
     async def api_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle /api command to set Gemini AI API key"""
+        """Handle /apiialect to set Gemini AI API key"""
         user_id = update.effective_user.id
         chat_type = update.effective_chat.type
 
@@ -706,7 +719,7 @@ All systems are ready for action. I'm thrilled to assist!
         if not is_private:
             try:
                 member = await bot.get_chat_member(chat_id=chat_id, user_id=user_id)
-                status = "Admin" if member.status in ["administrator", "creator"] else "Member"
+                status = "Admin" if member.status in ["-administrator", "creator"] else "Member"
             except Exception as e:
                 logger.error(f"Error checking group role: {e}")
                 status = "Unknown"
@@ -983,7 +996,7 @@ All systems are ready for action. I'm thrilled to assist!
         
         if "likes_added" in result and result["likes_added"] > 0:
             message = (
-                f"🔥 𝗙𝗥𝗘𝗘𝗙𝗜𝗥𝗘 �_U𝗜𝗗 𝗦𝗧𝗔𝗧𝗨𝗦 🔥\n"
+                f"🔥 𝗙𝗥𝗘𝗘𝗙𝗜𝗥𝗘 𝗨𝗜𝗗 𝗦𝗧𝗔𝗧𝗨𝗦 🔥\n"
                 f"━━━━━━•❅•°•❈•°•❅•━━━━━━\n"
                 f"📅 Time: {datetime.now(timezone(timedelta(hours=6))).strftime('%Y-%m-%d %H:%M:%S +06')}\n"
                 f"🆔 UID: {result['uid']}\n"
@@ -1016,7 +1029,7 @@ All systems are ready for action. I'm thrilled to assist!
         )
 
     async def generateimage_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle /generateimage command to generate an image with a prompt and optional style"""
+        """Handle /generateimage command to generate a direct download link from a TeraBox URL"""
         user_id = update.effective_user.id
         chat_id = update.effective_chat.id
         chat_type = update.effective_chat.type
@@ -1031,16 +1044,12 @@ All systems are ready for action. I'm thrilled to assist!
             return
 
         if not context.args:
-            await update.message.reply_text("Usage: /generateimage <prompt> [style]\nExample: /generateimage A sunset over the mountains cinematic")
+            await update.message.reply_text("Usage: /generateimage <terabox_url>\nExample: /generateimage https://terabox.com/example-file-url")
             return
 
-        # Extract prompt and optional style
-        args = context.args
-        style = args[-1] if len(args) > 1 and args[-1] in ['cinematic', 'realistic', 'abstract', 'cartoon'] else None
-        prompt = ' '.join(args[:-1]) if style else ' '.join(args)
-
+        terabox_url = ' '.join(context.args)
         await context.bot.send_chat_action(chat_id=chat_id, action="typing")
-        response_message = await generate_image(prompt, style)
+        response_message = await generate_image(terabox_url)
         
         await context.bot.send_message(
             chat_id=chat_id,
