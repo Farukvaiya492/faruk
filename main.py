@@ -213,10 +213,10 @@ async def get_weather_info(location: str):
 ━━━━━━•❅•°•❈•°•❅•━━━━━━
 𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸
 """
-        return f"Error fetching weather data: {data.get('error', {}).get('info', 'Unknown error')}"
+        return f"Sorry, I couldn't fetch weather data for {location}. Please try a valid location like 'Dhaka'."
     except requests.exceptions.RequestException as e:
         logger.error(f"Error fetching weather info: {e}")
-        return f"Error fetching weather data: {str(e)}. Try another location!"
+        return f"Sorry, I couldn't fetch weather data for {location}. Please try a valid location like 'Dhaka'."
 
 async def remove_background(image_data: bytes, chat_id: int):
     """Remove background from an image using remove.bg API"""
@@ -718,7 +718,7 @@ All systems ready!
             await update.message.reply_text(response, reply_markup=reply_markup)
             return
         if not context.args:
-            await update.message.reply_text("Usage: /weather <location>\nExample: /weather Dhaka")
+            await update.message.reply_text("Please provide a valid location name. Example: /weather Dhaka")
             return
         location = ' '.join(context.args)
         response_message = await get_weather_info(location)
@@ -869,7 +869,7 @@ All systems ready!
                 await context.bot.send_photo(
                     chat_id=chat_id,
                     photo=result,
-                    caption=f"✅ Background removed successfully!\n📅 Time: {datetime.now(timezone(timedelta(hours=6))).strftime('%Y-%m-%d %H:%M:%S +06')}\n━━━━━━•❅•°•❈•°•❅•━━━━━━\n𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸"
+                    caption=f"✅ Background removed successfully!\n📅 Time: {datetime.now(timezone(timedelta(hours=6))).strftime('%Y-%m-%d %H:%M:%S +06')}\n━━━━━━•❅•°•❈•°•❅•━━━━━━\n𝗖�_r_e_a_t_e_ _B_y_ _F_a_r_u_k"
                 )
             else:
                 await context.bot.send_photo(
