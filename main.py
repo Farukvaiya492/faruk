@@ -59,7 +59,7 @@ async def validate_phone_number(phone_number: str, api_key: str, country_code: s
                 return f"""
 ━━━━━━•❅•°•❈•°•❅•━━━━━━
 ✅ Phone Number Validation Complete
-📅 System Time: {datetime.now(timezone(timedelta(hours=6))).strftime('%Y-%m-%d %H:%M:%S +06')}
+📅 System Time: {datetime.now(timezone(timedelta(hours=8))).strftime('%Y-%m-%d %H:%M:%S +08')}
 ━━━━━━•❅•°•❈•°•❅•━━━━━━
 📞 Number: {data.get('number', 'N/A')}
 🌍 Country: {data.get('country_name', 'N/A')} ({data.get('country_code', 'N/A')})
@@ -99,7 +99,7 @@ async def validate_bin(bin_number: str, api_key: str):
             return f"""
 ━━━━━━•❅•°•❈•°•❅•━━━━━━
 ✅ BIN Validation Complete
-📅 System Time: {datetime.now(timezone(timedelta(hours=6))).strftime('%Y-%m-%d %H:%M:%S +06')}
+📅 System Time: {datetime.now(timezone(timedelta(hours=8))).strftime('%Y-%m-%d %H:%M:%S +08')}
 ━━━━━━•❅•°•❈•°•❅•━━━━━━
 💳 BIN: {result.get('Bin', 'N/A')}
 🏦 Card Brand: {result.get('CardBrand', 'N/A')}
@@ -108,7 +108,7 @@ async def validate_bin(bin_number: str, api_key: str):
 🏷️ Card Category: {result.get('CardCategory', 'N/A')}
 🌍 Issuing Country: {result.get('IssuingCountry', 'N/A')} ({result.get('IssuingCountryCode', 'N/A')})
 ━━━━━━•❅•°•❈•°•❅•━━━━━━
-𝗖�_r𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸
+𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸
 """
         else:
             return "❌ The BIN is not valid."
@@ -137,7 +137,7 @@ async def search_yts_multiple(query: str, limit: int = 5):
                 
             output_message = f"━━━━━━•❅•°•❈•°•❅•━━━━━━\n"
             output_message += f"🔍 YouTube Search Results for '{query}'\n"
-            output_message += f"📅 System Time: {datetime.now(timezone(timedelta(hours=6))).strftime('%Y-%m-%d %H:%M:%S +06')}\n"
+            output_message += f"📅 System Time: {datetime.now(timezone(timedelta(hours=8))).strftime('%Y-%m-%d %H:%M:%S +08')}\n"
             output_message += f"━━━━━━•❅•°•❈•°•❅•━━━━━━\n"
             
             for i, res in enumerate(results[:limit], 1):
@@ -176,7 +176,7 @@ async def get_ip_info(ip_address: str):
         
         output_message = f"━━━━━━•❅•°•❈•°•❅•━━━━━━\n"
         output_message += f"🌐 IP Information for '{ip_address}'\n"
-        output_message += f"📅 System Time: {datetime.now(timezone(timedelta(hours=6))).strftime('%Y-%m-%d %H:%M:%S +06')}\n"
+        output_message += f"📅 System Time: {datetime.now(timezone(timedelta(hours=8))).strftime('%Y-%m-%d %H:%M:%S +08')}\n"
         output_message += f"━━━━━━•❅•°•❈•°•❅•━━━━━━\n"
         output_message += f"📍 IP: {data.get('ip', 'N/A')}\n"
         output_message += f"🖥️ Hostname: {data.get('hostname', 'N/A')}\n"
@@ -218,7 +218,7 @@ async def get_country_info(country_name: str):
             
             output_message = f"━━━━━━•❅•°•❈•°•❅•━━━━━━\n"
             output_message += f"🌍 Country Information for '{country_name.title()}'\n"
-            output_message += f"📅 System Time: {datetime.now(timezone(timedelta(hours=6))).strftime('%Y-%m-%d %H:%M:%S +06')}\n"
+            output_message += f"📅 System Time: {datetime.now(timezone(timedelta(hours=8))).strftime('%Y-%m-%d %H:%M:%S +08')}\n"
             output_message += f"━━━━━━•❅•°•❈•°•❅•━━━━━━\n"
             output_message += f"🏳️ Name: {country.get('name', {}).get('common', 'N/A')}\n"
             output_message += f"🏛️ Capital: {capital}\n"
@@ -259,14 +259,14 @@ async def get_weather_info(location: str):
             current_weather = data['current']
             output_message = f"━━━━━━•❅•°•❈•°•❅•━━━━━━\n"
             output_message += f"☁ Weather Information for '{location.title()}'\n"
-            output_message += f"📅 System Time: {datetime.now(timezone(timedelta(hours=6))).strftime('%Y-%m-%d %H:%M:%S +06')}\n"
+            output_message += f"📅 System Time: {datetime.now(timezone(timedelta(hours=8))).strftime('%Y-%m-%d %H:%M:%S +08')}\n"
             output_message += f"━━━━━━•❅•°•❈•°•❅•━━━━━━\n"
             output_message += f"🌡️ Temperature: {current_weather.get('temperature', 'N/A')}°C\n"
             output_message += f"☁ Weather: {current_weather.get('weather_descriptions', ['N/A'])[0]}\n"
             output_message += f"💧 Humidity: {current_weather.get('humidity', 'N/A')}% \n"
             output_message += f"💨 Wind Speed: {current_weather.get('wind_speed', 'N/A')} km/h\n"
             output_message += f"━━━━━━•❅•°•❈•°•❅•━━━━━━\n"
-            output_message += "𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸"
+            output_message += "𝗖�_r𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸"
             return output_message
         else:
             error_info = data.get("error", {}).get("info", "Unknown error")
@@ -314,7 +314,7 @@ async def get_binance_ticker(symbol: str):
             data = response.json()
             output_message = f"━━━━━━•❅•°•❈•°•❅•━━━━━━\n"
             output_message += f"💹 24hr Ticker Data for {data['symbol']}\n"
-            output_message += f"📅 System Time: {datetime.now(timezone(timedelta(hours=6))).strftime('%Y-%m-%d %H:%M:%S +06')}\n"
+            output_message += f"📅 System Time: {datetime.now(timezone(timedelta(hours=8))).strftime('%Y-%m-%d %H:%M:%S +08')}\n"
             output_message += f"━━━━━━•❅•°•❈•°•❅•━━━━━━\n"
             output_message += f"💰 Last Price: {data.get('lastPrice', 'N/A')}\n"
             output_message += f"📈 Price Change (24h): {data.get('priceChange', 'N/A')}\n"
@@ -558,7 +558,7 @@ Model: Not applicable (Gemini API disabled)
 API Status: {api_status}
 API Key: {api_key_display}
 Group Responses: Mention or reply only
-Current Time: {datetime.now(timezone(timedelta(hours=6))).strftime('%Y-%m-%d %H:%M:%S +06')}
+Current Time: {datetime.now(timezone(timedelta(hours=8))).strftime('%Y-%m-%d %H:%M:%S +08')}
 Active Conversations: {len(conversation_context)}
 Admin ID: {ADMIN_USER_ID if ADMIN_USER_ID != 0 else 'Not set'}
 
@@ -892,23 +892,23 @@ All systems are ready for action. I'm thrilled to assist!
             return
 
         if chat_type in ['group', 'supergroup'] and update.message.chat.link != 'https://t.me/VPSHUB_BD_CHAT':
-            await update.message.reply_text("এই কমান্ডটি শুধুমাত্র @VPSHUB_BD_CHAT গ্রুপে ব্যবহার করা যাবে।")
+            await update.message.reply_text("This command can only be used in @VPSHUB_BD_CHAT group.")
             return
 
         if len(context.args) != 1:
-            await update.message.reply_text("ব্যবহার: /like <UID>")
+            await update.message.reply_text("Usage: /like <UID>")
             return
 
         if user_id != ADMIN_USER_ID:
             last_like_time = user_likes.get(user_id)
-            current_time = datetime.now(timezone(timedelta(hours=6)))
+            current_time = datetime.now(timezone(timedelta(hours=8)))
             if last_like_time and (current_time - last_like_time).total_seconds() < 24 * 60 * 60:
                 time_left = 24 * 60 * 60 - (current_time - last_like_time).total_seconds()
                 hours_left = int(time_left // 3600)
                 minutes_left = int((time_left % 3600) // 60)
                 await update.message.reply_text(
-                    f"⚠ আপনি প্রতি ২৪ ঘণ্টায় একবার /like কমান্ড ব্যবহার করতে পারেন।\n"
-                    f"পরবর্তী চেষ্টার জন্য অপেক্ষা করুন {hours_left} ঘণ্টা {minutes_left} মিনিট।"
+                    f"⚠ You can use the /like command once every 24 hours.\n"
+                    f"Please wait {hours_left} hours and {minutes_left} minutes for your next attempt."
                 )
                 return
 
@@ -920,7 +920,7 @@ All systems are ready for action. I'm thrilled to assist!
             message = (
                 f"🔥 𝗙𝗥𝗘𝗘𝗙𝗜𝗥𝗘 𝗨𝗜𝗗 𝗦𝗧𝗔𝗧𝗨𝗦 🔥\n"
                 f"━━━━━━•❅•°•❈•°•❅•━━━━━━\n"
-                f"📅 Time: {datetime.now(timezone(timedelta(hours=6))).strftime('%Y-%m-%d %H:%M:%S +06')}\n"
+                f"📅 Time: {datetime.now(timezone(timedelta(hours=8))).strftime('%Y-%m-%d %H:%M:%S +08')}\n"
                 f"🆔 UID: {result['uid']}\n"
                 f"👤 Name: {result['name']}\n"
                 f"📊 Likes Before: {result['likes_before']}\n"
@@ -930,9 +930,31 @@ All systems are ready for action. I'm thrilled to assist!
                 f"━━━━━━•❅•°•❈•°•❅•━━━━━━\n"
             )
             if user_id != ADMIN_USER_ID:
-                user_likes[user_id] = datetime.now(timezone(timedelta(hours=6)))
+                user_likes[user_id] = datetime.now(timezone(timedelta(hours=8)))
         else:
-            message = f"❌ Likes পাঠানোতে ব্যর্থ।\nস্ট্যাটাস: {result.get('status', 'অজানা ত্রুটি')}"
+            # Check for specific error case
+            error_message = result.get('status', 'Unknown error')
+            if error_message.lower().startswith("error:") and "likes_already_send" in error_message.lower():
+                message = (
+                    f"🔥 𝗙𝗥𝗘𝗘𝗙𝗜𝗥𝗘 �_L𝗜𝗞𝗘 𝗦𝗧𝗔𝗧𝗨𝗦 🔥\n"
+                    f"━━━━━━•❅•°•❈•°•❅•━━━━━━\n"
+                    f"📅 Time: {datetime.now(timezone(timedelta(hours=8))).strftime('%Y-%m-%d %H:%M:%S +08')}\n"
+                    f"❌ Failed to Send Likes\n"
+                    f"✅ Success: False\n"
+                    f"📩 Message: likes_already_send\n"
+                    f"👨‍💻 Developer: @Farukvaiya01\n"
+                    f"━━━━━━•❅•°•❈•°•❅•━━━━━━\n"
+                )
+            else:
+                message = (
+                    f"🔥 𝗙𝗥𝗘𝗘𝗙𝗜𝗥𝗘 𝗟𝗜𝗞𝗘 𝗦𝗧𝗔𝗧𝗨𝗦 🔥\n"
+                    f"━━━━━━•❅•°•❈•°•❅•━━━━━━\n"
+                    f"📅 Time: {datetime.now(timezone(timedelta(hours=8))).strftime('%Y-%m-%d %H:%M:%S +08')}\n"
+                    f"❌ Failed to send likes.\n"
+                    f"📩 Status: {error_message}\n"
+                    f"👨‍💻 Developer: @Farukvaiya01\n"
+                    f"━━━━━━•❅•°•❈•°•❅•━━━━━━\n"
+                )
         
         await context.bot.send_photo(
             chat_id=chat_id,
@@ -967,7 +989,7 @@ All systems are ready for action. I'm thrilled to assist!
                 await context.bot.send_photo(
                     chat_id=chat_id,
                     photo=result,
-                    caption=f"✅ Background removed successfully!\n📅 Time: {datetime.now(timezone(timedelta(hours=6))).strftime('%Y-%m-%d %H:%M:%S +06')}\n━━━━━━•❅•°•❈•°•❅•━━━━━━\n𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸"
+                    caption=f"✅ Background removed successfully!\n📅 Time: {datetime.now(timezone(timedelta(hours=8))).strftime('%Y-%m-%d %H:%M:%S +08')}\n━━━━━━•❅•°•❈•°•❅•━━━━━━\n𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸"
                 )
             else:
                 await context.bot.send_photo(
