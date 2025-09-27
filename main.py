@@ -322,7 +322,7 @@ class TelegramGeminiBot:
         self.application.add_handler(CommandHandler("removebg", self.removebg_command))
         self.application.add_handler(CommandHandler("binance", self.binance_command))
         self.application.add_handler(CommandHandler("like", self.like_command))
-        self.application.add_handler(CommandHandler("img", self.img_command))
+        self.application.add_handler(CommandHandler("generateimg", self.generateimg_command))
         self.application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_message))
         self.application.add_handler(MessageHandler(filters.PHOTO & ~filters.COMMAND, self.handle_photo))
         self.application.add_handler(CallbackQueryHandler(self.button_callback, pattern='^copy_code$'))
