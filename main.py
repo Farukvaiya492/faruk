@@ -256,7 +256,7 @@ async def get_binance_ticker(symbol: str):
 🔻 24h Low Price: {data.get('lowPrice', 'N/A')}
 📉 24h Volume: {data.get('volume', 'N/A')}
 ━━━━━━•❅•°•❈•°•❅•━━━━━━
-𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸
+𝗖�_r_e_a_t_e_ _B_y_ _F_a_r_u_k
 """
         logger.error(f"Binance API error: {response.status_code} - {response.text}")
         return f"❌ Error fetching ticker data: {response.status_code} - {response.text}"
@@ -284,18 +284,18 @@ async def send_like(uid: str):
     except Exception as e:
         return {"status": f"Error: {str(e)}"}
 
-async def download_terabox_file(file_url: str, chat_id: int):
-    """Download a file from a TeraBox URL"""
-    download_url = f"https://terabox.hello-kaiiddo.workers.dev/download?url={file_url}"
+async def generate_anime_image(prompt: str, chat_id: int):
+    """Generate an anime-style image using the provided API"""
+    url = f"https://flux-schnell.hello-kaiiddo.workers.dev/img?prompt={prompt.replace(' ', '+')}"
     try:
-        response = requests.get(download_url)
+        response = requests.get(url)
         if response.status_code == 200:
             return True, response.content
-        logger.error(f"TeraBox download error for chat {chat_id}: {response.status_code} - {response.text}")
+        logger.error(f"Anime image generation error for chat {chat_id}: {response.status_code} - {response.text}")
         return False, f"Error: {response.status_code} - {response.text}"
     except Exception as e:
-        logger.error(f"Error downloading TeraBox file for chat {chat_id}: {e}")
-        return False, f"Error downloading file: {str(e)}"
+        logger.error(f"Error generating anime image for chat {chat_id}: {e}")
+        return False, f"Error generating image: {str(e)}"
 
 class TelegramGeminiBot:
     def __init__(self):
@@ -322,7 +322,7 @@ class TelegramGeminiBot:
         self.application.add_handler(CommandHandler("removebg", self.removebg_command))
         self.application.add_handler(CommandHandler("binance", self.binance_command))
         self.application.add_handler(CommandHandler("like", self.like_command))
-        self.application.add_handler(CommandHandler("download", self.download_command))
+        self.application.add_handler(CommandHandler("generateimg", self.generateimg_command))
         self.application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_message))
         self.application.add_handler(MessageHandler(filters.PHOTO & ~filters.COMMAND, self.handle_photo))
         self.application.add_handler(CallbackQueryHandler(self.button_callback, pattern='^copy_code$'))
@@ -372,7 +372,7 @@ Available commands:
 - /removebg: Remove the background from an uploaded image
 - /binance <symbol>: Fetch 24hr ticker data for a Binance trading pair
 - /like <uid>: Send likes to a Free Fire UID
-- /download <terabox_url>: Download a file from TeraBox
+- /generateimg <prompt>: Generate an anime-style image from a text prompt
 {'' if user_id != ADMIN_USER_ID else '- /api <key>: Set Gemini AI API key (admin only)\n- /setadmin: Set yourself as admin (first-time only)\n- /setmodel: Choose a different model (admin only)'}
 
 In groups, mention @I MasterTools or reply to my messages to get a response. I'm excited to chat with you!
@@ -417,7 +417,7 @@ Available commands:
 - /removebg: Remove the background from an uploaded image
 - /binance <symbol>: Fetch 24hr ticker data for a Binance trading pair
 - /like <uid>: Send likes to a Free Fire UID
-- /download <terabox_url>: Download a file from TeraBox
+- /generateimg <prompt>: Generate an anime-style image from a text prompt
 {'' if user_id != ADMIN_USER_ID else '- /api <key>: Set Gemini AI API key (admin only)\n- /setadmin: Set yourself as admin (first-time only)\n- /setmodel: Choose a different model (admin only)'}
 
 My personality:
@@ -865,8 +865,8 @@ All systems ready!
             reply_to_message_id=update.message.message_id
         )
 
-    async def download_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle /download command for downloading TeraBox files"""
+    async def generateimg_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle /generateimg command for generating anime-style images"""
         user_id = update.effective_user.id
         chat_id = update.effective_chat.id
         chat_type = update.effective_chat.type
@@ -875,40 +875,32 @@ All systems ready!
             await update.message.reply_text(response, reply_markup=reply_markup)
             return
         if not context.args:
-            await update.message.reply_text("Usage: /download <terabox_url>\nExample: /download https://1024terabox.com/s/1cZZCFsxcheQcG93wNeanbw")
+            await update.message.reply_text("Usage: /generateimg <prompt>\nExample: /generateimg A cute anime girl in a futuristic city")
             return
-        file_url = context.args[0]
-        await context.bot.send_chat_action(chat_id=chat_id, action="upload_document")
+        prompt = ' '.join(context.args)
+        await context.bot.send_chat_action(chat_id=chat_id, action="upload_photo")
         try:
-            success, result = await download_terabox_file(file_url, chat_id)
+            success, result = await generate_anime_image(prompt, chat_id)
             if success:
-                # Save the file temporarily
-                with tempfile.NamedTemporaryFile(delete=False, suffix='.file') as tmp_file:
-                    tmp_file.write(result)
-                    tmp_file_path = tmp_file.name
-                # Send the file
-                with open(tmp_file_path, 'rb') as f:
-                    await context.bot.send_document(
-                        chat_id=chat_id,
-                        document=f,
-                        caption=f"✅ File downloaded successfully!\n📅 Time: {datetime.now(timezone(timedelta(hours=6))).strftime('%Y-%m-%d %H:%M:%S +06')}\n━━━━━━•❅•°•❈•°•❅•━━━━━━\n𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸",
-                        reply_to_message_id=update.message.message_id
-                    )
-                # Clean up temporary file
-                os.unlink(tmp_file_path)
+                await context.bot.send_photo(
+                    chat_id=chat_id,
+                    photo=result,
+                    caption=f"✅ Anime image generated successfully!\n📅 Time: {datetime.now(timezone(timedelta(hours=6))).strftime('%Y-%m-%d %H:%M:%S +06')}\nPrompt: {prompt}\n━━━━━━•❅•°•❈•°•❅•━━━━━━\n𝗖𝗿𝗲𝗮𝘁𝗲 𝗕𝘆 𝗙𝗮𝗿𝘂𝗸",
+                    reply_to_message_id=update.message.message_id
+                )
             else:
                 await context.bot.send_photo(
                     chat_id=chat_id,
                     photo=FREE_FIRE_LOGO_URL,
-                    caption=f"❌ Failed to download file: {result}",
+                    caption=f"❌ Failed to generate image: {result}",
                     reply_to_message_id=update.message.message_id
                 )
         except Exception as e:
-            logger.error(f"Error handling download for chat {chat_id}: {e}")
+            logger.error(f"Error handling image generation for chat {chat_id}: {e}")
             await context.bot.send_photo(
                 chat_id=chat_id,
                 photo=FREE_FIRE_LOGO_URL,
-                caption=f"Error downloading file: {str(e)}",
+                caption=f"Error generating image: {str(e)}",
                 reply_to_message_id=update.message.message_id
             )
 
